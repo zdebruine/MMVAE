@@ -1,3 +1,7 @@
+__version__ = "0.1.0.dev"
+
+
+
 def hello_world():
     print( "Hello, world! I'm in a pip package!" )
 
