@@ -1,6 +1,22 @@
 from setuptools import find_packages, setup
 
 
+"""
+Script for setting up this Git repository as a Pip package. The 
+package can be installed at any time from the repository using one 
+of the following commands:
+  - pip install git+https://github.com/<username>/D-MMVAE.git#egg=d-mmvae
+  - pip install git+ssh://git@github.com/<username>/D-MMVAE.git#egg=d-mmvae
+"""
+
+
+# TODO:
+#   - Create an account on PyPi.
+#   - Package library for distribution.
+#     ( python setup.py sdist )
+#   - Upload the resulting .TAR.GZ file to PyPi.
+#     ( twine upload dist/<package>.tar.gz )
+
 
 setup(
     name="D-MMVAE",
