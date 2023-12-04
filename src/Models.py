@@ -52,12 +52,6 @@ class VAE(nn.Module):
 
 
 
-
-
-
-
-
-
 """
 def loss_function(x, x_hat, mean, logvar):
     #reconstruction_loss = nn.functional.binary_cross_entropy(x_hat, x.to_dense(), reduction='sum')
