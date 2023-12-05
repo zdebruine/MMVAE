@@ -8,6 +8,12 @@ of the following commands:
   - pip install git+https://github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
   - pip install git+ssh://git@github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
 
+NOTE: A Python version >=3.7 ,<3.10 is required to satisfy 
+torch==2.1.1+cu118. Pytorch only seems to support CUDA 11.8, 12.1 
+toolkits; HPC provides modules for CUDA 11.8, 12.0 toolkits, but 
+not for 12.1 toolkit. 2.1.1 is still the latest stable release 
+of PyTorch.
+
 This Pip skeleton was created by following Michael Kim's Pip 
 package tutorial:
   - https://github.com/MichaelKim0407/tutorial-pip-package
