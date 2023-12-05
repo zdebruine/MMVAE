@@ -25,8 +25,13 @@ package tutorial:
 setup(
     name="D-MMVAE",
     description="A research project on diagonal mixture-of-experts variational autoencoding (D-MMVAE).",
-    version="0.1.0.dev0",
+    version="0.1.0.dev1",
     url="https://github.com/zdebruine/D-MMVAE",
     author="GVSU Applied Computing Institute",
-    packages=find_packages()
+    packages=find_packages(),
+    install_requires=[
+        "numpy",
+        "scipy",
+        "torch==2.1.1+cu118"
+    ]
 )
