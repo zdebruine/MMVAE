@@ -5,8 +5,14 @@ from setuptools import find_packages, setup
 Script for setting up this Git repository as a Pip package. The 
 package can be installed at any time from the repository using one 
 of the following commands:
-  - pip install git+https://github.com/<username>/D-MMVAE.git#egg=d-mmvae
-  - pip install git+ssh://git@github.com/<username>/D-MMVAE.git#egg=d-mmvae
+  - pip install git+https://github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
+  - pip install git+ssh://git@github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
+
+NOTE: A Python version >=3.7 ,<3.10 is required to satisfy 
+torch==2.1.1+cu118. Pytorch only seems to support CUDA 11.8, 12.1 
+toolkits; HPC provides modules for CUDA 11.8, 12.0 toolkits, but 
+not for 12.1 toolkit. 2.1.1 is still the latest stable release 
+of PyTorch.
 
 This Pip skeleton was created by following Michael Kim's Pip 
 package tutorial:
@@ -25,8 +31,13 @@ package tutorial:
 setup(
     name="D-MMVAE",
     description="A research project on diagonal mixture-of-experts variational autoencoding (D-MMVAE).",
-    version="0.1.0.dev0",
+    version="0.1.0.dev1",
     url="https://github.com/zdebruine/D-MMVAE",
     author="GVSU Applied Computing Institute",
-    packages=find_packages()
+    packages=find_packages(),
+    install_requires=[
+        "numpy",
+        "scipy",
+        "torch==2.1.1+cu118"
+    ]
 )
