@@ -5,8 +5,8 @@ from setuptools import find_packages, setup
 Script for setting up this Git repository as a Pip package. The 
 package can be installed at any time from the repository using one 
 of the following commands:
-  - pip install git+https://github.com/<username>/D-MMVAE.git#egg=d-mmvae
-  - pip install git+ssh://git@github.com/<username>/D-MMVAE.git#egg=d-mmvae
+  - pip install git+https://github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
+  - pip install git+ssh://git@github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
 
 This Pip skeleton was created by following Michael Kim's Pip 
 package tutorial:
