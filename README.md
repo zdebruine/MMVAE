@@ -8,7 +8,7 @@ The objective is to engineer an AI architecture for diagonal integration of mult
 
 ### Architecture
 
-This model is designed for realistic and cohesive cross-generation across diverse modalities, enabled by modality-specific encoders and decoders joined in a shared latent space.
+This model is designed for concurrent training on information across diverse modalities.
 
 #### Generative core model
 
