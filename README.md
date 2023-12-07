@@ -1,6 +1,6 @@
 # D-MMVAE
 
-This repository is a base for a research project on diagonal mixture-of-experts variational autoencoding (D-MMVAE). 
+This repository is a base for a research project on cross-modal Variational Autoencoding (diagonal mixture-of-experts variational autoencoder). 
 
 ### Objective
 
