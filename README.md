@@ -6,25 +6,33 @@ This repository is a base for a research project on diagonal mixture-of-experts 
 
 The objective is to engineer an AI architecture for diagonal integration of multiple modalities by learning a shared latent space that gives cohesive and realistic joint generation across modalities which naturally cannot be encountered jointly.
 
-### Approach
+### Architecture
 
-1. Implement a variational autoencoder that generates realistic human single-cell transcriptomes
+This model is designed for realistic and cohesive cross-generation across diverse modalities, enabled by modality-specific encoders and decoders joined in a shared latent space.
 
-<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/93f54bf3-95b6-4211-822a-62bb72b3849a" width="200">  
+#### Generative core model
 
-2. Add experts (modality-specific encoder/decoders) on either end of the base VAE that can cross-generate
+At the core of this model is a variational autoencoder that generates realistic human single-cell transcriptomes:
 
-<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/48097b88-dfb3-4eec-8d14-0ece9fd50c7f" width="280">  
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/93f54bf3-95b6-4211-822a-62bb72b3849a" width="150">  
 
-Test this VAE first on single-cell transcriptomes where transcripts are divided into two batches and presented in a diagonal pattern where ground truth is known, then test on ATAC/RNA where ground truth is partly known, then test on multi-species where discriminators can be trained to assess success.
+####  Expert multi-channel models
 
-3. Add adversarial feedback to the encoder to promote cohesive joint generation, and tune adversarial feedback weight to maximize true vs. artificial alignment in cross-generation of ground truth outputs.
+For zero-shot cross-generation across multiple modalities (e.g. species), modality-specific encoders and decoders are stacked at either end of the core VAE:
 
-<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/2434da47-1a17-467d-89a1-614049e2830a" width="300">  
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/48097b88-dfb3-4eec-8d14-0ece9fd50c7f" width="250">  
 
-4. Add adversarial feedback to the output of each channel to encourage realistic generated "virtual cells".
+#### Adversarially-assisted multimodal integration
 
-<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/5997b68f-1c53-460c-9764-52cad07c85bf" width="300">  
+To help channels communicate with each other and synergize, adversarial feedback will be added to the encoder. This will ensure the core VAE encoder is not biased for one channel or the other:
+
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/2434da47-1a17-467d-89a1-614049e2830a" width="225">  
+
+#### Adversarial discrimination
+
+Outputs from each channel will also be evaluated with a generative adversarial discriminator network to encourage realistic-looking distributions in context:
+
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/5997b68f-1c53-460c-9764-52cad07c85bf" width="225">  
 
 ### Literature Background
 
