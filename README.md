@@ -9,18 +9,22 @@ The objective is to engineer an AI architecture for diagonal integration of mult
 ### Approach
 
 1. Implement a variational autoencoder that generates realistic human single-cell transcriptomes
-![image](https://github.com/zdebruine/D-MMVAE/assets/2014816/840a4d0b-41cc-499e-b206-f84cffc8c18d)
+
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/93f54bf3-95b6-4211-822a-62bb72b3849a" width="200">  
 
 2. Add experts (modality-specific encoder/decoders) on either end of the base VAE that can cross-generate
-![image](https://github.com/zdebruine/D-MMVAE/assets/2014816/0d9ad890-ef2f-43cc-9e2a-3cb1d37c2bcb)
+
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/48097b88-dfb3-4eec-8d14-0ece9fd50c7f" width="280">  
 
 Test this VAE first on single-cell transcriptomes where transcripts are divided into two batches and presented in a diagonal pattern where ground truth is known, then test on ATAC/RNA where ground truth is partly known, then test on multi-species where discriminators can be trained to assess success.
 
 3. Add adversarial feedback to the encoder to promote cohesive joint generation, and tune adversarial feedback weight to maximize true vs. artificial alignment in cross-generation of ground truth outputs.
 
-![image](https://github.com/zdebruine/D-MMVAE/assets/2014816/af74c0a7-5f0c-4144-a660-c1a7d58e23fb)
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/2434da47-1a17-467d-89a1-614049e2830a" width="300">  
 
-4. Explore model fine-tuning applications.
+4. Add adversarial feedback to the output of each channel to encourage realistic generated "virtual cells".
+
+<img src="https://github.com/zdebruine/D-MMVAE/assets/2014816/5997b68f-1c53-460c-9764-52cad07c85bf" width="300">  
 
 ### Literature Background
 
