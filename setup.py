@@ -5,8 +5,8 @@ from setuptools import find_packages, setup
 Script for setting up this Git repository as a Pip package. The 
 package can be installed at any time from the repository using one 
 of the following commands:
-  - pip install git+https://github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
-  - pip install git+ssh://git@github.com/zdebruine/D-MMVAE.git#egg=d-mmvae
+  - pip install git+https://github.com/zdebruine/D-MMVAE.git#egg=d-mmvae --extra-index-url https://download.pytorch.org/whl/cu118
+  - pip install git+ssh://git@github.com/zdebruine/D-MMVAE.git#egg=d-mmvae --extra-index-url https://download.pytorch.org/whl/cu118
 
 NOTE: A Python version >=3.7 ,<3.10 is required to satisfy 
 torch==2.1.1+cu118. Pytorch only seems to support CUDA 11.8, 12.1 
