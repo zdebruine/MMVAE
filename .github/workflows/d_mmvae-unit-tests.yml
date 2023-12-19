@@ -17,7 +17,7 @@ jobs:
             with:
                 python-version: "3.9.18"
           - name: Install project+test dependencies
-            run: pip install .[test] --extra-index-url https://download.pytorch.org/whl/cu118
+            run: pip install -e .[test] --extra-index-url https://download.pytorch.org/whl/cu118
           - name: Run unit tests with coverage
-            run: pytest --cov=d_mmvae "$(pwd)/test/"
+            run: pytest --cov="$(pwd)/d_mmvae" "$(pwd)/test/"
 
