@@ -38,7 +38,7 @@ setup(
     install_requires=[
         "numpy",
         "scipy",
-        "torch>=2.1.2+cu118"
+        "torch==2.1.2+cu118"
     ],
     extras_require={
         "test": [
