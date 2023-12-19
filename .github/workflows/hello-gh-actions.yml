@@ -11,5 +11,5 @@ jobs:
             with:
                 python-version: "3.12"
           - name: Say hi
-            run: python -c "print( "Hello, ${{ github.actor }}!" )"
+            run: python -c "print( \"Hello, ${{ github.actor }}!\" )"
             
