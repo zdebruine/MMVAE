@@ -1,4 +1,4 @@
-name: hello-github-actions
+name: example-python-workflow
 run-name: ${{ github.actor }} is trying out GitHub Actions!
 on: [ push ]
 jobs:
