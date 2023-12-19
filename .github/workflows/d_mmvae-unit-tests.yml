@@ -1,0 +1,27 @@
+name: D-MMVAE Unit Tests
+run-name: Running tests on modules in the D-MMVAE package
+on: [ push ]
+jobs:
+    unit-tests:
+        runs-on: ubuntu-20.04
+        steps:
+          - uses: actions/checkout@v4
+          - name: Install CUDA 11.8 Toolkit
+            uses: Jimver/cuda-toolkit@v0.2.11
+            with:
+                cuda: "11.8"
+                linux-local-args: "[ \"--toolkit\" ]"
+          - name: Print CUDA information
+            run: echo "CUDA Version  -- ${{ steps.cuda-toolkit.outputs.cuda }}" \
+              && echo "CUDA Location -- ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" \
+              && nvcc -V \
+              && nvidia-smi
+          - name: Install Python 3.9.18
+            uses: actions/setup-python@v5
+            with:
+                python-version: "3.9.18"
+          - name: Install project+test dependencies
+            run: pip install .[test] --extra-index-url https://download.pytorch.org/whl/cu118
+          - name: Run unit tests with coverage
+            run: pytest --cov=d_mmvae "$(pwd)/test/"
+
