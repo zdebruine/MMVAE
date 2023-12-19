@@ -39,5 +39,11 @@ setup(
         "numpy",
         "scipy",
         "torch>=2.1.2+cu118"
-    ]
+    ],
+    extras_require={
+        "test": [
+            "pytest",
+            "pytest-cov"
+        ]
+    }
 )
