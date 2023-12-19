@@ -19,5 +19,5 @@ jobs:
           - name: Install project+test dependencies
             run: pip install -e .[test] --extra-index-url https://download.pytorch.org/whl/cu118
           - name: Run unit tests with coverage
-            run: pytest --cov="$(pwd)/d_mmvae" "$(pwd)/test/"
+            run: pytest --cov="$(pwd)/d_mmvae" -k "not dataset"    # No access to cell data from within repo
 
