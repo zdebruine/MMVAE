@@ -58,11 +58,3 @@ class CellCensusDataLoader(DataLoader2):
             datapipe=CellCensusPipeLine.setup_pipeline(directory_path, masks, batch_size),
             reading_service=MultiProcessingReadingService(num_workers=num_workers),
         )
-
-
-batch_size = 32
-directory_path = '/active/debruinz_project/tony_boos/csr_chunks/'
-loader = CellCensusDataLoader(batch_size, directory_path, ['chunk*[1-3].npz'], 3)
-
-for load in loader:
-    pass
