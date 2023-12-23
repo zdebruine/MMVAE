@@ -28,25 +28,14 @@ Creating a new dataset of cell data is simple; to initialize the dataset:
 from torch.utils.data import DataLoader
 from d_mmvae.Dataset import CellxGeneDataset
 dataset = CellxGeneDataset( batch_size )
-# sample_shape = dataset[ 0 ].shape
-# assert len( dataset ) == 89160
-# assert sample_shape[ 0 ] == batch_size
-# assert sample_shape[ 1 ] == 60664
 ```
 Notice that because batch size is defined at the dataset level, a dataloader is not required. 
 
 ## Building Models
-Before building an MMVAE, let's define some hyperparameters for the model:
-```Python
-input_size = 60664
-hidden_size = 
-```
-The first step in building an MMVAE is to define the components of the shared/internal VAE.
-
-
+The first step in building an MMVAE is to define the components of the shared/internal VAE:
 ```Python
 from torch.nn import Linear, LeakyReLU, Sequential, Sigmoid
-from d_mmvae.Models import Expert, MMVAE, MultiClassDiscriminator
+from d_mmvae.Models import Expert, MultiClassDiscriminator
 encoder = Sequential(
     Linear( 60664, 512 ),
     LeakyReLU()
@@ -63,5 +52,33 @@ discriminator = Sequential(
     LeakyReLU(),
     Linear( 512, 1 ),
     Sigmoid()    # Sigmoid on single value is binary classification
+)
+mc_discriminator = MultiClassDiscriminator(
+    discriminator,
+    classes=[ "a", "b", "c" ]
+)
+```
+
+Next, we need to define a list of experts that will feed into the shared VAE. We also need to define discriminators to provide adversarial feedback to each of the experts.
+
+Since the experts are also VAEs, they are built in the same way as the shared/internal VAE. As such, you can use copies of the shared VAE components if you need to create experts quickly for testing, debugging, etc:
+```Python
+from copy import deepcopy
+experts = [
+    Expert( *[
+        deepcopy( arg )
+        for arg in [ encoder, decoder, discriminator, name ]
+    ] )
+    for name in [ "a", "b", "c" ]
+]
+```
+
+Finally, we can compile all of these pieces into a single MMVAE:
+```Python
+from d_mmvae.Models import MMVAE
+mmvae = MMVAE(
+    encoder, decoder,
+    mean_layer, logvar_layer,
+    experts, mc_discriminator
 )
 ```
