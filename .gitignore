@@ -1,3 +1,6 @@
 **/.venv/
 **/__pycache__/
+**/.pytest_cache/
 **/D_MMVAE.egg-info/
+**/slurm-*.sh
+**/pytest-test.*.out
