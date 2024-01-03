@@ -1,6 +1,6 @@
-# D-MMVAE
+# MMVAE
 
-This repository is a base for a research project on cross-modal Variational Autoencoding (diagonal mixture-of-experts variational autoencoder). 
+This repository is a base for a project on Mixture-of-experts Multimodal Variational Autoencoding (MMVAE). 
 
 ### Objective
 
@@ -36,4 +36,4 @@ Outputs from each channel will also be evaluated with a generative adversarial d
 
 ### Literature Background
 
-D-MMVAE is inspired by works on multi-modal MMVAE from [Shi et. al (2019)](https://arxiv.org/abs/1911.03393), adversarial integration from [Kopp et. al. (2022)](https://www.nature.com/articles/s42256-022-00443-1), recognizing challenges highlighted in [this review](https://www.nature.com/articles/s41467-022-31104-x).
+MMVAE is inspired by works on multi-modal MMVAE from [Shi et. al (2019)](https://arxiv.org/abs/1911.03393), adversarial integration from [Kopp et. al. (2022)](https://www.nature.com/articles/s42256-022-00443-1), recognizing challenges highlighted in [this review](https://www.nature.com/articles/s41467-022-31104-x).
