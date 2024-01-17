@@ -35,7 +35,8 @@ class MultiClassDiscriminator(nn.Module):
         """
         return self.labels[self.classes[key]]
     
-class Expert(nn.Module):
+
+class Expert:
     """
     The Expert class is designed to be used by the MMVAE to handle the non-shared portions
     of the overall network. The Encoder, Decoder, and expert-specific Discriminator.
@@ -61,15 +62,11 @@ class Expert(nn.Module):
         self.discriminator = discriminator
         self.label = expert_name
 
-    def forward_encode(self, x: Tensor) -> Tensor:
-        return self.encoder(x)
+    def encoder(self):
+        if isinstance(self.encoder, nn.Sequential, None) is None:
+            raise ValueError("Encoder is not a nn.Sequential")
+        return self.encoder
     
-    def forward_decode(self, x: Tensor) -> Tensor:
-        return self.decorder(x)
-    
-    def get_adversarial_feedback(self, x: Tensor) -> Tensor:
-        return self.discriminator(x)
-
     def __str__(self) -> str:
         return self.label
 
@@ -133,7 +130,7 @@ class MMVAE(nn.Module):
 
             exp_feedback: Expert discriminator output on generated data
         """
-        x = self.experts[self.current_expert].forward_encode(x)
+        x = self.experts[self.current_expert].encoder(x)
         x = self.encoder(x)
         adv_feedback = self.discriminator(x)
         mu = self.mean(x)
