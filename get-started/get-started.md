@@ -1,7 +1,7 @@
 # Get Started
 
 ## Prerequisites
-When developing remotely on Clipper, it is recommended to avoid creating extra copies of PyTorch and other large project dependencies to conserve storage on the cluster. This can be accomplished by loading the latest version of the `ml-python` TCL module:
+When developing remotely on Clipper, it is recommended to avoid creating extra copies of PyTorch and other large project dependencies to conserve storage on the cluster. This can be accomplished by loading the latest version of the `ml-python` TCL module: Currently `ml-python` does not have the required torch version for sparse support but is subject to change.
 ```
 module load ml-python
 ```
@@ -24,19 +24,22 @@ NOTE: Python version >=3.7 ,<3.10 is required to satisfy the PyTorch dependency.
 
 ## Module Structure
 
-# data
+### d_mmvae.data
  - Dataloaders built for D-MMVAE leverage pytorch IterDataPipe pipeline. Due to multi-process loading requirements each modality will have it's own dataloader.
  - To create a Dataloader create a pipline in the data.pipes module and use torchdata.dataloader2.Dataloader2.
  - All generic functional pipes are registered in data.pipes.utils.
  - MultiModalLoader is designed to take in dataloaders as args and stochasticly draw samples from provided loaders.
 
-# models
+### d_mmvae.models
  - Models.py contains generic nn.Modules
  - New model architectures are contained within their own files 
 
-# trainers
+### d_mmvae.trainers
  - New trainers should inherit from BaseTrainer and are provided convienent's when it comes to saving model state and training.
  - Classes inherited from BaseTrainer need only to impelemnt the train_epoch() method.
  - Each trainer should be its own file ideally named in convention with it's associated model class and file
 ```python
+class NewTrainer(BaseTrainer):
+    def train_epoch(self):
+        print("Running epoch {self.epoch} on device: {self.device}")
 ```
