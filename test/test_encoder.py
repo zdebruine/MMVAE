@@ -4,7 +4,7 @@ from contextlib import nullcontext as does_not_raise
 
 
 
-from d_mmvae.Models import Encoder
+from d_mmvae.models.Models import Encoder
 
 
 

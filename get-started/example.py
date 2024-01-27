@@ -1,177 +1,101 @@
 import torch
-import torchdata
-
-# Dataset
-from d_mmvae.DataLoaders import CellCensusPipeLine
-batch_size = 32
-    
-_experts = ["A", "B", "C"]
-
-datapipes = [CellCensusPipeLine(expert, batch_size, "/active/debruinz_project/tony_boos/csr_chunks", ['chunk'], 5) for expert in _experts.keys() ]
-# MultiplexerLongest will go until longest exhausted
-dataloader = torchdata.datapipes.iter.Multiplexer(*datapipes) # terminates at shortest length datapipe
+import d_mmvae.models as M
+from d_mmvae.trainers import MMVAETrainer as Trainer
+from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
 from torch import nn
+from d_mmvae.models.MMVAE import MMVAE, SharedDecoder, SharedEncoder
 
-class Discriminator(nn.Module):
-    def __init__(self, hidden_size, discriminator_hidden_size):
-        super(Discriminator, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(hidden_size, discriminator_hidden_size),
-            nn.LeakyReLU(0.2),
-            nn.Linear(discriminator_hidden_size, 1),
-            nn.Sigmoid()
+def configure_dataloader(batch_size: int):
+    expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=batch_size, num_workers=2)
+    expert2 = CellCensusDataLoader('expert2', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=batch_size, num_workers=2)
+    return MultiModalLoader(expert1, expert2)
+
+def configure_model():
+    num_experts = 2
+    return MMVAE(
+        nn.ModuleDict({
+            'expert1': M.Expert(
+                nn.Sequential(
+                        nn.Linear(60664, 512),
+                        nn.ReLU(),
+                        nn.Linear(512, 256),
+                        nn.ReLU(),
+                ),
+                nn.Sequential(
+                    nn.Linear(256, 512),
+                    nn.ReLU(),
+                    nn.Linear(512, 60664),
+                    nn.ReLU(),
+                ),
+                nn.Sequential(
+                    nn.Linear(60664, 256),
+                    nn.ReLU(),
+                    nn.Linear(256, 64),
+                    nn.ReLU(),
+                    nn.Linear(64, 1),
+                    nn.Sigmoid(),
+                )),
+            'expert2': M.Expert(
+                nn.Sequential(
+                        nn.Linear(60664, 512),
+                        nn.ReLU(),
+                        nn.Linear(512, 256),
+                        nn.ReLU(),
+                ),
+                nn.Sequential(
+                    nn.Linear(256, 512),
+                    nn.ReLU(),
+                    nn.Linear(512, 60664),
+                    nn.ReLU(),
+                ),
+                nn.Sequential(
+                    nn.Linear(60664, 256),
+                    nn.ReLU(),
+                    nn.Linear(256, 64),
+                    nn.ReLU(),
+                    nn.Linear(64, 1),
+                    nn.Sigmoid(),
+                ))
+        }),
+        M.VAE(
+            SharedEncoder(num_experts),
+            SharedDecoder(),
+            nn.Linear(64, 64),
+            nn.Linear(64, 64)
         )
-
-    def forward(self, x):
-        return self.model(x)
-
-class Expert:
-
-    def __init__(self, name, encoder: torch.nn.Module, decoder: torch.nn.Module):
-        self.name = name
-        self.encoder = encoder
-        self.decoder = decoder
-
-class Network(torch.nn.Module):
-    def __init__(self, *layers):
-        self.layers = layers
-
-    def forward(self, x):
-        output = []
-        for layer in self.layers:
-            if isinstance(layer, Discriminator):
-                output.append(layer(x))
-            else:
-                x = layer(x)
-        return x, output
-    
-class Encoder(Network):
-    def __init__(self, *layers):
-        super(Decoder, self).__init__(*layers)
-
-class Decoder(Network):
-    def __init__(self, *layers):
-        super(Decoder, self).__init__(*layers)
-
-class VAE(torch.nn.Module):
-    """
-    The VAE class is a single expert/modality implementation. It's a simpler version of the
-    MMVAE and functions almost indentically.
-    """
-    def __init__(self, encoder: Encoder, decoder: Decoder, mean: nn.Linear, var: nn.Linear) -> None:
-        super(VAE, self).__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-        self.mean = mean
-        self.var = var
-        
-    def reparameterize(self, mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
-        eps = torch.randn_like(var)
-        return mean + var*eps
-
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor]:
-        x, encoder_outputs = self.encoder(x)
-        mu = self.mean(x)
-        var = self.var(x)
-        z = self.reparameterize(mu, torch.exp(0.5 * var))
-        x_hat, decoder_outputs = self.decoder(z)
-        return x_hat, mu, var, encoder_outputs, decoder_outputs
-
-
-
-class MMVAE(torch.nn.Module):
-
-    def __init__(self, experts: dict[str, Expert], model: VAE):
-        super(MMVAE, self).__init__()
-        self.experts = experts
-        self.model = model
-    
-    def forward(self, name: str, input: torch.Tensor):
-        exp_enc_out = self.experts[name].encoder(input)
-        shr_enc_out, mu, var, shr_enc_outs = self.model.encoder(exp_enc_out)
-        shr_dec_out, shr_dec_outs = self.model.decoder(exp_enc_out)
-        exp_dec_out  = self.experts[name].decoder(shr_dec_out)
-        return exp_enc_out, exp_dec_out, shr_enc_out, shr_dec_out, mu, var, shr_enc_outs, shr_dec_outs
-
-experts = {}
-for expert in _experts:
-    experts[expert] = Expert(
-        expert, 
-        torch.nn.Sequential(
-            torch.nn.Linear(60664, 512),
-            torch.nn.ReLU(),
-            torch.nn.Linear(512, 256),
-            torch.nn.ReLU()
-        ),
-        torch.nn.Sequential(
-            torch.nn.Linear(512, 60664),
-            torch.nn.ReLU(),
-            torch.nn.Linear(512, 256),
-            torch.nn.ReLU(),
-        ),
     )
-discriminator = Discriminator()
-vae = VAE(
-    Encoder(
-        nn.Linear(512, 256),
-        nn.ReLU(),
-        discriminator,
-        nn.Linear(256, 64),
-        nn.ReLU(),
-    ),
-    Decoder(
-        nn.Linear(64, 256),
-        nn.ReLU(),
-        nn.Linear(256, 512),
-        nn.ReLU(),
-        nn.Linear(512, 60664)
+
+def configure_optimizers(model: MMVAE):
+    optimizers = {}
+    for name in model.experts.keys():
+        expert = model.experts[name]
+        optimizers[f'{name}-enc'] = torch.optim.Adam(expert.encoder.parameters())
+        optimizers[f'{name}-dec'] = torch.optim.Adam(expert.decoder.parameters())
+        optimizers[f'{name}-disc'] = torch.optim.Adam(expert.discriminator.parameters())
+
+    optimizers['shr_enc_disc'] = torch.optim.Adam(model.shared_vae.encoder.discriminator.parameters())
+    optimizers['shr_vae'] = torch.optim.Adam(list(model.shared_vae.encoder.parameters()) + list(model.shared_vae.decoder.parameters()))
+    return optimizers
+
+def main(device):
+    dataloader = configure_dataloader(batch_size=32)
+    model = configure_model()
+    optimizers = configure_optimizers(model)
+
+    trainer = Trainer(
+        model,
+        optimizers,
+        dataloader,
+        device
     )
-)
 
-mmvae = MMVAE(experts, vae)
-
-expert_optimizer: dict[str, Expert] = {}
-for expert in experts:
-    expert_optimizer[expert] = [torch.optim.Adam(mmvae.experts[expert].encoder.parameters()), torch.optim.Adam(mmvae.experts[expert].decoder.parameters())]
-
-discriminator_optimizer = torch.optim.Adam(discriminator.parameters())
-shared_optimizer = torch.optim.Adam(mmvae.parameters())
-
-for train_input, expert in dataloader:
-    mmvae.train()
-
-    exp_enc_out, exp_dec_out, shr_enc_out, shr_dec_out, mu, var, shr_enc_outs, shr_dec_outs = mmvae(train_input)
-
-    shared_optimizer.zero_grad()
-    recon_loss = torch.nn.MSELoss()(shr_dec_out, exp_enc_out)
-    KLD = -0.5 * torch.sum(1 + var - mu.pow(2) - var.exp())
-    loss = recon_loss + KLD
-    loss.backward()
-    shared_optimizer.step()
-
-    expert_optimizer[expert].encoder.zero_grad()
-    expert_optimizer[expert].decoder.zero_grad()
-    expert_recon_loss = torch.nn.MSELoss()(exp_dec_out, train_input.to_dense())
-    expert_recon_loss.backward()
-    expert_optimizer[expert].encoder.step()
-    expert_optimizer[expert].decoder.step()
-
-    discriminator_optimizer.zero_grad()
-    torch.nn.MSELoss()(shr_enc_outs[0], 1).backward()
-    discriminator_optimizer.step()
+    trainer.train(1)
 
 
+if __name__ == "__main__":
 
+    CUDA = False
 
-    
-    
+    device = "cuda" if torch.cuda.is_available() and CUDA else "cpu"
 
-
-    
-
-    
-
-
-
-    
-    
+    main(device)
