@@ -29,15 +29,15 @@ package tutorial:
 setup(
     name="D-MMVAE",
     description="A research project on diagonal mixture-of-experts variational autoencoding (D-MMVAE).",
-    version="0.1.0.dev2",
+    version="0.1.1.dev2",
     url="https://github.com/zdebruine/D-MMVAE",
     author="GVSU Applied Computing Institute",
     packages=find_packages(),
     install_requires=[
         "numpy",
         "scipy",
-        "torchdata",
-        "torch==2.3.0.dev20240101+cu121"
+        "torch==2.3.0dev20240101+cu121",
+        "torchdata==0.7.1"
     ],
     extras_require={
         "test": [

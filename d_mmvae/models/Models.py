@@ -24,7 +24,7 @@ class VAE(nn.Module):
     The VAE class is a single expert/modality implementation. It's a simpler version of the
     MMVAE and functions almost indentically.
     """
-    def __init__(self, encoder: nn.ModuleList, decoder: nn.ModuleList, mean: nn.Module, var: nn.Module) -> None:
+    def __init__(self, encoder: nn.Module, decoder: nn.Module, mean: nn.Module, var: nn.Module) -> None:
         super(VAE, self).__init__()
         self.encoder = encoder
         self.decoder = decoder

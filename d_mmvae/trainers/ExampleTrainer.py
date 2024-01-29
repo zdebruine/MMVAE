@@ -1,24 +1,44 @@
 import torch
 import torch.nn.functional as F
 import d_mmvae.trainers.utils as utils
-from d_mmvae.models.MMVAE import MMVAE
+import d_mmvae.models.ExampleModel as ExampleModel
 from d_mmvae.trainers.trainer import BaseTrainer
-from d_mmvae.data import MultiModalLoader
+from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
 
-class MMVAETrainer(BaseTrainer):
+class ExampleTrainer(BaseTrainer):
     """
     Trainer class designed for MMVAE model using MutliModalLoader.
     """
 
-    model: MMVAE
+    model: ExampleModel.Model
     dataloader: MultiModalLoader
 
-    def __init__(self, *args, **kwargs):
-        super(MMVAETrainer, self).__init__(*args, **kwargs)
+    def __init__(self, batch_size, *args, **kwargs):
+        self.batch_size = batch_size # Defined before super().__init__ as configure_* is called on __init__
+        super(ExampleTrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
-        
         self.expert_class_indices = [i for i in range(len(self.model.experts)) ]
+
+    def configure_dataloader(self):
+        expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
+        expert2 = CellCensusDataLoader('expert2', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
+        return MultiModalLoader(expert1, expert2)
+
+    def configure_model(self):
+        return ExampleModel.configure_model(num_experts=2)
     
+    def configure_optimizers(self) -> dict[str, torch.optim.Optimizer]:
+        optimizers = {}
+        for name in self.model.experts.keys():
+            expert = self.model.experts[name]
+            optimizers[f'{name}-enc'] = torch.optim.Adam(expert.encoder.parameters())
+            optimizers[f'{name}-dec'] = torch.optim.Adam(expert.decoder.parameters())
+            optimizers[f'{name}-disc'] = torch.optim.Adam(expert.discriminator.parameters())
+
+        optimizers['shr_enc_disc'] = torch.optim.Adam(self.model.shared_vae.encoder.discriminator.parameters())
+        optimizers['shr_vae'] = torch.optim.Adam(list(self.model.shared_vae.encoder.parameters()) + list(self.model.shared_vae.decoder.parameters()))
+        return optimizers
+
     def vae_loss(self, predicted, target, mu, sigma, kl_weight = 1):
         vae_recon_loss = F.mse_loss(predicted, target)
         kl_loss = utils.kl_divergence(mu, sigma)
@@ -30,14 +50,14 @@ class MMVAETrainer(BaseTrainer):
         loss = F.binary_cross_entropy(output, labels)
         return loss
 
-    def train_epoch(self):
+    def train_epoch(self, epoch):
         for iteration, (data, expert) in enumerate(self.dataloader):
-
+            print("Starting Iteration", iteration, flush=True)
             self.model.set_expert(expert)
             train_data = data.to(self.device)
             
             # Forwad Pass Over Entire Model
-            shared_input, mu, sigma, shared_encoder_outputs, shared_decoder_outputs, shared_output, expert_output = self.model(train_data)
+            shared_input, shared_output, mu, var, shared_encoder_outputs, shared_decoder_outputs, expert_output = self.model(train_data)
 
             # Train Expert Discriminator
             if iteration % 5 == 0:
@@ -59,7 +79,7 @@ class MMVAETrainer(BaseTrainer):
             # Expert Reconstruction Loss
             expert_recon_loss = F.mse_loss(expert_output, train_data.to_dense())
             # Shared VAE Loss
-            vae_loss = self.vae_loss(shared_output, shared_input, mu, sigma)
+            vae_loss = self.vae_loss(shared_output, shared_input, mu, var)
             # Shared Encoder Adverserial Feedback
             labels = torch.tensor([self.expert_class_indices] * 32, dtype=float, device=self.device)
             shr_enc_adversial_loss = F.cross_entropy(shared_encoder_outputs, labels)
