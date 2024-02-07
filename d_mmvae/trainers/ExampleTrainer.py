@@ -4,12 +4,12 @@ import d_mmvae.trainers.utils as utils
 import d_mmvae.models.ExampleModel as ExampleModel
 from d_mmvae.trainers.trainer import BaseTrainer
 from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 class ExampleTrainer(BaseTrainer):
     """
     Trainer class designed for MMVAE model using MutliModalLoader.
     """
-
     model: ExampleModel.Model
     dataloader: MultiModalLoader
 
@@ -18,6 +18,7 @@ class ExampleTrainer(BaseTrainer):
         super(ExampleTrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
         self.expert_class_indices = [i for i in range(len(self.model.experts)) ]
+        self.writer = SummaryWriter()
 
     def configure_dataloader(self):
         expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
@@ -50,46 +51,55 @@ class ExampleTrainer(BaseTrainer):
         loss = F.binary_cross_entropy(output, labels)
         return loss
 
+
     def train_epoch(self, epoch):
-        for iteration, (data, expert) in enumerate(self.dataloader):
-            print("Starting Iteration", iteration, flush=True)
-            self.model.set_expert(expert)
-            train_data = data.to(self.device)
-            
-            # Forwad Pass Over Entire Model
-            shared_input, shared_output, mu, var, shared_encoder_outputs, shared_decoder_outputs, expert_output = self.model(train_data)
+        try:
+            for iteration, (data, expert) in enumerate(self.dataloader):
+                print("Starting Iteration", iteration, flush=True)
 
-            # Train Expert Discriminator
-            if iteration % 5 == 0:
-                # Zero Expert Discriminator Gradients
-                opt_exp_disc = self.optimizers[f'{expert}-disc']
-                opt_exp_disc.zero_grad()
-                # Train discriminator on Real Data
-                real_loss = self.expert_discriminator_loss(train_data, expert)
-                real_loss.backward()
-                # Train discriminator on fake data
-                fake_loss = self.expert_discriminator_loss(expert_output.detach(), expert, real=False)
-                # Update Expert Discriminator Gradients
-                fake_loss.backward()
-                opt_exp_disc.step()
+                self.model.set_expert(expert)
+                train_data = data.to(self.device)
+                    
+                # Forwad Pass Over Entire Model
+                shared_input, shared_output, mu, var, shared_encoder_outputs, shared_decoder_outputs, expert_output = self.model(train_data)
 
-            # Zero Shared VAE and Expert Gradients
-            self.optimizers['shr_vae'].zero_grad()
-            self.optimizers['shr_enc_disc'].zero_grad()
-            # Expert Reconstruction Loss
-            expert_recon_loss = F.mse_loss(expert_output, train_data.to_dense())
-            # Shared VAE Loss
-            vae_loss = self.vae_loss(shared_output, shared_input, mu, var)
-            # Shared Encoder Adverserial Feedback
-            labels = torch.tensor([self.expert_class_indices] * 32, dtype=float, device=self.device)
-            shr_enc_adversial_loss = F.cross_entropy(shared_encoder_outputs, labels)
-            # Shared Expert Discriminator Loss
-            shared_loss = self.expert_discriminator_loss(expert_output.detach(), expert, real=False)
-            adv_weight = -0.1 # TODO: Add annealing factor
-            total_loss = expert_recon_loss + vae_loss + adv_weight * shr_enc_adversial_loss + shared_loss
-            total_loss.backward()
-        
-            self.optimizers['shr_enc_disc'].step()
-            self.optimizers['shr_vae'].step()
-            self.optimizers[f'{expert}-enc'].step()
-            self.optimizers[f'{expert}-dec'].step()
+                # Train Expert Discriminator
+                if iteration % 5 == 0:
+                    # Zero Expert Discriminator Gradients
+                    opt_exp_disc = self.optimizers[f'{expert}-disc']
+                    opt_exp_disc.zero_grad()
+                    # Train discriminator on Real Data
+                    real_loss = self.expert_discriminator_loss(train_data, expert)
+                    real_loss.backward()
+                    # Train discriminator on fake data
+                    fake_loss = self.expert_discriminator_loss(expert_output.detach(), expert, real=False)
+                    # Update Expert Discriminator Gradients
+                    fake_loss.backward()
+                    opt_exp_disc.step()
+
+                # Zero Shared VAE and Expert Gradients
+                self.optimizers['shr_vae'].zero_grad()
+                self.optimizers['shr_enc_disc'].zero_grad()
+                # Expert Reconstruction Loss
+                expert_recon_loss = F.mse_loss(expert_output, train_data.to_dense())
+                # Shared VAE Loss
+                vae_loss = self.vae_loss(shared_output, shared_input, mu, var)
+                    
+                # Shared Encoder Adverserial Feedback
+                labels = torch.tensor([self.expert_class_indices] * 32, dtype=float, device=self.device)
+                shr_enc_adversial_loss = F.cross_entropy(shared_encoder_outputs, labels)
+                # Shared Expert Discriminator Loss
+                shared_loss = self.expert_discriminator_loss(expert_output.detach(), expert, real=False)
+                adv_weight = -0.1 # TODO: Add annealing factor
+                total_loss = expert_recon_loss + vae_loss + adv_weight * shr_enc_adversial_loss + shared_loss
+                total_loss.backward()
+                
+                self.optimizers['shr_enc_disc'].step()
+                self.optimizers['shr_vae'].step()
+                self.optimizers[f'{expert}-enc'].step()
+                self.optimizers[f'{expert}-dec'].step()
+                self.writer.add_scalar('Loss', total_loss , iteration)
+        except Exception as e:
+            print(f"error {e}")
+
+        self.writer.close()
