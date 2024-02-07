@@ -93,3 +93,10 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers['shr_vae'].step()
             self.optimizers[f'{expert}-enc'].step()
             self.optimizers[f'{expert}-dec'].step()
+
+            self.writer.add_scalar('Loss/Expert_Recon', expert_recon_loss.item(), iteration)
+            self.writer.add_scalar('Loss/VAE', vae_loss.item(), iteration)
+            self.writer.add_scalar('Loss/Shared_Encoder_Adversarial', shr_enc_adversial_loss.item(), iteration)
+            self.writer.add_scalar('Loss/Shared', shared_loss.item(), iteration)
+            self.writer.add_scalar('Loss/Total', total_loss.item(), iteration)
+            self.writer.flush()
