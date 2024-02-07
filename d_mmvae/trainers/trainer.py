@@ -21,17 +21,11 @@ class BaseTrainer:
         self.snapshot_path = snapshot_path
         self.save_every = save_every
         self.device = device
-
+        
         if log_dir is not None:
             self.writer = tb.SummaryWriter(log_dir=log_dir)
-        else:
-            self.writer = None
 
         self.__initialized = True
-
-    def __getattribute__(self, __name: str) -> Any:
-        if __name == 'writer' and self.writer == None:
-            raise RuntimeError("Writer log_dir not intialized!")
 
     def configure_dataloader(self) -> dl.DataLoader2:
         raise NotImplementedError()
