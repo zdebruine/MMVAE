@@ -4,6 +4,7 @@ import d_mmvae.trainers.utils as utils
 import d_mmvae.models.ExampleModel as ExampleModel
 from d_mmvae.trainers.trainer import BaseTrainer
 from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 class ExampleTrainer(BaseTrainer):
     """
@@ -18,6 +19,7 @@ class ExampleTrainer(BaseTrainer):
         super(ExampleTrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
         self.expert_class_indices = [i for i in range(len(self.model.experts)) ]
+        self.writer = SummaryWriter()
 
     def configure_dataloader(self):
         expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
@@ -93,3 +95,7 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers['shr_vae'].step()
             self.optimizers[f'{expert}-enc'].step()
             self.optimizers[f'{expert}-dec'].step()
+
+            self.writer.add_scalar('Loss', total_loss , iteration)
+            
+        self.writer.close()
