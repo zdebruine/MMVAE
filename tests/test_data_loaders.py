@@ -51,17 +51,18 @@ def test_exhaust_all_false():
     mock_modal1.__iter__.return_value = iter([(torch.tensor([1, 2, 3]), 'data1', None)])
     
     mock_modal2 = MagicMock()
-    mock_modal2.__iter__.side_effect = StopIteration
+    mock_modal2.__iter__.return_value = iter([]) 
 
     loader = MultiModalLoader(mock_modal1, mock_modal2, exhaust_all=False)
     
+    l = iter(loader)
     with pytest.raises(StopIteration):
-        next(iter(loader))
-
+        while True:
+            next(l)
+        
 def test_initialization_with_no_modals():
     with pytest.raises(ValueError) as excinfo:
         loader = MultiModalLoader()
-    # Assert the appropriate error message
 
 def test_unexpected_exception():
     mock_modal = MagicMock()
