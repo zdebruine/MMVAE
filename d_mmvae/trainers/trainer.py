@@ -16,7 +16,7 @@ class BaseTrainer:
         save_every: int = None
     ) -> None:
         self.model = self.configure_model()
-        self.optimizers = self.configure_optimizers()
+        self.optimizers = self.configure_optimizers({})
         self.dataloader = self.configure_dataloader()
         self.snapshot_path = snapshot_path
         self.save_every = save_every
