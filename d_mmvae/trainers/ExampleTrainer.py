@@ -53,6 +53,13 @@ class ExampleTrainer(BaseTrainer):
         return loss
 
     def train_epoch(self, epoch):
+
+        color_map = {
+            1: 'blue',    # Expert 1
+            2: 'red',     # Expert 2
+            # Add more labels and corresponding colors as needed
+        }   
+
         for iteration, (data, expert) in enumerate(self.dataloader):
             print("Starting Iteration", iteration, flush=True)
             self.model.set_expert(expert)
@@ -81,6 +88,9 @@ class ExampleTrainer(BaseTrainer):
             # Expert Reconstruction Loss
             expert_recon_loss = F.mse_loss(expert_output, train_data.to_dense())
             # Shared VAE Loss
+            vae_recon_loss = F.mse_loss(shared_output, shared_input)
+            kl_loss = utils.kl_divergence(mu, var)
+            #combined vae loss
             vae_loss = self.vae_loss(shared_output, shared_input, mu, var)
             # Shared Encoder Adverserial Feedback
             labels = torch.tensor([self.expert_class_indices] * 32, dtype=float, device=self.device)
@@ -96,6 +106,18 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers[f'{expert}-enc'].step()
             self.optimizers[f'{expert}-dec'].step()
 
-            self.writer.add_scalar('Loss', total_loss , iteration)
+            #Graph total loss
+            self.writer.add_scalar('Loss', total_loss.item() , iteration)
+            #Graph MSE vs KL Loss
+            self.writer.add_scalars('MSE-KL', {'MSE': vae_recon_loss.item(),
+                                              'KL': kl_loss.item()}, iteration)
+            #visualize latent space
+            latent_space_embedding = mu.detach()
+            #color mapping option based on expert 
+            metadata = [1 if expert == 'expert1' else 2 for _ in range(latent_space_embedding.shape[0])]
+            metadata_colors = [color_map[label] for label in metadata]  # Assign unique labels for each expert
+            #label each neuron its actual value
+            neuron_value = latent_space_embedding[:, 0]
+            self.writer.add_embedding(latent_space_embedding, metadata = neuron_value, global_step=iteration, tag='latent')
             
         self.writer.close()
