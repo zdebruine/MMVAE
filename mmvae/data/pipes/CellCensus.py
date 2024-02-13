@@ -18,7 +18,11 @@ def CellCensusPipeLine(*args, directory_path: str = None, masks: list[str] = Non
     Important Note: The sharding_filter is applied aftering opening files 
         to ensure no duplication of chunks between worker processes.
     """
-    return (FileLister(root=directory_path, masks=masks, recursive=False)
+    return (FileLister(
+        root=directory_path, 
+        masks=masks,
+        recursive=False,
+        non_deterministic=True)
         .shuffle()
         .open_files(mode='rb')
         .sharding_filter() # Prevents chunks from being duplicated across workers

@@ -1,8 +1,8 @@
 import torchdata.dataloader2 as dl
 from typing import Generator, Any
-import d_mmvae.data.pipes as p
+import mmvae.data.pipes as p
 import torch
-import random
+import numpy as np
 
 class MultiModalLoader:
     """
@@ -38,7 +38,7 @@ class MultiModalLoader:
                 if not self.exhaust_all:
                     return
                 del loaders[loader_idx]
-            
+
 class CellCensusDataLoader(dl.DataLoader2):
     """
         Dataloader wrapper for CellCensusPipeline

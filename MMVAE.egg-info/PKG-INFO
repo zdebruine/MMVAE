@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: MMVAE
+Version: 0.1.1.dev2
+Summary: A research project on diagonal mixture-of-experts variational autoencoding (MMVAE).
+Home-page: https://github.com/zdebruine/MMVAE
+Author: GVSU Applied Computing Institute
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Provides-Extra: test
+License-File: LICENSE

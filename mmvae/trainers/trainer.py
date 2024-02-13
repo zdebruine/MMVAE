@@ -16,8 +16,9 @@ class BaseTrainer:
         save_every: int = None
     ) -> None:
         self.model = self.configure_model()
-        self.optimizers = self.configure_optimizers({})
+        self.optimizers = self.configure_optimizers()
         self.dataloader = self.configure_dataloader()
+        self.schedulers = self.configure_schedulers()
         self.snapshot_path = snapshot_path
         self.save_every = save_every
         self.device = device
@@ -34,7 +35,14 @@ class BaseTrainer:
         raise NotImplementedError()
     
     def configure_optimizers(self) -> dict[str, torch.optim.Optimizer]:
-        raise NotImplementedError()
+        import warnings
+        warnings.showwarning('Warning! - No optimizers configured during intialization')
+        return {}
+    
+    def configure_schedulers(self) -> dict[str, torch.optim.lr_scheduler.LRScheduler]:
+        import warnings
+        warnings.showwarning('Warning! - No schedulers configured during intialization')
+        return {}
 
     def load_snapshot(self) -> tuple[nn.Module, int]:
         # TODO: FIX
@@ -64,7 +72,7 @@ class BaseTrainer:
             
         for epoch in range(epochs):
             self.train_epoch(epoch)
-            if (epoch + 1) % self.save_every == 0:
+            if self.save_every is not None and (epoch + 1) % self.save_every == 0:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:

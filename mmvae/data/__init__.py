@@ -1,4 +1,4 @@
-from d_mmvae.data.loaders import CellCensusDataLoader, MultiModalLoader
+from mmvae.data.loaders import CellCensusDataLoader, MultiModalLoader
 
 __all__ = [
     "CellCensusDataLoader",

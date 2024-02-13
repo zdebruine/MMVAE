@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class Expert(nn.Module):
 
-    def __init__(self, encoder: nn.Module, decoder: nn.Module, discriminator: nn.Module):
+    def __init__(self, encoder: nn.Module, decoder: nn.Module, discriminator: nn.Module = None):
         super(Expert, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -16,7 +16,8 @@ class Expert(nn.Module):
         """
         x = self.encoder(x)
         x = self.decoder(x)
-        x = self.discriminator(x)
+        if self.discriminator is not None:
+            x = self.discriminator(x)
         return x
 
 class VAE(nn.Module):
@@ -24,7 +25,7 @@ class VAE(nn.Module):
     The VAE class is a single expert/modality implementation. It's a simpler version of the
     MMVAE and functions almost indentically.
     """
-    def __init__(self, encoder: nn.Module, decoder: nn.Module, mean: nn.Module, var: nn.Module) -> None:
+    def __init__(self, encoder: nn.Module, decoder: nn.Module, mean: nn.Linear, var: nn.Linear) -> None:
         super(VAE, self).__init__()
         self.encoder = encoder
         self.decoder = decoder

@@ -1,16 +1,16 @@
 import torch
 import torch.nn.functional as F
-import d_mmvae.trainers.utils as utils
-import d_mmvae.models.HumanVAE as HumanVAE
-from d_mmvae.trainers.trainer import BaseTrainer
-from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
+import mmvae.trainers.utils as utils
+import mmvae.models.ExampleModel as ExampleModel
+from mmvae.trainers.trainer import BaseTrainer
+from mmvae.data import MultiModalLoader, CellCensusDataLoader
 
 class ExampleTrainer(BaseTrainer):
     """
     Trainer class designed for MMVAE model using MutliModalLoader.
     """
 
-    model: HumanVAE.Model
+    model: ExampleModel.Model
     dataloader: MultiModalLoader
 
     def __init__(self, batch_size, *args, **kwargs):
@@ -20,21 +20,20 @@ class ExampleTrainer(BaseTrainer):
         self.expert_class_indices = [i for i in range(len(self.model.experts)) ]
 
     def configure_dataloader(self):
-        return CellCensusDataLoader(
-            'human', 
-            directory_path="/active/debruinz_project/CellCensus_3M/",
-            masks=['*human_chunk*'], 
-            batch_size=self.batch_size, 
-            num_workers=3
-        )
+        expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
+        expert2 = CellCensusDataLoader('expert2', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
+        return MultiModalLoader(expert1, expert2)
 
     def configure_model(self):
-        return HumanVAE.configure_model()
+        return ExampleModel.configure_model(num_experts=2)
     
-    def configure_optimizers(self, optimizers: dict) -> dict[str, torch.optim.Optimizer]:
-        optimizers[f'{name}-enc'] = torch.optim.Adam(expert.encoder.parameters())
-        optimizers[f'{name}-dec'] = torch.optim.Adam(expert.decoder.parameters())
-        optimizers[f'{name}-disc'] = torch.optim.Adam(expert.discriminator.parameters())
+    def configure_optimizers(self) -> dict[str, torch.optim.Optimizer]:
+        optimizers = {}
+        for name in self.model.experts.keys():
+            expert = self.model.experts[name]
+            optimizers[f'{name}-enc'] = torch.optim.Adam(expert.encoder.parameters())
+            optimizers[f'{name}-dec'] = torch.optim.Adam(expert.decoder.parameters())
+            optimizers[f'{name}-disc'] = torch.optim.Adam(expert.discriminator.parameters())
 
         optimizers['shr_enc_disc'] = torch.optim.Adam(self.model.shared_vae.encoder.discriminator.parameters())
         optimizers['shr_vae'] = torch.optim.Adam(list(self.model.shared_vae.encoder.parameters()) + list(self.model.shared_vae.decoder.parameters()))

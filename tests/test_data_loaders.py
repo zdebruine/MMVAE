@@ -1,7 +1,7 @@
 import pytest
 import torch
 from unittest.mock import MagicMock
-from d_mmvae.data.loaders import MultiModalLoader
+from mmvae.data.loaders import MultiModalLoader
 
 def test_initialization_with_single_modal():
     mock_modal = MagicMock()

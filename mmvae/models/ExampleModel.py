@@ -1,27 +1,38 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import d_mmvae.models as M
+import mmvae.models as M
 
 class Model(nn.Module):
 
-    def __init__(self, expert: M.Expert, shared_vae: M.VAE):
+    def __init__(self, experts: nn.ModuleDict, shared_vae: M.VAE):
         super().__init__()
-        
-        self.expert = expert
+        for expert in experts.values():
+            assert isinstance(expert, M.Expert) 
+        self.experts = experts
         self.shared_vae = shared_vae
 
-    def forward(self, train_input: torch.Tensor):
-        
-        shared_input = self.expert.encoder(train_input)
-        shared_output, mu, var, shared_encoder_outputs, shared_decoder_outputs = self.shared_vae(shared_input)
-        expert_output = self.expert.decoder(shared_output)
-        return shared_input, shared_output, mu, var, shared_encoder_outputs, shared_decoder_outputs, expert_output
+    def set_expert(self, expert: str):
+        self.__expert = expert
 
+    def forward(self, train_input: torch.Tensor):
+        expert = self.experts[self.__expert]
+        shared_input = expert.encoder(train_input)
+        shared_output, mu, var, shared_encoder_outputs, shared_decoder_outputs = self.shared_vae(shared_input)
+        expert_output = expert.decoder(shared_output)
+        return shared_input, shared_output, mu, var, shared_encoder_outputs, shared_decoder_outputs, expert_output
+    
 class SharedEncoder(nn.Module):
     def __init__(self, num_experts):
         super(SharedEncoder, self).__init__()
-        
+        self.discriminator = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, num_experts),
+            nn.Sigmoid(),
+        )
         self.fc1 = nn.Linear(256, 128)
         self.fc2 = nn.Linear(128, 64)
 
