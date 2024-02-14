@@ -14,6 +14,8 @@ class MultiModalLoader:
 
     def __init__(self, *modals: dl.DataLoader2, exhaust_all=True):
         self.exhaust_all = exhaust_all
+        if len(modals) == 0:
+            raise ValueError("A dataloader must be defined!")
         self.modals = modals
         self.__len = None
 
@@ -34,7 +36,7 @@ class MultiModalLoader:
                 self.__len += 1
             except StopIteration as e:
                 if not self.exhaust_all:
-                    raise e
+                    return
                 del loaders[loader_idx]
             
 class CellCensusDataLoader(dl.DataLoader2):
