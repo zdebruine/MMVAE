@@ -50,9 +50,10 @@ def test_loop(test_data: CellCensusDataLoader, discriminator: nn.Sequential, los
 
     with torch.no_grad():
         for batch_data, data_title in test_data:
+            batch_size = len(batch_data)
             real_pred = discriminator(batch_data)
-            fake_pred = discriminator(genorate_normal_noise(64, DATA_SIZE))
-            test_loss += loss_fn(real_pred, genorate_expected_output(64, 1, REAL_DATA)) + loss_fn(fake_pred, genorate_expected_output(64, 1, FAKE_DATA))
+            fake_pred = discriminator(genorate_normal_noise(batch_size, DATA_SIZE))
+            test_loss += loss_fn(real_pred, genorate_expected_output(batch_size, 1, REAL_DATA)) + loss_fn(fake_pred, genorate_expected_output(batch_size, 1, FAKE_DATA))
 
             if real_pred.item() >= 0.5:
                 real_correct += 1
@@ -71,17 +72,17 @@ def train_discriminator_loop(train_data: CellCensusDataLoader, discriminator: nn
     discriminator.to(device)
     discriminator.train()
 
-    real_expected_out = genorate_expected_output(64, 1, REAL_DATA)
-    fake_expected_out = genorate_expected_output(64, 1, FAKE_DATA)
-
     for batch, (batch_data, data_title) in enumerate(train_data):
+        batch_size = len(batch_data)
         batch_data = batch_data.to(device)
+        real_expected_out = genorate_expected_output(batch_size, 1, REAL_DATA)
+        fake_expected_out = genorate_expected_output(batch_size, 1, FAKE_DATA)
 
         real_pred = discriminator(batch_data)
         real_loss = loss_fn(real_pred, real_expected_out)
         real_loss.backward()
 
-        fake_input = genorate_normal_noise(64, DATA_SIZE)
+        fake_input = genorate_normal_noise(batch_size, DATA_SIZE)
         fake_pred = discriminator(fake_input)
         fake_loss = loss_fn(fake_pred, fake_expected_out)
         fake_loss.backward()
