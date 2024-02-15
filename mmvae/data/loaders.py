@@ -43,12 +43,9 @@ class MultiModalLoader:
 
 class MappedCellCensusDataLoader(DataLoader):
 
-    def __init__(self, batch_size, device, file_path = None):
-        args = (device,)
-        if file_path is not None:
-            args = (*args, file_path)
+    def __init__(self, batch_size, device, file_path, load_all):
         super(MappedCellCensusDataLoader, self).__init__(
-            dataset=CCD.CellCensusDataset(*args), 
+            dataset=CCD.CellCensusDataset(device, file_path, load_all), 
             batch_size=batch_size, 
             shuffle=True, 
             collate_fn=CCD.collate_fn

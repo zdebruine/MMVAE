@@ -16,6 +16,7 @@ class BaseTrainer:
         snapshot_path: str = None, 
         save_every: int = None
     ) -> None:
+        
         self.device = device
         self.snapshot_path = snapshot_path
         self.save_every = save_every

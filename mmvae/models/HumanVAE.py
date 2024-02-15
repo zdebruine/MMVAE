@@ -89,6 +89,7 @@ class SharedDecoder(nn.Module):
         x = F.leaky_relu(self.fc4(x))
         return x
     
+@classmethod
 def configure_model() -> Model:
         return Model(
             HumanExpert(
