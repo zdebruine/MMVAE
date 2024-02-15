@@ -100,8 +100,12 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers[f'{expert}-enc'].step()
             self.optimizers[f'{expert}-dec'].step()
 
-            #Graph total loss
+            #Graph losses
             self.writer.add_scalar('Loss', total_loss.item() , iteration)
+            self.writer.add_scalar('Loss/Expert_Recon', expert_recon_loss.item(), iteration)
+            self.writer.add_scalar('Loss/VAE', vae_loss.item(), iteration)
+            self.writer.add_scalar('Loss/Shared_Encoder_Adversarial', shr_enc_adversial_loss.item(), iteration)
+            self.writer.add_scalar('Loss/Shared', shared_loss.item(), iteration)
             #Graph MSE vs KL Loss
             self.writer.add_scalars('MSE-KL', {'MSE': vae_recon_loss.item(),
                                               'KL': kl_loss.item()}, iteration)
