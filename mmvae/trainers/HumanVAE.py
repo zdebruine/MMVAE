@@ -59,13 +59,18 @@ class HumanVAETrainer(BaseTrainer):
             if param.grad is not None and not torch.all(param.grad == 0):
                 zero_grad_layers.append((name, param.grad))
         return zero_grad_layers
-
+    
+    def train(self, epochs, load_snapshot=False):
+        self.batch_iteration = 0
+        super().train(epochs, load_snapshot)
+    
     def train_epoch(self, epoch):
-        for batch_iteration, train_data in enumerate(self.dataloader):
-            #self.train_trace_expert_autoencoder(batch_iteration, train_data)
-            self.train_trace_complete(batch_iteration, train_data)
+        for train_data in self.dataloader:
+            self.batch_iteration += 1
+            #self.train_trace_expert_autoencoder(self.batch_iteration, train_data)
+            self.train_trace_complete(train_data)
 
-    def train_trace_expert_autoencoder(self, batch_iteration: int, train_data: torch.Tensor):
+    def train_trace_expert_autoencoder(self, train_data: torch.Tensor):
         self.optimizers['encoder'].zero_grad()
         self.optimizers['decoder'].zero_grad()
     
@@ -74,14 +79,14 @@ class HumanVAETrainer(BaseTrainer):
         loss = F.l1_loss(x, train_data.to_dense())
         loss.backward()
 
-        self.writer.add_scalar('Expert_Loss/Reconstruction Loss (l1_loss)', loss.item(), batch_iteration)
+        self.writer.add_scalar('Expert_Loss/Reconstruction Loss (l1_loss)', loss.item(), self.batch_iteration)
 
         for model in ('encoder', 'decoder'):
             self.optimizers[model].step()
             if model in self.schedulers:
                 self.schedulers[model].step()
 
-    def train_trace_complete(self, batch_iteration: int, train_data: torch.Tensor):
+    def train_trace_complete(self, train_data: torch.Tensor):
         # Zero All Gradients
         self.optimizers['shr_vae'].zero_grad()
         self.optimizers['encoder'].zero_grad()
@@ -100,28 +105,7 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['encoder'].step()
         self.optimizers['decoder'].step()
 
-        #self.writer.add_scalar('Loss/Expert_Recon', expert_recon_loss.item(), batch_iteration)
-        #self.writer.add_scalar('Loss/VAE', vae_recon.item(), batch_iteration)
-        self.writer.add_scalar('Loss/KL', kl_loss.item(), batch_iteration)
-        self.writer.add_scalar('Loss/ReconstructionFromTrainingData', loss.item(), batch_iteration)
-
-def main(device, args):
-    # Define any hyperparameters
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    # Create trainer instance
-    trainer = HumanVAETrainer(
-        args.batch_size,
-        device,
-        log_dir=f"/home/denhofja/logs/{args.log_name}/{args.batch_size}/{device}_{timestamp}"
-    )
-    # Train model with number of epochs
-    trainer.train(epochs=20)
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('batch_size', type=int)
-    parser.add_argument('log_name', type=str)
-    args = parser.parse_args()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    main(device, args)
+        #self.writer.add_scalar('Loss/Expert_Recon', expert_recon_loss.item(), self.batch_iteration)
+        #self.writer.add_scalar('Loss/VAE', vae_recon.item(), self.batch_iteration)
+        self.writer.add_scalar('Loss/KL', kl_loss.item(), self.batch_iteration)
+        self.writer.add_scalar('Loss/ReconstructionFromTrainingData', loss.item(), self.batch_iteration)

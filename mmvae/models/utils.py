@@ -15,7 +15,6 @@ def _xavier_uniform_(module: nn.Module, bias = 0.0):
         nn.init.constant_(module.bias, bias)
 
 def parameterize_returns(results):
-    print(type(results))
     if isinstance(results, tuple):
         if len(results) >= 1:
             x = results[0]
