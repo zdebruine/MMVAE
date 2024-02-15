@@ -4,7 +4,7 @@ import d_mmvae.trainers.utils as utils
 import d_mmvae.models.ExampleModel as ExampleModel
 from d_mmvae.trainers.trainer import BaseTrainer
 from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
-from torch.utils.tensorboard import SummaryWriter #tensorboard import 
+#from torch.utils.tensorboard import SummaryWriter #tensorboard import 
 
 class ExampleTrainer(BaseTrainer):
     """
@@ -19,7 +19,7 @@ class ExampleTrainer(BaseTrainer):
         super(ExampleTrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
         self.expert_class_indices = [i for i in range(len(self.model.experts)) ]
-        self.writer = SummaryWriter() #tensorboard writer
+        #self.writer = SummaryWriter() #tensorboard writer
 
     def configure_dataloader(self):
         expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
@@ -99,3 +99,21 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers['shr_vae'].step()
             self.optimizers[f'{expert}-enc'].step()
             self.optimizers[f'{expert}-dec'].step()     
+
+            #Graph losses
+            self.writer.add_scalar('Loss/Total_Loss', total_loss.item() , iteration)
+            self.writer.add_scalar('Loss/Expert_Recon', expert_recon_loss.item(), iteration)
+            self.writer.add_scalar('Loss/VAE', vae_loss.item(), iteration)
+            self.writer.add_scalar('Loss/Shared_Encoder_Adversarial', shr_enc_adversial_loss.item(), iteration)
+            self.writer.add_scalar('Loss/Shared', shared_loss.item(), iteration)
+            #Graph MSE vs KL Loss
+            self.writer.add_scalars('Loss/MSE-KL', {'MSE': vae_recon_loss.item(),
+                                              'KL': kl_loss.item()}, iteration)
+            #visualize latent space
+            latent_space_embedding = mu.detach()
+            #label each neuron its actual value
+            neuron_value = latent_space_embedding[:, 0]
+            #Visualization
+            self.writer.add_embedding(latent_space_embedding, metadata = neuron_value, global_step=iteration, tag='latent')
+            
+        self.writer.close() #close writer
