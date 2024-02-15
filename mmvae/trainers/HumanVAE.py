@@ -18,6 +18,7 @@ class HumanVAETrainer(BaseTrainer):
         self.batch_size = batch_size # Defined before super().__init__ as configure_* is called on __init__
         super(HumanVAETrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
+        self.annealing_steps = 50
 
     def configure_model(self) -> Module:
         return HumanVAE.configure_model() 
@@ -53,9 +54,9 @@ class HumanVAETrainer(BaseTrainer):
     def train_epoch(self, epoch):
         for train_data in self.dataloader:
             self.batch_iteration += 1
-            self.train_trace_complete(train_data)
+            self.train_trace_complete(train_data, epoch)
 
-    def train_trace_complete(self, train_data: torch.Tensor):
+    def train_trace_complete(self, train_data: torch.Tensor, epoch):
         # Zero All Gradients
         self.optimizers['shr_vae'].zero_grad()
         self.optimizers['encoder'].zero_grad()
@@ -66,7 +67,7 @@ class HumanVAETrainer(BaseTrainer):
         recon_loss = F.l1_loss(x_hat, train_data.to_dense())
         # Shared VAE Loss
         kl_loss = utils.kl_divergence(mu, var)
-        kl_weight = 0
+        kl_weight = min(1.0, epoch / self.annealing_steps)
         loss = recon_loss + (kl_loss * kl_weight)
         loss.backward()
     

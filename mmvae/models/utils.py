@@ -3,7 +3,6 @@ import torch
 
 def _submodules_init_weights_xavier_uniform_(module: nn.Module, bias = None):
     for name, module in module.named_modules():
-        print(name, module)
         if bias:
             _xavier_uniform_(module, bias)
         else:
