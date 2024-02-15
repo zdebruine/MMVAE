@@ -78,10 +78,6 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers['shr_enc_disc'].zero_grad()
             # Expert Reconstruction Loss
             expert_recon_loss = F.mse_loss(expert_output, train_data.to_dense())
-
-
-
-
             # Shared VAE Loss
             vae_loss = self.vae_loss(shared_output, shared_input, mu, var)
             # Shared Encoder Adverserial Feedback
