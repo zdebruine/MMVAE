@@ -1,8 +1,10 @@
 import torchdata.dataloader2 as dl
 from typing import Generator, Any
 import mmvae.data.pipes as p
+from mmvae.data.datasets import CellCensusDataset as CCD
 import torch
-import numpy as np
+from torch.utils.data import DataLoader
+import random
 
 class MultiModalLoader:
     """
@@ -39,7 +41,20 @@ class MultiModalLoader:
                     return
                 del loaders[loader_idx]
 
-class CellCensusDataLoader(dl.DataLoader2):
+class MappedCellCensusDataLoader(DataLoader):
+
+    def __init__(self, batch_size, device, file_path = None):
+        args = (device,)
+        if file_path is not None:
+            args = (*args, file_path)
+        super(MappedCellCensusDataLoader, self).__init__(
+            dataset=CCD.CellCensusDataset(*args), 
+            batch_size=batch_size, 
+            shuffle=True, 
+            collate_fn=CCD.collate_fn
+        )
+
+class ChunkedCellCensusDataLoader(dl.DataLoader2):
     """
         Dataloader wrapper for CellCensusPipeline
 
@@ -53,9 +68,9 @@ class CellCensusDataLoader(dl.DataLoader2):
          Attention:
           - num_workers must be greater or equal to the total chunks to load
         """
-    def __init__(self, *args, directory_path: str = None, masks: list[str] = None, batch_size: int = None, num_workers: int = None):
-        super(CellCensusDataLoader, self).__init__(
-            datapipe=p.CellCensusPipeLine(*args, directory_path=directory_path, masks=masks, batch_size=batch_size),
+    def __init__(self, *args, directory_path: str = None, masks: list[str] = None, batch_size: int = None, num_workers: int = None): # type: ignore
+        super(ChunkedCellCensusDataLoader, self).__init__(
+            datapipe=p.CellCensusPipeLine(*args, directory_path=directory_path, masks=masks, batch_size=batch_size), # type: ignore
             datapipe_adapter_fn=None,
             reading_service=dl.MultiProcessingReadingService(num_workers=num_workers)
         )

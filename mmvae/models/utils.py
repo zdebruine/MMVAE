@@ -1,14 +1,30 @@
 import torch.nn as nn
+import torch
 
-def _submodules_init_weights_xavier_uniform_(module: nn.Module):
+def _submodules_init_weights_xavier_uniform_(module: nn.Module, bias = None):
     for name, module in module.named_modules():
-        _init_weights_xavier_uniform_(module, name)
+        print(name, module)
+        if bias:
+            _xavier_uniform_(module, bias)
+        else:
+            _xavier_uniform_(module)
 
-def _init_weights_xavier_uniform_(module: nn.Module, name = None):
+def _xavier_uniform_(module: nn.Module, bias = 0.0):
     if isinstance(module, nn.Linear):
-        name = name if name is not None else module.__name__
-        print(f"Initializing {name} with xaviar_uniform_")
+        nn.init.xavier_uniform_(module.weight)
+        nn.init.constant_(module.bias, bias)
 
-def _xavier_uniform_(module: nn.Linear, bias = 0.0):
-    nn.init.xavier_uniform_(module.weight)
-    nn.init.constant_(module.bias, bias)
+def parameterize_returns(results):
+    print(type(results))
+    if isinstance(results, tuple):
+        if len(results) >= 1:
+            x = results[0]
+            results = results[1:]
+        else:
+            raise RuntimeError("VAE encoder returned a tuple with zero elements!")
+    elif isinstance(results, torch.Tensor):
+        x = results
+        results = ()
+    else:
+        raise RuntimeError("The only supported argument results from encoder_results is torch.Tensor or tuple[torch.Tensor, *args]")
+    return (x, *results)

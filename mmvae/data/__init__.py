@@ -1,7 +1,8 @@
-from mmvae.data.loaders import CellCensusDataLoader, MultiModalLoader
+from mmvae.data.loaders import ChunkedCellCensusDataLoader, MultiModalLoader, MappedCellCensusDataLoader
 
 __all__ = [
-    "CellCensusDataLoader",
-    "MultiModalLoader"
+    "ChunkedCellCensusDataLoader",
+    "MappedCellCensusDataLoader",
+    "MultiModalLoader",
 ]
-assert __all__ == sorted(__all__)
+

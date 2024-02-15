@@ -1,9 +1,11 @@
+from typing import Tuple, Union, Any
 import torch
 import torch.nn as nn
+import mmvae.models.utils as utils
 
 class Expert(nn.Module):
 
-    def __init__(self, encoder: nn.Module, decoder: nn.Module, discriminator: nn.Module = None):
+    def __init__(self, encoder: nn.Module, decoder: nn.Module, discriminator = None):
         super(Expert, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -36,10 +38,13 @@ class VAE(nn.Module):
         eps = torch.randn_like(var)
         return mean + var*eps
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor]:
-        x, encoder_outputs = self.encoder(x)
+    def forward(self, x: torch.Tensor) -> Tuple[Union[Any, torch.Tensor], Any, Any, Tuple[Any]]:
+        x, *encoder_results = utils.parameterize_returns(self.encoder(x))
+        
         mu = self.mean(x)
         var = self.var(x)
+        
         x = self.reparameterize(mu, torch.exp(0.5 * var))
-        x, decoder_outputs = self.decoder(x)
-        return x, mu, var, encoder_outputs, decoder_outputs
+        x, *decoder_results = utils.parameterize_returns(self.decoder(x))
+            
+        return (x, mu, var, *encoder_results, *decoder_results)
