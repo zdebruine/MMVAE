@@ -7,7 +7,8 @@ def main(device):
     # Create trainer instance
     trainer = ExampleTrainer(
         batch_size,
-        device
+        device,
+        log_dir="/path/to/your/log/directory"
     )
     # Train model with number of epochs
     trainer.train(epochs=1)

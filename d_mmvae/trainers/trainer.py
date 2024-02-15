@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchdata.dataloader2 as dl
+import torch.utils.tensorboard as tb
 from typing import Any
 
 class BaseTrainer:
@@ -10,6 +11,7 @@ class BaseTrainer:
     def __init__(
         self, 
         device: str,
+        log_dir: str = None,
         snapshot_path: str = None, 
         save_every: int = None
     ) -> None:
@@ -19,6 +21,10 @@ class BaseTrainer:
         self.snapshot_path = snapshot_path
         self.save_every = save_every
         self.device = device
+        
+        if log_dir is not None:
+            self.writer = tb.SummaryWriter(log_dir=log_dir)
+
         self.__initialized = True
 
     def configure_dataloader(self) -> dl.DataLoader2:
@@ -61,3 +67,5 @@ class BaseTrainer:
             if (epoch + 1) % self.save_every == 0:
                 self.save_snapshot(self.model)
         
+        if self.writer is not None:
+            self.writer.close()

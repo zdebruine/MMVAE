@@ -98,22 +98,4 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers['shr_enc_disc'].step()
             self.optimizers['shr_vae'].step()
             self.optimizers[f'{expert}-enc'].step()
-            self.optimizers[f'{expert}-dec'].step()
-
-            #Graph losses
-            self.writer.add_scalar('Loss', total_loss.item() , iteration)
-            self.writer.add_scalar('Loss/Expert_Recon', expert_recon_loss.item(), iteration)
-            self.writer.add_scalar('Loss/VAE', vae_loss.item(), iteration)
-            self.writer.add_scalar('Loss/Shared_Encoder_Adversarial', shr_enc_adversial_loss.item(), iteration)
-            self.writer.add_scalar('Loss/Shared', shared_loss.item(), iteration)
-            #Graph MSE vs KL Loss
-            self.writer.add_scalars('MSE-KL', {'MSE': vae_recon_loss.item(),
-                                              'KL': kl_loss.item()}, iteration)
-            #visualize latent space
-            latent_space_embedding = mu.detach()
-            #label each neuron its actual value
-            neuron_value = latent_space_embedding[:, 0]
-            #Visualization
-            self.writer.add_embedding(latent_space_embedding, metadata = neuron_value, global_step=iteration, tag='latent')
-            
-        self.writer.close() #close writer
+            self.optimizers[f'{expert}-dec'].step()     
