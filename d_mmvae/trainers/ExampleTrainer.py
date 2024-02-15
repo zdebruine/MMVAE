@@ -4,7 +4,7 @@ import d_mmvae.trainers.utils as utils
 import d_mmvae.models.ExampleModel as ExampleModel
 from d_mmvae.trainers.trainer import BaseTrainer
 from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
-from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter #tensorboard import 
 
 class ExampleTrainer(BaseTrainer):
     """
@@ -19,7 +19,7 @@ class ExampleTrainer(BaseTrainer):
         super(ExampleTrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
         self.expert_class_indices = [i for i in range(len(self.model.experts)) ]
-        self.writer = SummaryWriter()
+        self.writer = SummaryWriter() #tensorboard writer
 
     def configure_dataloader(self):
         expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
@@ -52,13 +52,7 @@ class ExampleTrainer(BaseTrainer):
         loss = F.binary_cross_entropy(output, labels)
         return loss
 
-    def train_epoch(self, epoch):
-
-        color_map = {
-            1: 'blue',    # Expert 1
-            2: 'red',     # Expert 2
-            # Add more labels and corresponding colors as needed
-        }   
+    def train_epoch(self, epoch):  
 
         for iteration, (data, expert) in enumerate(self.dataloader):
             print("Starting Iteration", iteration, flush=True)
@@ -88,9 +82,9 @@ class ExampleTrainer(BaseTrainer):
             # Expert Reconstruction Loss
             expert_recon_loss = F.mse_loss(expert_output, train_data.to_dense())
             # Shared VAE Loss
-            vae_recon_loss = F.mse_loss(shared_output, shared_input)
-            kl_loss = utils.kl_divergence(mu, var)
-            #combined vae loss
+            vae_recon_loss = F.mse_loss(shared_output, shared_input) #MSE
+            kl_loss = utils.kl_divergence(mu, var) #KL
+            #combined vae loss 
             vae_loss = self.vae_loss(shared_output, shared_input, mu, var)
             # Shared Encoder Adverserial Feedback
             labels = torch.tensor([self.expert_class_indices] * 32, dtype=float, device=self.device)
@@ -113,11 +107,9 @@ class ExampleTrainer(BaseTrainer):
                                               'KL': kl_loss.item()}, iteration)
             #visualize latent space
             latent_space_embedding = mu.detach()
-            #color mapping option based on expert 
-            metadata = [1 if expert == 'expert1' else 2 for _ in range(latent_space_embedding.shape[0])]
-            metadata_colors = [color_map[label] for label in metadata]  # Assign unique labels for each expert
             #label each neuron its actual value
             neuron_value = latent_space_embedding[:, 0]
+            #Visualization
             self.writer.add_embedding(latent_space_embedding, metadata = neuron_value, global_step=iteration, tag='latent')
             
-        self.writer.close()
+        self.writer.close() #close writer
