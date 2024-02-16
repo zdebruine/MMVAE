@@ -31,10 +31,11 @@ class HumanVAETrainer(BaseTrainer):
         )
     
     def configure_optimizers(self):
+        l2_reg = 1e-3
         return {
-            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-5,  betas=(0.8, 0.999)),
-            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-5,  betas=(0.8, 0.999)),
-            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-5,  betas=(0.8, 0.999))
+            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-5, weight_decay=l2_reg),
+            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-5, weight_decay=l2_reg),
+            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-5,  weight_decay=l2_reg)
         }
     
     def configure_schedulers(self):
