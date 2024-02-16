@@ -32,9 +32,9 @@ class HumanVAETrainer(BaseTrainer):
     
     def configure_optimizers(self):
         return {
-            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-4),
-            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-4),
-            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-4)
+            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-5),
+            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-5),
+            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-5)
         }
     
     def configure_schedulers(self):
@@ -67,7 +67,7 @@ class HumanVAETrainer(BaseTrainer):
         r2_score = utils.calculate_r2(dense_train_data, x_hat.detach())
         recon_loss = F.l1_loss(x_hat, dense_train_data)
         kl_loss = utils.kl_divergence(mu, logvar)
-        kl_weight = utils.cyclic_annealing(self.batch_iteration, 1e3)
+        kl_weight = utils.cyclic_annealing(self.batch_iteration, 4e3)
         unweighted_loss = recon_loss + kl_loss
         loss = recon_loss + (kl_loss * kl_weight)
         loss.backward()
