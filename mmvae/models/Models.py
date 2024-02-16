@@ -34,17 +34,18 @@ class VAE(nn.Module):
         self.mean = mean
         self.var = var
         
-    def reparameterize(self, mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
-        eps = torch.randn_like(var)
-        return mean + var*eps
+    def reparameterize(self, mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mu + std*eps
 
     def forward(self, x: torch.Tensor) -> Tuple[Union[Any, torch.Tensor], Any, Any, Tuple[Any]]:
         x, *encoder_results = utils.parameterize_returns(self.encoder(x))
         
         mu = self.mean(x)
-        var = self.var(x)
+        log_var = self.var(x)
         
-        x = self.reparameterize(mu, torch.exp(0.5 * var))
+        x = self.reparameterize(mu, log_var)
         x, *decoder_results = utils.parameterize_returns(self.decoder(x))
             
-        return (x, mu, var, *encoder_results, *decoder_results)
+        return (x, mu, log_var, *encoder_results, *decoder_results)

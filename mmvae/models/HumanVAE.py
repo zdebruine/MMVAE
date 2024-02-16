@@ -21,11 +21,29 @@ class SharedVAE(M.VAE):
         if self._initialized:
             raise RuntimeError("Cannot invoke after intialization!")
         
-        utils._submodules_init_weights_xavier_uniform_(self.encoder)
-        utils._submodules_init_weights_xavier_uniform_(self.decoder)
-        utils._submodules_init_weights_xavier_uniform_(self.mean)
-        utils._xavier_uniform_(self.var, -1.0) # TODO: Add declare why
+        utils._submodules_init_weights_xavier_uniform_(self)
 
+class HumanEncoder(nn.Module):
+    
+    def __init__(self, writer):
+        super().__init__()
+        self.fc1 = nn.Linear(60664, 1024)
+        self.fc2 = nn.Linear(1024, 768)
+        self.fc3 = nn.Linear(768, 768)
+        self._iter = 0
+        self.writer = writer
+        
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        self._iter += 1
+            
+        #fc1_dp = max(0.8 - (self._iter * (1 / 2e4)), 0.3)
+        
+        #self.writer.add_scalar('Metric/fc1_dp', fc1_dp, self._iter)
+        x = F.relu(self.fc1(x))
+        x = F.leaky_relu(self.fc2(x))
+        x = F.leaky_relu(self.fc3(x))
+        return x
+        
 class HumanExpert(M.Expert):
 
     _initialized = None
@@ -89,24 +107,17 @@ class SharedDecoder(nn.Module):
         x = F.leaky_relu(self.fc4(x))
         return x
     
-def configure_model() -> Model:
+def configure_model(device, writer) -> Model:
         return Model(
             HumanExpert(
-                nn.Sequential(
-                    nn.Linear(60664, 1024),
-                    nn.LeakyReLU(),
-                    nn.Linear(1024, 768),
-                    nn.LeakyReLU(),
-                    nn.Linear(768, 768),
-                    nn.LeakyReLU(),
-                ),
+                HumanEncoder(writer),
                 nn.Sequential(
                     nn.Linear(768, 768),
                     nn.LeakyReLU(),
                     nn.Linear(768, 1024),
                     nn.LeakyReLU(),
                     nn.Linear(1024, 60664),
-                    nn.LeakyReLU()
+                    nn.ReLU()
                 ),
                 init_weights=True
             ),
@@ -117,5 +128,4 @@ def configure_model() -> Model:
                 nn.Linear(256, 128),
                 init_weights=True
             )
-        )
-     
+        ).to(device)

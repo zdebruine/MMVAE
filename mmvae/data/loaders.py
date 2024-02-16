@@ -48,7 +48,7 @@ class MappedCellCensusDataLoader(DataLoader):
             dataset=CCD.CellCensusDataset(device, file_path, load_all), 
             batch_size=batch_size, 
             shuffle=True, 
-            collate_fn=CCD.collate_fn
+            collate_fn=CCD.collate_fn,
         )
 
 class ChunkedCellCensusDataLoader(dl.DataLoader2):

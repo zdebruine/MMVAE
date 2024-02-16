@@ -21,13 +21,13 @@ class BaseTrainer:
         self.snapshot_path = snapshot_path
         self.save_every = save_every
         
+        if log_dir is not None:
+            self.writer = tb.SummaryWriter(log_dir=log_dir)
+        
         self.dataloader = self.configure_dataloader()
         self.model = self.configure_model()
         self.optimizers = self.configure_optimizers()
         self.schedulers = self.configure_schedulers()
-        
-        if log_dir is not None:
-            self.writer = tb.SummaryWriter(log_dir=log_dir)
 
         self.__initialized = True
 
@@ -72,7 +72,7 @@ class BaseTrainer:
         if load_snapshot and self.save_every and self.snapshot_path:
             # TODO: Handle snapshot loading
             pass
-            
+        
         for epoch in range(epochs):
             self.train_epoch(epoch)
             if self.save_every is not None and (epoch + 1) % self.save_every == 0:
