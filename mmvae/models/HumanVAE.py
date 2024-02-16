@@ -36,9 +36,10 @@ class HumanEncoder(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         self._iter += 1
             
-        #fc1_dp = max(0.8 - (self._iter * (1 / 2e4)), 0.3)
+        fc1_dp = max(0.8 - (self._iter * (1 / 5e4)), 0.3)
         
-        #self.writer.add_scalar('Metric/fc1_dp', fc1_dp, self._iter)
+        self.writer.add_scalar('Metric/fc1_dp', fc1_dp, self._iter)
+        x = F.feature_alpha_dropout(x)
         x = F.relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
         x = F.leaky_relu(self.fc3(x))
