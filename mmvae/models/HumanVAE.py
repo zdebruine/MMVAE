@@ -122,7 +122,7 @@ def configure_model(device, writer) -> Model:
                     nn.Linear(768, 1024),
                     nn.LeakyReLU(),
                     nn.Linear(1024, 60664),
-                    nn.ReLU()
+                    nn.LeakyReLU()
                 ),
                 init_weights=True
             ),
