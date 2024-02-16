@@ -68,7 +68,7 @@ class HumanVAETrainer(BaseTrainer):
         r2_score = utils.calculate_r2(dense_train_data, x_hat.detach())
         recon_loss = F.l1_loss(x_hat, dense_train_data)
         kl_loss = utils.kl_divergence(mu, logvar)
-        kl_weight = utils.cyclic_annealing(self.batch_iteration, 1e4)
+        kl_weight = utils.cyclic_annealing(self.batch_iteration, 2 * len(self.dataloader))
         unweighted_loss = recon_loss + kl_loss
         loss = recon_loss + (kl_loss * kl_weight)
         loss.backward()

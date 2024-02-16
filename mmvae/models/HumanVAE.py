@@ -131,7 +131,8 @@ def configure_model(device, writer) -> Model:
                     nn.ELU(),
                     nn.Linear(512, 60664),
                     nn.ELU()
-                )
+                ),
+                init_weights=True
             ),
             SharedVAE(
                 nn.Sequential(
@@ -150,6 +151,7 @@ def configure_model(device, writer) -> Model:
                     ),
                 nn.Linear(64, 32),
                 nn.Linear(64, 32),
+                init_weights=True
             )
         ).to(device)
 
