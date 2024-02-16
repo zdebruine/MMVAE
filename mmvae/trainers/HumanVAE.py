@@ -76,17 +76,6 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['shr_vae'].step()
         self.optimizers['encoder'].step()
         self.optimizers['decoder'].step()
-
-        mu_mean = mu.mean().item()
-        mu_std = mu.std().item()
-        logvar_mean = logvar.mean().item()
-        logvar_std = logvar.std().item()
-
-        # Log values
-        self.writer.add_scalar('mu/mean', mu_mean, global_step=self.batch_iteration)
-        self.writer.add_scalar('mu/std', mu_std, global_step=self.batch_iteration)
-        self.writer.add_scalar('logvar/mean', logvar_mean, global_step=self.batch_iteration)
-        self.writer.add_scalar('logvar/std', logvar_std, global_step=self.batch_iteration)
         
         self.writer.add_scalar('Metric/R2_Score', r2_score, self.batch_iteration)
         self.writer.add_scalar('Metric/KL_Weight', kl_weight, self.batch_iteration)

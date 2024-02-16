@@ -58,9 +58,8 @@ class HumanEncoder(nn.Module):
     
     def __init__(self, writer, drop_out=False):
         super().__init__()
-        self.fc1 = nn.Linear(60664, 784)
-        self.fc2 = nn.Linear(784, 512)
-        self.fc3 = nn.Linear(512, 512)
+        self.fc1 = nn.Linear(60664, 512)
+        self.fc2 = nn.Linear(512, 256)
         
         self.writer = writer
         self.droput = drop_out
@@ -119,22 +118,39 @@ class SharedDecoder(nn.Module):
         return x
     
 def configure_model(device, writer) -> Model:
-        return Model(
+    return Model(
             HumanExpert(
-                HumanEncoder(writer),
                 nn.Sequential(
-                    nn.Linear(512, 784),
-                    nn.LeakyReLU(),
-                    nn.Linear(784, 60664),
-                    nn.LeakyReLU()
-                ),
-                init_weights=True
+                    nn.Linear(60664, 512),
+                    nn.ELU(),
+                    nn.Linear(512, 256),
+                    nn.ELU()
+                    ),
+                nn.Sequential(
+                    nn.Linear(256, 512),
+                    nn.ELU(),
+                    nn.Linear(512, 60664),
+                    nn.ELU()
+                )
             ),
             SharedVAE(
-                SharedEncoder(),
-                SharedDecoder(),
-                nn.Linear(256, 128),
-                nn.Linear(256, 128),
-                init_weights=True
+                nn.Sequential(
+                    nn.Linear(256, 128),
+                    nn.ELU(),
+                    nn.Linear(128, 64),
+                    nn.ELU(),
+                ),
+                nn.Sequential(
+                    nn.Linear(32, 64),
+                    nn.ELU(),
+                    nn.Linear(64, 128),
+                    nn.ELU(),
+                    nn.Linear(128, 256),
+                    nn.ELU()
+                    ),
+                nn.Linear(64, 32),
+                nn.Linear(64, 32),
             )
         ).to(device)
+
+        
