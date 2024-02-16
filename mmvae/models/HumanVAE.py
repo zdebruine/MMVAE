@@ -12,7 +12,7 @@ class SharedVAE(M.VAE):
         super(SharedVAE, self).__init__(encoder, decoder, mean, var)
 
         if init_weights:
-            print("Initialing SharedEncoder xavier uniform on all submodules")
+            print("Initialing SharedVAE xavier uniform on all submodules")
             self.__init__weights()
         self._initialized = True
         
@@ -25,22 +25,26 @@ class SharedVAE(M.VAE):
 
 class HumanEncoder(nn.Module):
     
-    def __init__(self, writer):
+    def __init__(self, writer, drop_out=False):
         super().__init__()
         self.fc1 = nn.Linear(60664, 1024)
         self.fc2 = nn.Linear(1024, 768)
         self.fc3 = nn.Linear(768, 768)
         self._iter = 0
         self.writer = writer
+        self.apply_dropout = drop_out
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         self._iter += 1
-            
-        fc1_dp = max(0.8 - (self._iter * (1 / 5e4)), 0.3)
         
-        self.writer.add_scalar('Metric/fc1_dp', fc1_dp, self._iter)
-        x = F.feature_alpha_dropout(x)
-        x = F.relu(self.fc1(x))
+        
+        x = self.fc1(x)
+        if self.apply_dropout:
+            fc1_dp = max(0.8 - (self._iter * (1 / 5e4)), 0.3)
+            x = F.dropout(x, p=fc1_dp)
+            self.writer.add_scalar('Metric/fc1_dp', fc1_dp, self._iter)
+            
+        x = F.relu(x)
         x = F.leaky_relu(self.fc2(x))
         x = F.leaky_relu(self.fc3(x))
         return x
@@ -53,7 +57,7 @@ class HumanExpert(M.Expert):
         super(HumanExpert, self).__init__(encoder, decoder)
 
         if init_weights:
-            print("Initialing SharedEncoder xavier uniform on all submodules")
+            print("Initialing HumanExpert xavier uniform on all submodules")
             self.__init__weights()
         self._initialized = True
 
