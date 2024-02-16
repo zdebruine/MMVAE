@@ -61,11 +61,16 @@ class HumanEncoder(nn.Module):
         self.fc1 = nn.Linear(60664, 784)
         self.fc2 = nn.Linear(784, 512)
         self.fc3 = nn.Linear(512, 512)
-        self._iter = 0
+        
         self.writer = writer
         self.droput = drop_out
         
-    def apply_dropout(self):
+    def apply_dropout(self, x):
+        if self.__getattribute__('_iter') is None: 
+            self._iter = 0
+        else:
+            self._iter += 1
+            
         fc1_dp = max(0.8 - (self._iter * (1 / 5e4)), 0.3)
         x = F.dropout(x, p=fc1_dp)
         self.writer.add_scalar('Metric/fc1_dp', fc1_dp, self._iter)
@@ -74,8 +79,7 @@ class HumanEncoder(nn.Module):
         x = self.fc1(x)
         
         if self.droput:
-            self._iter += 1
-            self.apply_dropout()  
+            x = self.apply_dropout(x)  
             
         x = F.relu(x)
         x = F.leaky_relu(self.fc2(x))
@@ -88,12 +92,12 @@ class SharedEncoder(nn.Module):
 
     def __init__(self):
         super(SharedEncoder, self).__init__()
-        self.fc1 = nn.Linear(512, 512)
+        #self.fc1 = nn.Linear(512, 512)
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, 256)
 
     def forward(self, x):
-        x = F.leaky_relu(self.fc1(x))
+        #x = F.leaky_relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
         x = F.leaky_relu(self.fc3(x))
         return x
@@ -104,13 +108,13 @@ class SharedDecoder(nn.Module):
         super(SharedDecoder, self).__init__()
         self.fc1 = nn.Linear(128, 256)
         self.fc2 = nn.Linear(256, 512)
-        self.fc3 = nn.Linear(512, 512)
+        #self.fc3 = nn.Linear(512, 512)
         #self.fc4 = nn.Linear(512, 512)
     
     def forward(self, x):
         x = F.leaky_relu(self.fc1(x))
         x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
+        #x = F.leaky_relu(self.fc3(x))
         #x = F.leaky_relu(self.fc4(x))
         return x
     
@@ -119,8 +123,6 @@ def configure_model(device, writer) -> Model:
             HumanExpert(
                 HumanEncoder(writer),
                 nn.Sequential(
-                    nn.Linear(512, 512),
-                    nn.LeakyReLU(),
                     nn.Linear(512, 784),
                     nn.LeakyReLU(),
                     nn.Linear(784, 60664),
