@@ -117,7 +117,7 @@ class SharedDecoder(nn.Module):
         #x = F.leaky_relu(self.fc4(x))
         return x
     
-def configure_model(device, writer) -> Model:
+def configure_model(device, writer, init_weights) -> Model:
     return Model(
             HumanExpert(
                 nn.Sequential(
@@ -132,7 +132,7 @@ def configure_model(device, writer) -> Model:
                     nn.Linear(512, 60664),
                     nn.ELU()
                 ),
-                init_weights=False
+                init_weights=init_weights
             ),
             SharedVAE(
                 nn.Sequential(
@@ -151,7 +151,7 @@ def configure_model(device, writer) -> Model:
                     ),
                 nn.Linear(64, 32),
                 nn.Linear(64, 32),
-                init_weights=False
+                init_weights=init_weights
             )
         ).to(device)
 

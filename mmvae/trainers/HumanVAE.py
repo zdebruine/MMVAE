@@ -20,7 +20,7 @@ class HumanVAETrainer(BaseTrainer):
         super(HumanVAETrainer, self).__init__(*args, **kwargs)
 
     def configure_model(self) -> Module:
-        return HumanVAE.configure_model(self.device, self.writer) 
+        return HumanVAE.configure_model(self.device, self.writer, init_weights=True) 
     
     def configure_dataloader(self):
         return MappedCellCensusDataLoader(
@@ -33,9 +33,9 @@ class HumanVAETrainer(BaseTrainer):
     def configure_optimizers(self):
         l2_reg = 1e-5
         return {
-            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-4, weight_decay=l2_reg),
-            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-4, weight_decay=l2_reg),
-            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-4,  weight_decay=l2_reg)
+            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-5, weight_decay=l2_reg),
+            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-5, weight_decay=l2_reg),
+            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-5,  weight_decay=l2_reg)
         }
     
     def configure_schedulers(self):
