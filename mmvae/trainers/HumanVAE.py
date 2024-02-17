@@ -20,7 +20,7 @@ class HumanVAETrainer(BaseTrainer):
         super(HumanVAETrainer, self).__init__(*args, **kwargs)
 
     def configure_model(self) -> Module:
-        return HumanVAE.configure_model(self.device, self.writer, init_weights=True) 
+        return HumanVAE.configure_model(self.device, init_weights=False) 
     
     def configure_dataloader(self):
         return MappedCellCensusDataLoader(
@@ -33,9 +33,9 @@ class HumanVAETrainer(BaseTrainer):
     def configure_optimizers(self):
         l2_reg = 1e-5
         return {
-            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-5, weight_decay=l2_reg),
-            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-5, weight_decay=l2_reg),
-            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-5,  weight_decay=l2_reg)
+            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=1e-4, weight_decay=l2_reg),
+            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=1e-4, weight_decay=l2_reg),
+            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=1e-4,  weight_decay=l2_reg)
         }
     
     def configure_schedulers(self):
@@ -51,6 +51,7 @@ class HumanVAETrainer(BaseTrainer):
         self.total_epochs = epochs
         self.batch_iteration = 0
         super().train(epochs, load_snapshot)
+        self.writer.flush()
     
     def train_epoch(self, epoch):
         for train_data in self.dataloader:
@@ -82,4 +83,3 @@ class HumanVAETrainer(BaseTrainer):
         self.writer.add_scalar('Loss/KL', kl_loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/WeightedTotalLoss', loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/UnWeightedTotalLoss', unweighted_loss.item(), self.batch_iteration)
-        self.writer.flush()

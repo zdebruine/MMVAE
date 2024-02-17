@@ -84,40 +84,8 @@ class HumanEncoder(nn.Module):
         x = F.leaky_relu(self.fc2(x))
         x = F.leaky_relu(self.fc3(x))
         return x
-
-class SharedEncoder(nn.Module):
-
-    _initialized = None
-
-    def __init__(self):
-        super(SharedEncoder, self).__init__()
-        #self.fc1 = nn.Linear(512, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, 256)
-
-    def forward(self, x):
-        #x = F.leaky_relu(self.fc1(x))
-        x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        return x
-
-class SharedDecoder(nn.Module):
-
-    def __init__(self):
-        super(SharedDecoder, self).__init__()
-        self.fc1 = nn.Linear(128, 256)
-        self.fc2 = nn.Linear(256, 512)
-        #self.fc3 = nn.Linear(512, 512)
-        #self.fc4 = nn.Linear(512, 512)
     
-    def forward(self, x):
-        x = F.leaky_relu(self.fc1(x))
-        x = F.leaky_relu(self.fc2(x))
-        #x = F.leaky_relu(self.fc3(x))
-        #x = F.leaky_relu(self.fc4(x))
-        return x
-    
-def configure_model(device, writer, init_weights) -> Model:
+def configure_model(device, init_weights) -> Model:
     return Model(
             HumanExpert(
                 nn.Sequential(
