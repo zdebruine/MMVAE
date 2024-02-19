@@ -50,7 +50,8 @@ class ExampleTrainer(BaseTrainer):
         loss = F.binary_cross_entropy(output, labels)
         return loss
 
-    def train_epoch(self, epoch):
+    def train_epoch(self, epoch):  
+
         for iteration, (data, expert) in enumerate(self.dataloader):
             print("Starting Iteration", iteration, flush=True)
             self.model.set_expert(expert)
@@ -79,6 +80,9 @@ class ExampleTrainer(BaseTrainer):
             # Expert Reconstruction Loss
             expert_recon_loss = F.mse_loss(expert_output, train_data.to_dense())
             # Shared VAE Loss
+            vae_recon_loss = F.mse_loss(shared_output, shared_input) #MSE
+            kl_loss = utils.kl_divergence(mu, var) #KL
+            #combined vae loss 
             vae_loss = self.vae_loss(shared_output, shared_input, mu, var)
             # Shared Encoder Adverserial Feedback
             labels = torch.tensor([self.expert_class_indices] * 32, dtype=float, device=self.device)
@@ -92,11 +96,22 @@ class ExampleTrainer(BaseTrainer):
             self.optimizers['shr_enc_disc'].step()
             self.optimizers['shr_vae'].step()
             self.optimizers[f'{expert}-enc'].step()
-            self.optimizers[f'{expert}-dec'].step()
+            self.optimizers[f'{expert}-dec'].step()     
 
+            #Graph losses
+            self.writer.add_scalar('Loss/Total_Loss', total_loss.item() , iteration)
             self.writer.add_scalar('Loss/Expert_Recon', expert_recon_loss.item(), iteration)
             self.writer.add_scalar('Loss/VAE', vae_loss.item(), iteration)
             self.writer.add_scalar('Loss/Shared_Encoder_Adversarial', shr_enc_adversial_loss.item(), iteration)
             self.writer.add_scalar('Loss/Shared', shared_loss.item(), iteration)
-            self.writer.add_scalar('Loss/Total', total_loss.item(), iteration)
-            self.writer.flush()
+            #Graph MSE vs KL Loss
+            self.writer.add_scalars('Loss/MSE-KL', {'MSE': vae_recon_loss.item(),
+                                              'KL': kl_loss.item()}, iteration)
+            #visualize latent space
+            latent_space_embedding = mu.detach()
+            #label each neuron its actual value
+            neuron_value = latent_space_embedding[:, 0]
+            #Visualization
+            self.writer.add_embedding(latent_space_embedding, metadata = neuron_value, global_step=iteration, tag='latent')
+            
+            self.writer.flush() #flush writer

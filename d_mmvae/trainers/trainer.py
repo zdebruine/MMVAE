@@ -23,7 +23,7 @@ class BaseTrainer:
         self.device = device
         
         if log_dir is not None:
-            self.writer = tb.SummaryWriter(log_dir=log_dir)
+            self.writer = tb.SummaryWriter()
 
         self.__initialized = True
 
