@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import d_mmvae.models as M
+import mmvae.models as M
 
 class Model(nn.Module):
 
