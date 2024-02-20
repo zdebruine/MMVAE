@@ -4,8 +4,8 @@
 # SEE:  Jimver/cuda-toolkit; https://github.com/marketplace/actions/cuda-toolkit
 # SEE:  https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions
 # 
-name: D-MMVAE Unit Tests
-run-name: Running tests on modules in the D-MMVAE package
+name: MMVAE Unit Tests
+run-name: Running tests on modules in the MMVAE package
 on: [ push ]
 jobs:
     unit-tests:
