@@ -2,9 +2,14 @@ import torch
 import torch.nn.functional as F
 from torch.nn.modules import Module
 import mmvae.trainers.utils as utils
-import mmvae.models.HumanVAE as HumanVAE
+import mmvae.models.HumanVAE_gan as HumanVAE
 from mmvae.trainers.trainer import BaseTrainer
 from mmvae.data import MappedCellCensusDataLoader
+
+lr = 0.0001
+discrim_rato = 10
+REAL = 1
+FAKE = 0
 
 class HumanVAETrainer(BaseTrainer):
     """
@@ -33,9 +38,10 @@ class HumanVAETrainer(BaseTrainer):
     
     def configure_optimizers(self):
         return {
-            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=0.0001),
-            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=0.0001),
-            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=.00001)
+            'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=lr),
+            'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=lr),
+            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=lr),
+            'discrim': torch.optim.Adam(self.model.expert.discriminator.parameters(), lr=lr*discrim_rato)
         }
     
     def configure_schedulers(self):
@@ -61,9 +67,10 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['shr_vae'].zero_grad()
         self.optimizers['encoder'].zero_grad()
         self.optimizers['decoder'].zero_grad()
+        #self.optimizers['discrim'].zero_grad()
 
         # Forwad Pass Over Entire Model
-        x_hat, mu, var = self.model(train_data)
+        x_hat, mu, var, pred = self.model(train_data)
         recon_loss = F.l1_loss(x_hat, train_data.to_dense())
         # Shared VAE Loss
         kl_loss = utils.kl_divergence(mu, var)
@@ -74,6 +81,7 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['shr_vae'].step()
         self.optimizers['encoder'].step()
         self.optimizers['decoder'].step()
+        #self.optimizers['discrim'].step()
 
         self.writer.add_scalar('Loss/KL', kl_loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/ReconstructionFromTrainingData', loss.item(), self.batch_iteration)

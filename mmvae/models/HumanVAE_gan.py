@@ -30,8 +30,8 @@ class HumanExpert(M.Expert):
 
     _initialized = None
 
-    def __init__(self, encoder, decoder, init_weights = False):
-        super(HumanExpert, self).__init__(encoder, decoder)
+    def __init__(self, encoder, decoder, discriminator, init_weights = False):
+        super(HumanExpert, self).__init__(encoder, decoder, discriminator)
 
         if init_weights:
             print("Initialing SharedEncoder xavier uniform on all submodules")
@@ -55,7 +55,8 @@ class Model(nn.Module):
         x = self.expert.encoder(x)
         x, mu, var = self.shared_vae(x)
         x = self.expert.decoder(x)
-        return x, mu, var
+        pred = self.expert.discriminator(x)
+        return x, mu, var, pred
 
 class SharedEncoder(nn.Module):
 
@@ -108,6 +109,14 @@ def configure_model() -> Model:
                     nn.Linear(1024, 60664),
                     nn.LeakyReLU()
                 ),
+                nn.Sequential(
+                    nn.Linear(60664, 512),
+                    nn.ReLU(),
+                    nn.Linear(512, 128),
+                    nn.ReLU(),
+                    nn.Linear(128, 1),
+                    nn.Sigmoid()
+                ),
                 init_weights=True
             ),
             SharedVAE(
@@ -118,4 +127,4 @@ def configure_model() -> Model:
                 init_weights=True
             )
         )
-     
+ 
