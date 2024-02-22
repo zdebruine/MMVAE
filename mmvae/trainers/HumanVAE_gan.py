@@ -41,7 +41,7 @@ class HumanVAETrainer(BaseTrainer):
             'encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=lr),
             'decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=lr),
             'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=lr),
-            'discrim': torch.optim.Adam(self.model.expert.discriminator.parameters(), lr=lr*discrim_rato)
+            'discrim': torch.optim.Adam(self.model.expert.discriminator.parameters(), lr=lr/discrim_rato)
         }
     
     def configure_schedulers(self):
@@ -67,21 +67,48 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['shr_vae'].zero_grad()
         self.optimizers['encoder'].zero_grad()
         self.optimizers['decoder'].zero_grad()
-        #self.optimizers['discrim'].zero_grad()
+        self.optimizers['discrim'].zero_grad()
+
+        print(f'batch iteration: {self.batch_iteration}\n train_data size: {train_data.size()}')
+
+        ## Train Discriminator
+
+        # train discriminator with real data
+        real_pred = self.model.expert.discriminator(train_data)
+        real_loss = F.mse_loss(real_pred, torch.ones_like(real_pred))
+        real_loss.backward()
+
+        # gen fake data
+        with torch.no_grad():
+            fake_data, _, _ = self.model(train_data)
+
+        # train discriminator with fake data
+        fake_pred = self.model.expert.discriminator(fake_data)
+        fake_loss = F.mse_loss(fake_pred, torch.zeros_like(fake_pred))
+        fake_loss.backward()
+
+        self.optimizers['discrim'].step()
 
         # Forwad Pass Over Entire Model
-        x_hat, mu, var, pred = self.model(train_data)
+        x_hat, mu, var = self.model(train_data)
+        
+        discrim_pred = self.model.expert.discriminator(x_hat)
+        gen_loss = F.mse_loss(discrim_pred, torch.ones_like(discrim_pred))
+
         recon_loss = F.l1_loss(x_hat, train_data.to_dense())
         # Shared VAE Loss
         kl_loss = utils.kl_divergence(mu, var)
         kl_weight = min(1.0, epoch / self.annealing_steps)
-        loss = recon_loss + (kl_loss * kl_weight)
+        loss = gen_loss + recon_loss + (kl_loss * kl_weight)
         loss.backward()
     
         self.optimizers['shr_vae'].step()
         self.optimizers['encoder'].step()
         self.optimizers['decoder'].step()
-        #self.optimizers['discrim'].step()
 
         self.writer.add_scalar('Loss/KL', kl_loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/ReconstructionFromTrainingData', loss.item(), self.batch_iteration)
+        self.writer.add_scalar('Loss/RealDataLoss', real_loss.item(), self.batch_iteration)
+        self.writer.add_scalar('Loss/FakeDataLoss', fake_loss.item(), self.batch_iteration)
+        self.writer.add_scalar('Loss/GeneratorLoss', gen_loss.item(), self.batch_iteration)
+

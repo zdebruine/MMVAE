@@ -55,8 +55,7 @@ class Model(nn.Module):
         x = self.expert.encoder(x)
         x, mu, var = self.shared_vae(x)
         x = self.expert.decoder(x)
-        pred = self.expert.discriminator(x)
-        return x, mu, var, pred
+        return x, mu, var
 
 class SharedEncoder(nn.Module):
 

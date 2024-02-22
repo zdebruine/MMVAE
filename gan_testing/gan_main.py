@@ -12,7 +12,7 @@ def main(device):
 
     print("done")
 
-    trainer.train(epochs=1)
+    trainer.train(epochs=10)
 
 if __name__ == "__main__":
     CUDA = True
