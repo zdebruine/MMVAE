@@ -15,7 +15,6 @@
 #SBATCH --output=discrim.%j.out ##Name of output file
 
 module load ml-python/nightly
-module load cuda12.0/nsigt/12.0.1
-module load tensorflow/2.14.0_py3
+module load numpy/1.26.1
 export PYTHONPATH=$PYTHONPATH:/active/debruinz_project/jack_lukomski/MMVAE_Adversarial_Team
 python gan_main.py

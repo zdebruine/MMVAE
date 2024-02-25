@@ -5,11 +5,16 @@ import mmvae.trainers.utils as utils
 import mmvae.models.HumanVAE_gan as HumanVAE
 from mmvae.trainers.trainer import BaseTrainer
 from mmvae.data import MappedCellCensusDataLoader
+import numpy as np
 
 lr = 0.0001
-discrim_rato = 10
+discrim_rato = 25
 REAL = 1
 FAKE = 0
+KL_ANNEALING_STEPS = 50
+DISCRIM_ANNEALING_STEPS = KL_ANNEALING_STEPS * discrim_rato
+TPR = []
+FPR = []
 
 class HumanVAETrainer(BaseTrainer):
     """
@@ -23,7 +28,7 @@ class HumanVAETrainer(BaseTrainer):
         self.batch_size = batch_size # Defined before super().__init__ as configure_* is called on __init__
         super(HumanVAETrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
-        self.annealing_steps = 50
+        self.annealing_steps = KL_ANNEALING_STEPS
 
     def configure_model(self) -> Module:
         return HumanVAE.configure_model() 
@@ -56,6 +61,9 @@ class HumanVAETrainer(BaseTrainer):
     def train(self, epochs, load_snapshot=False):
         self.batch_iteration = 0
         super().train(epochs, load_snapshot)
+        np.save('TPR.npy', TPR)
+        np.save('FPR.npy', FPR)
+        print("TPR and FPR saved")
     
     def train_epoch(self, epoch):
         for train_data in self.dataloader:
@@ -69,13 +77,11 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['decoder'].zero_grad()
         self.optimizers['discrim'].zero_grad()
 
-        print(f'batch iteration: {self.batch_iteration}\n train_data size: {train_data.size()}')
-
         ## Train Discriminator
 
-        # train discriminator with real data
+        # train discriminator with real data **use l1 & 2
         real_pred = self.model.expert.discriminator(train_data)
-        real_loss = F.mse_loss(real_pred, torch.ones_like(real_pred))
+        real_loss = F.l1_loss(real_pred, torch.ones_like(real_pred))
         real_loss.backward()
 
         # gen fake data
@@ -84,23 +90,31 @@ class HumanVAETrainer(BaseTrainer):
 
         # train discriminator with fake data
         fake_pred = self.model.expert.discriminator(fake_data)
-        fake_loss = F.mse_loss(fake_pred, torch.zeros_like(fake_pred))
+        fake_loss = F.l1_loss(fake_pred, torch.zeros_like(fake_pred))
         fake_loss.backward()
 
         self.optimizers['discrim'].step()
 
         # Forwad Pass Over Entire Model
         x_hat, mu, var = self.model(train_data)
+
         
         discrim_pred = self.model.expert.discriminator(x_hat)
-        gen_loss = F.mse_loss(discrim_pred, torch.ones_like(discrim_pred))
+        gen_loss = F.l1_loss(discrim_pred, torch.ones_like(discrim_pred))
+        gan_weight = min(1.0, epoch / DISCRIM_ANNEALING_STEPS)
 
         recon_loss = F.l1_loss(x_hat, train_data.to_dense())
         # Shared VAE Loss
         kl_loss = utils.kl_divergence(mu, var)
         kl_weight = min(1.0, epoch / self.annealing_steps)
-        loss = gen_loss + recon_loss + (kl_loss * kl_weight)
+        # add generator weight
+        loss = (gen_loss * gan_weight) + recon_loss + (kl_loss * kl_weight)
         loss.backward()
+
+        tpr, fpr = utils.get_batch_tpr_fpr(self.model.expert.discriminator, train_data, x_hat)
+
+        TPR.append(tpr)
+        FPR.append(fpr)
     
         self.optimizers['shr_vae'].step()
         self.optimizers['encoder'].step()
@@ -111,4 +125,6 @@ class HumanVAETrainer(BaseTrainer):
         self.writer.add_scalar('Loss/RealDataLoss', real_loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/FakeDataLoss', fake_loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/GeneratorLoss', gen_loss.item(), self.batch_iteration)
+        self.writer.add_scalar('TPR', tpr, self.batch_iteration)
+        self.writer.add_scalar('FPR', fpr, self.batch_iteration)
 

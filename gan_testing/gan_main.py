@@ -7,12 +7,12 @@ def main(device):
     trainer = HumanVAE_gan.HumanVAETrainer(
         batch_size,
         device,
-        log_dir="/active/debruinz_project/jack_lukomski/logs"
+        log_dir="/active/debruinz_project/jack_lukomski/logs/saving_roc_weights"
     )
 
     print("done")
 
-    trainer.train(epochs=10)
+    trainer.train(epochs=1)
 
 if __name__ == "__main__":
     CUDA = True
