@@ -4,4 +4,6 @@
 **.egg-info
 **/slurm-*.sh
 **/pytest-test.*.out
+/outs
+/snapshots
 
