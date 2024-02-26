@@ -91,15 +91,15 @@ def configure_model() -> Model:
                 nn.Sequential(
                     nn.Linear(60664, 1028),
                     nn.LeakyReLU(),
-                    nn.Linear(1028, 512),
+                    nn.Linear(1028, 784),
                     nn.LeakyReLU(),
-                    nn.Linear(512, 256),
+                    nn.Linear(784, 512),
                     nn.LeakyReLU()
                     ),
                 nn.Sequential(
-                    nn.Linear(256, 512),
+                    nn.Linear(512, 784),
                     nn.LeakyReLU(),
-                    nn.Linear(512, 1028),
+                    nn.Linear(784, 1028),
                     nn.LeakyReLU(),
                     nn.Linear(1028, 60664),
                     nn.LeakyReLU()
@@ -108,19 +108,19 @@ def configure_model() -> Model:
             ),
             SharedVAE(
                 nn.Sequential(
+                    nn.Linear(512, 256),
+                    nn.LeakyReLU(),
                     nn.Linear(256, 128),
                     nn.LeakyReLU(),
-                    # nn.Linear(128, 64),
-                    # nn.LeakyReLU(),
                 ),
                 nn.Sequential(
-                    nn.Linear(64, 128),
-                    nn.LeakyReLU(),
                     nn.Linear(128, 256),
+                    nn.LeakyReLU(),
+                    nn.Linear(256, 512),
                     nn.LeakyReLU()
                     ),
-                nn.Linear(128, 64),
-                nn.Linear(128, 64),
+                nn.Linear(256, 128),
+                nn.Linear(256, 128),
                 init_weights=False
             )
         )
