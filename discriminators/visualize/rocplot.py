@@ -21,7 +21,7 @@ Parameters:
     dataloader: DataLoader
     device: torch.device
 """
-def roc_plot(discriminator: nn.Module, generator: nn.Module, dataloader: DataLoader, device: torch.device):
+def roc_plot(discriminator: nn.Module, generator: nn.Module, dataloader: DataLoader, device: torch.device, writer: SummaryWriter):
     model_prediction = []
     true_value = []
     for i, (X, _) in enumerate(dataloader):
