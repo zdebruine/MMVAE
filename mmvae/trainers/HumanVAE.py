@@ -29,7 +29,7 @@ class HumanVAETrainer(HPBaseTrainer):
     
     def __init__(self, device: torch.device, hparams: dict):
         super(HumanVAETrainer, self).__init__(device, hparams, self.required_hparams)
-        self.writer.add_hparams(self.hparams, self.metrics, global_step=0)
+        self.writer.add_hparams(self.hparams, {}, run_name=self.hparams['tensorboard_run_name'], global_step=0)
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                             Configuration                             #
@@ -118,7 +118,7 @@ class HumanVAETrainer(HPBaseTrainer):
                 
         # for metric in self.metrics:
         #     self.writer.add_scalar(metric, self.metrics[metric], global_step=epoch)
-        self.writer.add_hparams(self.hparams, self.metrics, run_name=self.hparams['tensorboard_run_name'], global_step=epoch + 1)
+        self.writer.add_hparams(self.hparams, self.metrics, run_name=self.hparams['tensorboard_run_name'], global_step=epoch)
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                          Train Configuration                          #
