@@ -1,13 +1,13 @@
 import torch
-from mmvae.trainers import HumanVAE
+from mmvae.trainers import HumanVAETrainer
 from datetime import datetime
 
 def main(device):
     # Define any hyperparameters
-    batch_size = 512
+    batch_size = 32
     
     # Create trainer instance
-    trainer = HumanVAE(
+    trainer = HumanVAETrainer(
         batch_size, 
         device,
         log_dir='/home/howlanjo/logs/' + datetime.now().strftime("%Y%m%d-%H%M%S") + "_JUST_10",
