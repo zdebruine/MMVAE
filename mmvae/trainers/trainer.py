@@ -83,7 +83,8 @@ class BaseTrainer:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:
-            self.writer.add_hparams(self.hparams, self.metrics, global_step=epoch)
+            #self.writer.add_hparams(self.hparams, self.metrics, global_step=epoch)
+            self.writer.flush()
             self.writer.close()
 
 class HPBaseTrainer(BaseTrainer):
