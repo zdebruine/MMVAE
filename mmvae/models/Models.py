@@ -12,15 +12,7 @@ class Expert(nn.Module):
         self.discriminator = discriminator
 
     def forward(self, x):
-        """
-        Forward pass treated as autoencoder
-        >>> return self.decoder(self.encoder(x))
-        """
-        x = self.encoder(x)
-        x = self.decoder(x)
-        if self.discriminator is not None:
-            x = self.discriminator(x)
-        return x
+        raise RuntimeError("Don't foward the expert")
 
 class VAE(nn.Module):
     """

@@ -85,42 +85,44 @@ class HumanEncoder(nn.Module):
         x = F.leaky_relu(self.fc3(x))
         return x
     
-def configure_model(device, init_weights) -> Model:
+def configure_model(init_weights) -> Model:
     return Model(
             HumanExpert(
                 nn.Sequential(
-                    nn.Linear(60664, 512),
-                    nn.ELU(),
+                    nn.Linear(60664, 1028),
+                    nn.LeakyReLU(),
+                    nn.Linear(1028, 512),
+                    nn.LeakyReLU(),
                     nn.Linear(512, 256),
-                    nn.ELU()
+                    nn.LeakyReLU()
                     ),
                 nn.Sequential(
                     nn.Linear(256, 512),
-                    nn.ELU(),
-                    nn.Linear(512, 60664),
-                    nn.ELU()
+                    nn.LeakyReLU(),
+                    nn.Linear(512, 1028),
+                    nn.LeakyReLU(),
+                    nn.Linear(1028, 60664),
+                    nn.LeakyReLU()
                 ),
                 init_weights=init_weights
             ),
             SharedVAE(
                 nn.Sequential(
                     nn.Linear(256, 128),
-                    nn.ELU(),
-                    nn.Linear(128, 64),
-                    nn.ELU(),
+                    nn.LeakyReLU(),
+                    # nn.Linear(128, 64),
+                    # nn.LeakyReLU(),
                 ),
                 nn.Sequential(
-                    nn.Linear(32, 64),
-                    nn.ELU(),
                     nn.Linear(64, 128),
-                    nn.ELU(),
+                    nn.LeakyReLU(),
                     nn.Linear(128, 256),
-                    nn.ELU()
+                    nn.LeakyReLU()
                     ),
-                nn.Linear(64, 32),
-                nn.Linear(64, 32),
+                nn.Linear(128, 64),
+                nn.Linear(128, 64),
                 init_weights=init_weights
             )
-        ).to(device)
+        )
 
         

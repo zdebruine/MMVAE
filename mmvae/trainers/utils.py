@@ -1,6 +1,9 @@
 import torch
+import PIL
+import matplotlib.pyplot as plt
+import numpy as np
 
-def kl_divergence(mu, logvar):
+def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor):
     """
     Calculate the KL divergence between a given Gaussian distribution q(z|x)
     and the standard Gaussian distribution p(z).
@@ -8,6 +11,7 @@ def kl_divergence(mu, logvar):
     Parameters:
     - mu (torch.Tensor): The mean of the Gaussian distribution q(z|x).
     - sigma (torch.Tensor): The standard deviation of the Gaussian distribution q(z|x).
+    - beta (int): Default = 0.5 - Weight in which to factor KL Divergence. 
 
     Returns:
     - torch.Tensor: The KL divergence.
@@ -29,14 +33,11 @@ def cyclic_annealing(batch_iteration, cycle_length, min_beta=0.0, max_beta=1.0, 
     Returns:
     - beta_value: The calculated annealing rate for the current batch iteration.
     """
-    
-    
-    
+
     # Determine the current position in the cycle
     cycle_position = batch_iteration % cycle_length
-    
     # Calculate the phase of the cycle (upswing or downswing)
-    if cycle_position < cycle_length / 2:
+    if cycle_position < cycle_length // 2:
         if floor_upswings:
             return min_beta
         # Upswing phase
@@ -74,3 +75,18 @@ def calculate_r2(input: torch.Tensor, target: torch.Tensor) -> float:
     # Calculate and return the R^2 score
     r2_score = 1 - ss_res / ss_tot
     return r2_score.item()
+
+
+def save_image(image: torch.Tensor, file_path: str):
+    
+    image_array = image.cpu().to_dense()[4:].reshape(180, 337).numpy()
+    normed_data = (image_array - np.min(image_array)) / (np.max(image_array) - np.min(image_array))
+
+    # Apply a colormap (e.g., 'viridis', 'jet', 'plasma', etc.) to the normalized data
+    # This converts the single-channel floating-point data to 3-channel RGB data
+    colored_data = plt.cm.viridis(normed_data)
+    # Remove the alpha channel (if you want RGB only)
+    colored_data = (colored_data[..., :3] * 255).astype(np.uint8)
+    # Convert the RGB data to a PIL Image and save it
+    colored_image = PIL.Image.fromarray(colored_data, 'RGB')
+    colored_image.save(file_path)

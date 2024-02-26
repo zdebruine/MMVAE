@@ -1,9 +1,7 @@
 import torchdata.dataloader2 as dl
 from typing import Generator, Any
 import mmvae.data.pipes as p
-from mmvae.data.datasets import CellCensusDataset as CCD
 import torch
-from torch.utils.data import DataLoader
 import random
 
 class MultiModalLoader:
@@ -41,15 +39,15 @@ class MultiModalLoader:
                     return
                 del loaders[loader_idx]
 
-class MappedCellCensusDataLoader(DataLoader):
+# class MappedCellCensusDataLoader(DataLoader):
 
-    def __init__(self, batch_size, device, file_path, load_all):
-        super(MappedCellCensusDataLoader, self).__init__(
-            dataset=CCD.CellCensusDataset(device, file_path, load_all), 
-            batch_size=batch_size, 
-            shuffle=True, 
-            collate_fn=CCD.collate_fn,
-        )
+#     def __init__(self, batch_size, device, file_path, metadata_file_path):
+#         super(MappedCellCensusDataLoader, self).__init__(
+#             dataset=CCD.CellCensusDataset(data, metadata_file_path), 
+#             batch_size=batch_size, 
+#             shuffle=True, 
+#             collate_fn=CCD.collate_fn,
+#         )
 
 class ChunkedCellCensusDataLoader(dl.DataLoader2):
     """
