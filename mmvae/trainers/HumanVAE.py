@@ -53,7 +53,7 @@ class HumanVAETrainer(BaseTrainer):
     
     def train_epoch(self, epoch):
         for train_data in self.dataloader:
-            print(f"Training on batch: {self.batch_iteration}")
+            print(f"Training on batch: {self.batch_iteration}, train_data: {train_data.shape} ")
             
             self.batch_iteration += 1
             self.train_trace_complete(train_data, epoch)

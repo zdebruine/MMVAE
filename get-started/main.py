@@ -4,7 +4,7 @@ from datetime import datetime
 
 def main(device):
     # Define any hyperparameters
-    batch_size = 32
+    batch_size = 512
     
     # Create trainer instance
     trainer = HumanVAETrainer(
