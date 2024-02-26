@@ -8,6 +8,8 @@ from typing import Any
 class BaseTrainer:
 
     __initialized = False
+    metrics = {}
+    hparams = {}
 
     def __init__(
         self, 
@@ -24,7 +26,7 @@ class BaseTrainer:
         
         if log_dir is not None:
             self.writer = tb.SummaryWriter(log_dir=log_dir)
-        
+            
         self.configure_dataloader()
         self.model = self.configure_model()
         self.optimizers = self.configure_optimizers()
@@ -81,6 +83,7 @@ class BaseTrainer:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:
+            self.writer.add_hparams(self.hparams, self.metrics, global_step=epoch)
             self.writer.close()
 
 class HPBaseTrainer(BaseTrainer):
@@ -108,7 +111,11 @@ class HPBaseTrainer(BaseTrainer):
             log_dir=None if log_dir == "" else log_dir,
             snapshot_path=None if snapshot_path == "" else snapshot_path,
             save_every=None if save_every == 0 else save_every)
-    
+        
+    def train(self, epochs, load_snapshot=False):
+        self.writer.add_hparams(self.hparams, self.metrics, run_name=self.hparams['tensorboard_run_name'], global_step=0)
+        super().train(epochs, load_snapshot)
+        
     def _flatten_hparams(self, hparams: dict, parent = ""):
         for key, value in hparams.items():
             flattened_key = key if parent == "" else f"{parent}_{key}"

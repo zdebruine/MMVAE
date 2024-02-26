@@ -116,7 +116,9 @@ class HumanVAETrainer(HPBaseTrainer):
                 self.metrics['Test/Loss/KL'] += kl_loss
                 self.metrics['Test/Loss/Total'] += recon_loss + (kl_weight * kl_loss)
                 
-        self.writer.add_hparams(self.hparams, self.metrics, global_step=epoch)
+        # for metric in self.metrics:
+        #     self.writer.add_scalar(metric, self.metrics[metric], global_step=epoch)
+        self.writer.add_hparams(self.hparams, self.metrics, run_name=self.hparams['tensorboard_run_name'], global_step=epoch + 1)
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                          Train Configuration                          #
@@ -125,7 +127,6 @@ class HumanVAETrainer(HPBaseTrainer):
     def train(self, epochs, load_snapshot=False):
         self.batch_iteration = 0
         super().train(epochs, load_snapshot)
-        self.writer.flush()
     
     def train_epoch(self, epoch):
         num_samples = len(self.train_loader)
