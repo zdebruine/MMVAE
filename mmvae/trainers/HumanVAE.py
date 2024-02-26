@@ -5,7 +5,6 @@ from torch.optim.lr_scheduler import LRScheduler
 import mmvae.trainers.utils as utils
 import mmvae.models.HumanVAE as HumanVAE
 from mmvae.trainers.trainer import HPBaseTrainer
-import torch.nn as nn
 import random
 
 class HumanVAETrainer(HPBaseTrainer):
@@ -27,9 +26,10 @@ class HumanVAETrainer(HPBaseTrainer):
     
     model: HumanVAE.Model
     
-    def __init__(self, device: torch.device, hparams: dict):
-        super(HumanVAETrainer, self).__init__(device, hparams, self.required_hparams)
-        self.writer.add_hparams(self.hparams, {}, run_name=self.hparams['tensorboard_run_name'], global_step=0)
+    def __init__(self, _device: torch.device, _hparams: dict):
+        super(HumanVAETrainer, self).__init__(_device, _hparams, self.required_hparams)
+        #self.writer.add_hparams(self.hparams, self.metrics, run_name=self.hparams['tensorboard_run_name'], global_step=-1)
+        self.writer.add_text('Model Architecture', str(self.model))
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                             Configuration                             #
@@ -66,7 +66,7 @@ class HumanVAETrainer(HPBaseTrainer):
         )
         
     def configure_model(self) -> Module:
-        model = HumanVAE.configure_model(init_weights=False).to(self.device)
+        model = HumanVAE.configure_model().to(self.device)
         return model
         
     def configure_optimizers(self):
@@ -81,7 +81,7 @@ class HumanVAETrainer(HPBaseTrainer):
                 key: torch.optim.lr_scheduler.StepLR(
                     optimizer, 
                     step_size=self.hparams[f'{key}_optim_step_size'], 
-                    gamma=f"{key}_optim_gamma") 
+                    gamma=self.hparams[f"{key}_optim_gamma"])
                 for key, optimizer in self.optimizers.items()
             }
         

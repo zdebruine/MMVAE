@@ -102,7 +102,7 @@ class HPBaseTrainer(BaseTrainer):
         self._flatten_hparams(hparams)
         self._validate_hparams()
         
-        log_dir=f"{self.hparams['tensorboard_directory']}{self.hparams['tensorboard_run_name']}"
+        log_dir=f"{self.hparams['tensorboard_directory']}{self.hparams['tensorboard_run_name']}_run"
         snapshot_path=self.hparams['snapshot_path']
         save_every=self.hparams['snapshot_save_every']
         

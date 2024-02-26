@@ -85,7 +85,7 @@ class HumanEncoder(nn.Module):
         x = F.leaky_relu(self.fc3(x))
         return x
     
-def configure_model(init_weights) -> Model:
+def configure_model() -> Model:
     return Model(
             HumanExpert(
                 nn.Sequential(
@@ -104,7 +104,7 @@ def configure_model(init_weights) -> Model:
                     nn.Linear(1028, 60664),
                     nn.LeakyReLU()
                 ),
-                init_weights=init_weights
+                init_weights=False
             ),
             SharedVAE(
                 nn.Sequential(
@@ -121,7 +121,7 @@ def configure_model(init_weights) -> Model:
                     ),
                 nn.Linear(128, 64),
                 nn.Linear(128, 64),
-                init_weights=init_weights
+                init_weights=False
             )
         )
 
