@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torchdata.dataloader as dl
+import torchdata.dataloader2 dl
 import inspect
 import torch.utils.tensorboard as tb
 from typing import Any
