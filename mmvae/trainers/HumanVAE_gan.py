@@ -6,6 +6,7 @@ import mmvae.models.HumanVAE_gan as HumanVAE
 from mmvae.trainers.trainer import BaseTrainer
 from mmvae.data import MappedCellCensusDataLoader
 import numpy as np
+import gan_testing.meta_discriminator as meta_disc
 
 lr = 0.0001
 discrim_rato = 25
@@ -64,6 +65,8 @@ class HumanVAETrainer(BaseTrainer):
         np.save('TPR.npy', TPR)
         np.save('FPR.npy', FPR)
         print("TPR and FPR saved")
+
+        meta_disc.meta_discriminator_test(self.model, self.dataloader, self.writer)
     
     def train_epoch(self, epoch):
         for train_data in self.dataloader:
