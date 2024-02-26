@@ -1,9 +1,9 @@
 import torch
 import torch.nn.functional as F
-import d_mmvae.trainers.utils as utils
-import d_mmvae.models.ExampleModel as ExampleModel
-from d_mmvae.trainers.trainer import BaseTrainer
-from d_mmvae.data import MultiModalLoader, CellCensusDataLoader
+import mmvae.trainers.utils as utils
+import mmvae.models.ExampleModel as ExampleModel
+from mmvae.trainers.trainer import BaseTrainer
+from mmvae.data import MultiModalLoader, ChunkedCellCensusDataLoader
 
 class ExampleTrainer(BaseTrainer):
     """
@@ -20,8 +20,8 @@ class ExampleTrainer(BaseTrainer):
         self.expert_class_indices = [i for i in range(len(self.model.experts)) ]
 
     def configure_dataloader(self):
-        expert1 = CellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
-        expert2 = CellCensusDataLoader('expert2', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
+        expert1 = ChunkedCellCensusDataLoader('expert1', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
+        expert2 = ChunkedCellCensusDataLoader('expert2', directory_path="/active/debruinz_project/tony_boos/csr_chunks", masks=['chunk*'], batch_size=self.batch_size, num_workers=2)
         return MultiModalLoader(expert1, expert2)
 
     def configure_model(self):

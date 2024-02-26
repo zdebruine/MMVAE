@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torchdata.dataloader2 as dl
+import inspect
 import torch.utils.tensorboard as tb
 from typing import Any
 
@@ -15,12 +16,15 @@ class BaseTrainer:
         snapshot_path: str = None, 
         save_every: int = None
     ) -> None:
-        self.model = self.configure_model()
-        self.optimizers = self.configure_optimizers()
-        self.dataloader = self.configure_dataloader()
+        
+        self.device = device
         self.snapshot_path = snapshot_path
         self.save_every = save_every
-        self.device = device
+        
+        self.dataloader = self.configure_dataloader()
+        self.model = self.configure_model()
+        self.optimizers = self.configure_optimizers()
+        self.schedulers = self.configure_schedulers()
         
         if log_dir is not None:
             self.writer = tb.SummaryWriter()
@@ -34,7 +38,14 @@ class BaseTrainer:
         raise NotImplementedError()
     
     def configure_optimizers(self) -> dict[str, torch.optim.Optimizer]:
-        raise NotImplementedError()
+        import warnings
+        warnings.showwarning('Warning! - No optimizers configured during intialization', category=Warning, filename= 'trainer.py', lineno=inspect.getframeinfo(inspect.currentframe().f_back).lineno)
+        return {}
+    
+    def configure_schedulers(self) -> dict[str, torch.optim.lr_scheduler.LRScheduler]:
+        import warnings
+        warnings.showwarning(message='Warning! - No schedulers configured during intialization', category=Warning, filename= 'trainer.py', lineno=45)
+        return {}
 
     def load_snapshot(self) -> tuple[nn.Module, int]:
         # TODO: FIX
@@ -64,7 +75,7 @@ class BaseTrainer:
             
         for epoch in range(epochs):
             self.train_epoch(epoch)
-            if (epoch + 1) % self.save_every == 0:
+            if self.save_every is not None and (epoch + 1) % self.save_every == 0:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:
