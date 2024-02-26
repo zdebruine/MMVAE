@@ -16,4 +16,4 @@
 
 module load ml-python/nightly
 export PYTHONPATH=/home/howlanjo/dev/MMVAE:$PYTHONPATH
-python /home/howlanjo/dev/MMVAE/get-started/howie.py
+python /home/howlanjo/dev/MMVAE/get-started/main.py

@@ -1,6 +1,6 @@
 import torch
 from mmvae.trainers import HumanVAE
-import datetime
+from datetime import datetime
 
 def main(device):
     # Define any hyperparameters
