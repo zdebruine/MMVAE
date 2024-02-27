@@ -140,8 +140,8 @@ class HumanVAETrainer(HPBaseTrainer):
             self.batch_iteration += 1
         self.test_trace_expert_reconstruction(epoch, kl_weight)
         
-        for optim in self.optimizers.values():
-            optim.step()
+        for schedular in self.schedulers.values():
+            schedular.step()
             
     def train_trace_expert_reconstruction(self, train_data: torch.Tensor, kl_weight: float):
 

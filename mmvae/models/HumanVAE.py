@@ -90,7 +90,7 @@ def configure_model() -> Model:
             HumanExpert(
                 nn.Sequential(
                     nn.Linear(60664, 1028),
-                    nn.LeakyReLU(),
+                    nn.ReLU(),
                     nn.Linear(1028, 784),
                     nn.LeakyReLU(),
                     nn.Linear(784, 512),
@@ -109,8 +109,6 @@ def configure_model() -> Model:
             SharedVAE(
                 nn.Sequential(
                     nn.Linear(512, 256),
-                    nn.LeakyReLU(),
-                    nn.Linear(256, 128),
                     nn.LeakyReLU(),
                 ),
                 nn.Sequential(
