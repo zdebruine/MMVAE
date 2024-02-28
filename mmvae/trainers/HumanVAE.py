@@ -71,7 +71,6 @@ class HumanVAETrainer(HPBaseTrainer):
         }
         
     def configure_schedulers(self) -> dict[str, LRScheduler]:
-        return {}
         return { 
                 key: torch.optim.lr_scheduler.StepLR(
                     optimizer, 
@@ -97,10 +96,12 @@ class HumanVAETrainer(HPBaseTrainer):
         self.metrics['Test/Loss/Total'] = 0.0
         self.metrics['Test/Loss/NonZeroFeatureReconstruction'] = 0.0
         self.metrics['Test/Loss/ZeroFeatureReconstruction'] = 0.0
+        self.metrics['Test/Eval/PCC'] = 0.0
     
         with torch.no_grad():
             self.model.eval()
             num_samples = len(self.test_loader)
+            batch_pcc = utils.BatchPCC()
             for i, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
                 dense_test_data = test_data.to_dense()
@@ -114,12 +115,15 @@ class HumanVAETrainer(HPBaseTrainer):
                     random_image_idx = random.randint(0, len(test_data) - 1)
                     utils.save_image(test_data[random_image_idx], '/home/denhofja/real_cell_image.png')
                     utils.save_image(x_hat[random_image_idx], '/home/denhofja/x_hat.png')
+                    
+                batch_pcc.update(test_data, dense_test_data)
                 
                 recon_loss, kl_loss = recon_loss.item() / num_samples, kl_loss.item() / num_samples
                 self.metrics['Test/Loss/ReconstructionLoss'] += recon_loss
                 self.metrics['Test/Loss/KL'] += kl_loss
                 self.metrics['Test/Loss/Total'] += recon_loss + (kl_weight * kl_loss)
                 
+        self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
         # for metric in self.metrics:
         #     self.writer.add_scalar(metric, self.metrics[metric], global_step=epoch)
         self.hparams['epochs'] = self.hparams['epochs'] + 1

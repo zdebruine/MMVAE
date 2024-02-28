@@ -114,3 +114,62 @@ def build_non_zero_mask(crow_indices, col_indices, shape):
             mask[row][col] = True  # Mark non-zero positions as True
     
     return mask
+
+def pearson_correlation_coefficient(y_true, y_pred):
+    """
+    Calculate the Pearson Correlation Coefficient between two tensors.
+    
+    :param y_true: Tensor of true values.
+    :param y_pred: Tensor of predicted values.
+    :return: Tensor containing the Pearson Correlation Coefficient.
+    """
+    # Ensure tensor computations do not track history
+    with torch.no_grad():
+        # Center the true and predicted values by subtracting their means
+        y_true_centered = y_true - y_true.mean()
+        y_pred_centered = y_pred - y_pred.mean()
+        
+        # Compute the covariance between y_true and y_pred
+        covariance = (y_true_centered * y_pred_centered).sum() / (y_true.size(0) - 1)
+        
+        # Compute the standard deviations of the true and predicted values
+        std_true = y_true_centered.pow(2).sum() / (y_true.size(0) - 1)
+        std_pred = y_pred_centered.pow(2).sum() / (y_pred.size(0) - 1)
+        
+        # Compute the Pearson Correlation Coefficient
+        pcc = covariance / (std_true.sqrt() * std_pred.sqrt())
+        
+        return pcc
+    
+
+class BatchPCC:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.sum_x = 0
+        self.sum_y = 0
+        self.sum_x2 = 0
+        self.sum_y2 = 0
+        self.sum_xy = 0
+        self.n = 0
+
+    def update(self, y_true, y_pred):
+        y_true = y_true.view(-1)
+        y_pred = y_pred.view(-1)
+
+        self.sum_x += y_true.sum().item()
+        self.sum_y += y_pred.sum().item()
+        self.sum_x2 += (y_true ** 2).sum().item()
+        self.sum_y2 += (y_pred ** 2).sum().item()
+        self.sum_xy += (y_true * y_pred).sum().item()
+        self.n += y_true.size(0)
+
+    def compute(self):
+        mean_x = self.sum_x / self.n
+        mean_y = self.sum_y / self.n
+        covariance = (self.sum_xy / self.n) - (mean_x * mean_y)
+        variance_x = (self.sum_x2 / self.n) - (mean_x ** 2)
+        variance_y = (self.sum_y2 / self.n) - (mean_y ** 2)
+        pcc = covariance / torch.sqrt(torch.tensor(variance_x * variance_y))
+        return pcc
