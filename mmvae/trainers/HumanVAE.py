@@ -116,7 +116,7 @@ class HumanVAETrainer(HPBaseTrainer):
                     utils.save_image(test_data[random_image_idx], '/home/denhofja/real_cell_image.png')
                     utils.save_image(x_hat[random_image_idx], '/home/denhofja/x_hat.png')
                     
-                batch_pcc.update(test_data, dense_test_data)
+                batch_pcc.update(dense_test_data, x_hat)
                 
                 recon_loss, kl_loss = recon_loss.item() / num_samples, kl_loss.item() / num_samples
                 self.metrics['Test/Loss/ReconstructionLoss'] += recon_loss
