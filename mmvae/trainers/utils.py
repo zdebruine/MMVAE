@@ -1,6 +1,4 @@
 import torch
-import PIL
-import matplotlib.pyplot as plt
 import numpy as np
 
 def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor):
@@ -78,7 +76,8 @@ def calculate_r2(input: torch.Tensor, target: torch.Tensor) -> float:
 
 
 def save_image(image: torch.Tensor, file_path: str):
-    
+    import matplotlib.pyplot as plt
+    import PIL
     image_array = image.cpu().to_dense()[4:].reshape(180, 337).numpy()
     normed_data = (image_array - np.min(image_array)) / (np.max(image_array) - np.min(image_array))
 

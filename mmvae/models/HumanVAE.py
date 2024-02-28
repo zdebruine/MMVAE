@@ -90,7 +90,7 @@ def configure_model() -> Model:
             HumanExpert(
                 nn.Sequential(
                     nn.Linear(60664, 1028),
-                    nn.ReLU(),
+                    nn.LeakyReLU(),
                     nn.Linear(1028, 784),
                     nn.LeakyReLU(),
                     nn.Linear(784, 512),

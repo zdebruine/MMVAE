@@ -77,6 +77,7 @@ class HumanVAETrainer(HPBaseTrainer):
         }
         
     def configure_schedulers(self) -> dict[str, LRScheduler]:
+        return {}
         return { 
                 key: torch.optim.lr_scheduler.StepLR(
                     optimizer, 
@@ -118,7 +119,8 @@ class HumanVAETrainer(HPBaseTrainer):
                 
         # for metric in self.metrics:
         #     self.writer.add_scalar(metric, self.metrics[metric], global_step=epoch)
-        self.writer.add_hparams(self.hparams, self.metrics, run_name=self.hparams['tensorboard_run_name'], global_step=epoch)
+        self.hparams['epochs'] = self.hparams['epochs'] + 1
+        self.writer.add_hparams(self.hparams, self.metrics, run_name=f"{self.hparams['tensorboard_run_name']}_hparams", global_step=epoch)
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                          Train Configuration                          #
@@ -138,10 +140,11 @@ class HumanVAETrainer(HPBaseTrainer):
             self.writer.add_scalar('Metric/KLWeight', kl_weight, self.batch_iteration)
             self.train_trace_expert_reconstruction(train_data, kl_weight)
             self.batch_iteration += 1
+            
         self.test_trace_expert_reconstruction(epoch, kl_weight)
         
-        for schedular in self.schedulers.values():
-            schedular.step()
+        # for schedular in self.schedulers.values():
+        #     schedular.step()
             
     def train_trace_expert_reconstruction(self, train_data: torch.Tensor, kl_weight: float):
 
