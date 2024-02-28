@@ -101,17 +101,25 @@ class HumanVAETrainer(HPBaseTrainer):
         self.metrics['Test/Loss/ReconstructionLoss'] = 0
         self.metrics['Test/Loss/KL'] = 0
         self.metrics['Test/Loss/Total'] = 0
+        self.metrics['Test/Loss/NonZeroFeatureReconstruction'] = 0
+        self.metrics['Test/Loss/ZeroFeatureReconstruction'] = 0
     
         with torch.no_grad():
             self.model.eval()
             num_samples = len(self.test_loader)
             for i, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
+                
+                non_zero_mask = test_data != 0
+                self.metrics['Test/Loss/NonZeroFeatureReconstruction'] += F.mse_loss(x_hat[non_zero_mask], test_data[non_zero_mask], reduction='sum')
+                zero_mask = ~non_zero_mask
+                self.metrics['Test/Loss/ZeroFeatureReconstruction'] += F.mse_loss(x_hat[zero_mask], test_data[zero_mask], reduction='sum')
+
                 if i == -1:
                     random_image_idx = random.randint(0, len(test_data) - 1)
                     utils.save_image(test_data[random_image_idx], '/home/denhofja/real_cell_image.png')
                     utils.save_image(x_hat[random_image_idx], '/home/denhofja/x_hat.png')
-
+            
                 recon_loss, kl_loss = recon_loss.item() / num_samples, kl_loss.item() / num_samples
                 self.metrics['Test/Loss/ReconstructionLoss'] += recon_loss
                 self.metrics['Test/Loss/KL'] += kl_loss
