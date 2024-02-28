@@ -133,9 +133,9 @@ class HumanVAETrainer(HPBaseTrainer):
     def train_epoch(self, epoch):
         num_samples = len(self.train_loader)
         kl_weight = 0.5
-        warm_start = 3
+        warm_start = self.hparams['kl_cyclic_warm_start']
         for (train_data, metadata) in self.train_loader:
-            kl_weight = utils.cyclic_annealing((self.batch_iteration - (self.hparams['kl_cyclic_warm_start'] * num_samples)), self.hparams['kl_cyclic_cycle_length'], min_beta=self.hparams['kl_cyclic_min_beta'], max_beta=self.hparams['kl_cyclic_max_beta'])
+            kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_samples)), self.hparams['kl_cyclic_cycle_length'], min_beta=self.hparams['kl_cyclic_min_beta'], max_beta=self.hparams['kl_cyclic_max_beta'])
             kl_weight = 0 if epoch < warm_start else kl_weight
             self.writer.add_scalar('Metric/KLWeight', kl_weight, self.batch_iteration)
             self.train_trace_expert_reconstruction(train_data, kl_weight)
