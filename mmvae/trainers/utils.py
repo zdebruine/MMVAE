@@ -89,3 +89,28 @@ def save_image(image: torch.Tensor, file_path: str):
     # Convert the RGB data to a PIL Image and save it
     colored_image = PIL.Image.fromarray(colored_data, 'RGB')
     colored_image.save(file_path)
+    
+def build_non_zero_mask(crow_indices, col_indices, shape):
+    """
+    Build a mask for non-zero elements in a CSR-like sparse matrix.
+    
+    Parameters:
+    - crow_indices: Compressed row indices from crow_indices() method.
+    - col_indices: Column indices for each non-zero element from col_indices() method.
+    - shape: The shape of the full matrix (rows, cols).
+    
+    Returns:
+    - A 2D list (or any suitable structure) where True represents a non-zero element,
+      and False represents a zero element.
+    """
+    rows, cols = shape
+    mask = [[False] * cols for _ in range(rows)]  # Initialize mask with all False (zero elements)
+    
+    for row in range(rows):
+        start_pos = crow_indices[row]
+        end_pos = crow_indices[row + 1]
+        for idx in range(start_pos, end_pos):
+            col = col_indices[idx]
+            mask[row][col] = True  # Mark non-zero positions as True
+    
+    return mask
