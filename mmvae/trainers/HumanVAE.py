@@ -109,11 +109,12 @@ class HumanVAETrainer(HPBaseTrainer):
             num_samples = len(self.test_loader)
             for i, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
-                assert isinstance(test_data, torch.Tensor)
-                non_zero_mask = utils.build_non_zero_mask(test_data.crow_indices(), test_data.col_indices, test_data.shape)
-                self.metrics['Test/Loss/NonZeroFeatureReconstruction'] += F.mse_loss(x_hat[non_zero_mask], test_data[non_zero_mask], reduction='sum')
+                dense_test_data = test_data.to_dense()
+                non_zero_mask = test_data.to_dense() != 0
+                batch_size = test_data.shape[0]
+                self.metrics['Test/Loss/NonZeroFeatureReconstruction'] += F.mse_loss(x_hat[non_zero_mask], dense_test_data[non_zero_mask], reduction='sum') / batch_size
                 zero_mask = ~non_zero_mask
-                self.metrics['Test/Loss/ZeroFeatureReconstruction'] += F.mse_loss(x_hat[zero_mask], test_data[zero_mask], reduction='sum')
+                self.metrics['Test/Loss/ZeroFeatureReconstruction'] += F.mse_loss(x_hat[zero_mask], dense_test_data[zero_mask], reduction='sum') / batch_size
 
                 if i == -1:
                     random_image_idx = random.randint(0, len(test_data) - 1)
