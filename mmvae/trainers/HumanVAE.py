@@ -100,7 +100,7 @@ class HumanVAETrainer(HPBaseTrainer):
     
         with torch.no_grad():
             self.model.eval()
-            num_samples = len(self.train_loader)
+            num_samples = len(self.test_loader)
             for i, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
                 dense_test_data = test_data.to_dense()
