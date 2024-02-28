@@ -18,12 +18,6 @@ class HumanVAETrainer(HPBaseTrainer):
         'batch_size': int,
     }
     
-    metrics = {
-        'Test/Loss/ReconstructionLoss': 0,
-        'Test/Loss/KL': 0,
-        'Test/Loss/Total': 0,
-    }
-    
     model: HumanVAE.Model
     
     def __init__(self, _device: torch.device, _hparams: dict):
@@ -98,15 +92,15 @@ class HumanVAETrainer(HPBaseTrainer):
         return x_hat, mu, logvar, recon_loss, kl_loss
     
     def test_trace_expert_reconstruction(self, epoch, kl_weight):
-        self.metrics['Test/Loss/ReconstructionLoss'] = 0
-        self.metrics['Test/Loss/KL'] = 0
-        self.metrics['Test/Loss/Total'] = 0
-        self.metrics['Test/Loss/NonZeroFeatureReconstruction'] = 0
-        self.metrics['Test/Loss/ZeroFeatureReconstruction'] = 0
+        self.metrics['Test/Loss/ReconstructionLoss'] = 0.0
+        self.metrics['Test/Loss/KL'] = 0.0
+        self.metrics['Test/Loss/Total'] = 0.0
+        self.metrics['Test/Loss/NonZeroFeatureReconstruction'] = 0.0
+        self.metrics['Test/Loss/ZeroFeatureReconstruction'] = 0.0
     
         with torch.no_grad():
             self.model.eval()
-            num_samples = len(self.test_loader)
+            num_samples = len(num_samples)
             for i, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
                 dense_test_data = test_data.to_dense()
@@ -116,11 +110,11 @@ class HumanVAETrainer(HPBaseTrainer):
                 zero_mask = ~non_zero_mask
                 self.metrics['Test/Loss/ZeroFeatureReconstruction'] += F.mse_loss(x_hat[zero_mask], dense_test_data[zero_mask], reduction='sum') / batch_size
 
-                if i == -1:
+                if i == -1: # TODO: import matplotlib
                     random_image_idx = random.randint(0, len(test_data) - 1)
                     utils.save_image(test_data[random_image_idx], '/home/denhofja/real_cell_image.png')
                     utils.save_image(x_hat[random_image_idx], '/home/denhofja/x_hat.png')
-            
+                
                 recon_loss, kl_loss = recon_loss.item() / num_samples, kl_loss.item() / num_samples
                 self.metrics['Test/Loss/ReconstructionLoss'] += recon_loss
                 self.metrics['Test/Loss/KL'] += kl_loss
