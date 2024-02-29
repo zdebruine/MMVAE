@@ -85,41 +85,35 @@ class HumanEncoder(nn.Module):
         x = F.leaky_relu(self.fc3(x))
         return x
     
-def configure_model() -> Model:
+def configure_model(hparams) -> Model:
+    
+    def build_seq(_hparams: dict, name = None):
+        _hparams = _hparams if name == None else {name: _hparams}
+        sequence = ()
+        for layer in _hparams.keys():
+            input_dim, output_dim = _hparams[layer]['input'], _hparams[layer]['output']
+            activation = None if 'activation' not in _hparams[layer] else _hparams[layer]['activation']
+            sequence = (*sequence, nn.Linear(input_dim, output_dim))
+            if activation == 'leakyrelu':
+                negative_slope = 0.01 if not 'negative_slope' in layer else _hparams[layer]['negative_slope']
+                activation = f"{layer}_activation"
+                sequence = (*sequence, nn.LeakyReLU(negative_slope))
+                
+        if len(sequence) == 1:
+            return sequence[0]
+        return nn.Sequential(*sequence)
+
+    
     return Model(
-            HumanExpert(
-                nn.Sequential(
-                    nn.Linear(60664, 1028),
-                    nn.LeakyReLU(),
-                    nn.Linear(1028, 784),
-                    nn.LeakyReLU(),
-                    nn.Linear(784, 512),
-                    nn.LeakyReLU()
-                    ),
-                nn.Sequential(
-                    nn.Linear(512, 784),
-                    nn.LeakyReLU(),
-                    nn.Linear(784, 1028),
-                    nn.LeakyReLU(),
-                    nn.Linear(1028, 60664),
-                    nn.LeakyReLU()
-                ),
-                init_weights=False
+            M.Expert(
+                build_seq(hparams["expert"]['encoder']['model']),
+                build_seq(hparams["expert"]['decoder']['model']),
             ),
-            SharedVAE(
-                nn.Sequential(
-                    nn.Linear(512, 256),
-                    nn.LeakyReLU(),
-                ),
-                nn.Sequential(
-                    nn.Linear(128, 256),
-                    nn.LeakyReLU(),
-                    nn.Linear(256, 512),
-                    nn.LeakyReLU()
-                    ),
-                nn.Linear(256, 128),
-                nn.Linear(256, 128),
-                init_weights=False
+            M.VAE(
+                build_seq(hparams["shr_vae"]['model']['encoder']),
+                build_seq(hparams["shr_vae"]['model']['decoder']),
+                build_seq(hparams["shr_vae"]['model']['mu'], "mu"),
+                build_seq(hparams["shr_vae"]['model']['logvar'], "logvar"),
             )
         )
 
