@@ -18,3 +18,4 @@ module load ml-python/nightly
 #module load numpy/1.26.1
 export PYTHONPATH=$PYTHONPATH:/active/debruinz_project/cardell_taylor/MMVAE_Adversarial_Team
 python gan_main.py
+
