@@ -15,6 +15,9 @@
 #SBATCH --output=discrim.%j.out ##Name of output file
 
 module load ml-python/nightly
-module load numpy/1.26.1
+source /active/debruinz_project/jack_lukomski/jacks_venv/bin/activate
 export PYTHONPATH=$PYTHONPATH:/active/debruinz_project/jack_lukomski/MMVAE_Adversarial_Team
-python gan_main.py
+pip install torchdata
+pip install scipy
+pip install -U scikit-learn
+/active/debruinz_project/jack_lukomski/jacks_venv/bin/python gan_main.py
