@@ -20,19 +20,20 @@ class MetaDiscriminator(nn.Module):
         x = self.sigmoid(self.fc3(x))
         return x
 
-def meta_discriminator_test(generator: nn.Module, data_loader, writer: SummaryWriter, trainin_epochs=1, lr=5e-5):
+def meta_discriminator_test(generator: nn.Module, data_loader, writer: SummaryWriter, trainin_epochs=1, lr=1e-14):
     discriminator = MetaDiscriminator(60664, 512, 1)
+    discriminator.to('cuda')
     optimizer = optim.Adam(discriminator.parameters(), lr=lr)
 
     for epoch in range(trainin_epochs):
-        for i, train_data in data_loader:
+        for i, train_data in enumerate(data_loader):
             optimizer.zero_grad()
 
             real_pred = discriminator(train_data)
             real_loss = nn.L1Loss()(real_pred, torch.ones_like(real_pred))
             real_loss.backward()
             # gen fake data
-            fake_data = generator(train_data)
+            fake_data, _, _ = generator(train_data)
 
             # train discriminator with fake data
             fake_pred = discriminator(fake_data)
@@ -41,5 +42,6 @@ def meta_discriminator_test(generator: nn.Module, data_loader, writer: SummaryWr
 
             optimizer.step()
 
-    rocplot.roc_plot(discriminator, generator, data_loader, torch.device('cuda')) 
+    discriminator.eval()
+    rocplot.roc_plot(discriminator, generator, data_loader, torch.device('cuda'), writer) 
 

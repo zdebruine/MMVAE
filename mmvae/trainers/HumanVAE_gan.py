@@ -7,6 +7,7 @@ from mmvae.trainers.trainer import BaseTrainer
 from mmvae.data import MappedCellCensusDataLoader
 import numpy as np
 import gan_testing.meta_discriminator as meta_disc
+import discriminators.annealing
 
 lr = 0.0001
 discrim_rato = 25
@@ -17,6 +18,7 @@ DISCRIM_ANNEALING_STEPS = KL_ANNEALING_STEPS * discrim_rato
 TPR = []
 FPR = []
 
+kl_annealer = 
 class HumanVAETrainer(BaseTrainer):
     """
     Trainer class designed for MMVAE model using MutliModalLoader.
@@ -66,9 +68,11 @@ class HumanVAETrainer(BaseTrainer):
         np.save('FPR.npy', FPR)
         print("TPR and FPR saved")
 
+        self.model.eval()
         meta_disc.meta_discriminator_test(self.model, self.dataloader, self.writer)
     
     def train_epoch(self, epoch):
+        return
         for train_data in self.dataloader:
             self.batch_iteration += 1
             self.train_trace_complete(train_data, epoch)

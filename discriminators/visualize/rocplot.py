@@ -21,18 +21,20 @@ Parameters:
     dataloader: DataLoader
     device: torch.device
 """
-def roc_plot(discriminator: nn.Module, generator: nn.Module, dataloader: DataLoader, device: torch.device, writer: SummaryWriter):
+@torch.no_grad
+def roc_plot(discriminator: nn.Module, generator: nn.Module, dataloader: DataLoader, device: torch.device, 
+             writer: SummaryWriter):
     model_prediction = []
     true_value = []
-    for i, (X, _) in enumerate(dataloader):
-        X = X.to(device)
+    for i, data in enumerate(dataloader):
+        data = data.to(device)
         # Generate fake data
-        fake_data = generator(X)
+        fake_data, _, _ = generator(data)
         # Predict fake data
         fake_pred = discriminator(fake_data).view(-1)
 
         # Predict real data
-        real_pred = discriminator(X).view(-1)
+        real_pred = discriminator(data).view(-1)
 
         # append model predictions from both real data
         model_prediction.append(real_pred)
@@ -40,12 +42,12 @@ def roc_plot(discriminator: nn.Module, generator: nn.Module, dataloader: DataLoa
         model_prediction.append(fake_pred)
         
         # append true values for real data
-        true_value.append(torch.ones_like(real_pred).detach().numpy())
+        true_value.append(torch.ones_like(real_pred).to('cpu').numpy())
         # append true values for fake data
-        true_value.append(torch.zeros_like(fake_pred).detach().numpy())
+        true_value.append(torch.zeros_like(fake_pred).to('cpu').numpy())
 
     # detach and convert to numpy
-    model_prediction = torch.cat(model_prediction).detach().numpy()
+    model_prediction = torch.cat(model_prediction).to('cpu').numpy()
     true_value = np.concatenate(true_value)
 
     # calculate ROC curve
@@ -60,9 +62,8 @@ def roc_plot(discriminator: nn.Module, generator: nn.Module, dataloader: DataLoa
     # auc = roc_auc_score(true_value, model_prediction)
 
     # plot ROC curve with tensorboard and save it
-    writer = SummaryWriter("./logs/roc")
 
+    # writer = SummaryWriter('../../logs/roc/VAE_GAN_2')
     # uses step as the false positive rate
     for i in range(len(true_positive_rate)):
         writer.add_scalar('True_Positive_Rate', true_positive_rate[i], false_positive_rate[i])
-    writer.close()

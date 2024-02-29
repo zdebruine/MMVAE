@@ -10,11 +10,11 @@
 
 #SBATCH --ntasks=1 ##Number of task
 
-#SBATCH --job-name=gan_test ## Name of job
+#SBATCH --job-name=gan_test_ct ## Name of job
 
 #SBATCH --output=discrim.%j.out ##Name of output file
 
 module load ml-python/nightly
-module load numpy/1.26.1
-export PYTHONPATH=$PYTHONPATH:/active/debruinz_project/jack_lukomski/MMVAE_Adversarial_Team
+#module load numpy/1.26.1
+export PYTHONPATH=$PYTHONPATH:/active/debruinz_project/cardell_taylor/MMVAE_Adversarial_Team
 python gan_main.py

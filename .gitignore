@@ -4,3 +4,4 @@
 **.egg-info
 **/slurm-*.sh
 **/pytest-test.*.out
+gan_testing/gan_main.py
