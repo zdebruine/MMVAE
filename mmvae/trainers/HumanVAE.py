@@ -120,6 +120,7 @@ class HumanVAETrainer(HPBaseTrainer):
         super().train(epochs, load_snapshot)
     
     def train_epoch(self, epoch):
+        self.model.train(True)
         num_batch_samples = len(self.train_loader)
         kl_weight = 0.5
         warm_start = self.hparams['kl_cyclic_warm_start']
