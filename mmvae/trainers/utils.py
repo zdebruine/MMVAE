@@ -73,22 +73,6 @@ def calculate_r2(input: torch.Tensor, target: torch.Tensor) -> float:
     # Calculate and return the R^2 score
     r2_score = 1 - ss_res / ss_tot
     return r2_score.item()
-
-
-def save_image(image: torch.Tensor, file_path: str):
-    import matplotlib.pyplot as plt
-    import PIL
-    image_array = image.cpu().to_dense()[4:].reshape(180, 337).numpy()
-    normed_data = (image_array - np.min(image_array)) / (np.max(image_array) - np.min(image_array))
-
-    # Apply a colormap (e.g., 'viridis', 'jet', 'plasma', etc.) to the normalized data
-    # This converts the single-channel floating-point data to 3-channel RGB data
-    colored_data = plt.cm.viridis(normed_data)
-    # Remove the alpha channel (if you want RGB only)
-    colored_data = (colored_data[..., :3] * 255).astype(np.uint8)
-    # Convert the RGB data to a PIL Image and save it
-    colored_image = PIL.Image.fromarray(colored_data, 'RGB')
-    colored_image.save(file_path)
     
 def build_non_zero_mask(crow_indices, col_indices, shape):
     """
@@ -114,33 +98,6 @@ def build_non_zero_mask(crow_indices, col_indices, shape):
             mask[row][col] = True  # Mark non-zero positions as True
     
     return mask
-
-def pearson_correlation_coefficient(y_true, y_pred):
-    """
-    Calculate the Pearson Correlation Coefficient between two tensors.
-    
-    :param y_true: Tensor of true values.
-    :param y_pred: Tensor of predicted values.
-    :return: Tensor containing the Pearson Correlation Coefficient.
-    """
-    # Ensure tensor computations do not track history
-    with torch.no_grad():
-        # Center the true and predicted values by subtracting their means
-        y_true_centered = y_true - y_true.mean()
-        y_pred_centered = y_pred - y_pred.mean()
-        
-        # Compute the covariance between y_true and y_pred
-        covariance = (y_true_centered * y_pred_centered).sum() / (y_true.size(0) - 1)
-        
-        # Compute the standard deviations of the true and predicted values
-        std_true = y_true_centered.pow(2).sum() / (y_true.size(0) - 1)
-        std_pred = y_pred_centered.pow(2).sum() / (y_pred.size(0) - 1)
-        
-        # Compute the Pearson Correlation Coefficient
-        pcc = covariance / (std_true.sqrt() * std_pred.sqrt())
-        
-        return pcc
-    
 
 class BatchPCC:
     def __init__(self):
