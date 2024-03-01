@@ -81,7 +81,7 @@ class HumanVAETrainer(HPBaseTrainer):
     
     def trace_expert_reconstruction(self, train_data: torch.Tensor):
         x_hat, mu, logvar = self.model(train_data)
-        recon_loss = F.mse_loss(x_hat, train_data.to_dense(), reduction='mean')
+        recon_loss = F.mse_loss(x_hat, train_data.to_dense(), reduction='sum')
         kl_loss = utils.kl_divergence(mu, logvar)
         return x_hat, mu, logvar, recon_loss, kl_loss
     
@@ -100,9 +100,9 @@ class HumanVAETrainer(HPBaseTrainer):
             for test_idx, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
                 batch_pcc.update(test_data.to_dense(), x_hat)
-                recon_loss, kl_loss = recon_loss.item(), kl_loss.item()
-                sum_recon_loss += recon_loss
-                sum_kl_loss += kl_loss
+                recon_loss, kl_loss = recon_loss.item() / test_data.numel(), kl_loss.item() / mu.numel()
+                sum_recon_loss += recon_loss 
+                sum_kl_loss += kl_loss 
                 sum_total_loss += recon_loss + (kl_weight * kl_loss)
         
         self.metrics['Test/Loss/Reconstruction'] = sum_recon_loss / num_batch_samples
