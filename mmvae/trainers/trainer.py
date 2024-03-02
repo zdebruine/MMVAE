@@ -14,7 +14,7 @@ class BaseTrainer:
         device: str,
         log_dir: str = None,
         snapshot_path: str = None, 
-        save_every: int = None
+        save_every: int = 1
     ) -> None:
         
         self.device = device
@@ -53,12 +53,36 @@ class BaseTrainer:
         return snapshot["MODEL_STATE"], snapshot["EPOCHS_RUN"]
     
     def save_snapshot(self, model: nn.Module, epoch: int) -> None:
-        # TODO: FIX
         snapshot = {}
-        snapshot["MODEL_STATE"] = model.state_dict()
+        snapshot["MODEL_STATE"] = model.expert.state_dict()
         snapshot["EPOCHS_RUN"] = epoch
-        torch.save(snapshot, self.snapshot_path)
+        torch.save(snapshot, f"{self.snapshot_path}_expert")
         print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
+        
+        snapshot = {}
+        snapshot["MODEL_STATE"] = model.shared_vae.encoder.state_dict()
+        snapshot["EPOCHS_RUN"] = epoch
+        torch.save(snapshot, f"{self.snapshot_path}_shared_encoder")
+        print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
+        
+        snapshot = {}
+        snapshot["MODEL_STATE"] = model.shared_vae.decoder.state_dict()
+        snapshot["EPOCHS_RUN"] = epoch
+        torch.save(snapshot, f"{self.snapshot_path}_shared_decoder")
+        print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
+        
+        snapshot = {}
+        snapshot["MODEL_STATE"] = model.shared_vae.var.state_dict()
+        snapshot["EPOCHS_RUN"] = epoch
+        torch.save(snapshot, f"{self.snapshot_path}_shared_var")
+        print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
+        
+        snapshot = {}
+        snapshot["MODEL_STATE"] = model.shared_vae.mean.state_dict()
+        snapshot["EPOCHS_RUN"] = epoch
+        torch.save(snapshot, f"{self.snapshot_path}_shared_mean")
+        print(f"Epoch {epoch} | Training snapshot saved at {self.snapshot_path}")
+        
 
     def train_epoch(self, epoch: int):
         raise NotImplementedError("Override this method to implement training loop for one epoch")
@@ -68,15 +92,17 @@ class BaseTrainer:
             raise RuntimeError(f"Attribute: {__name} cannot be set after initialization")
         super().__setattr__(__name, __value)
         
-    def train(self, epochs: int, load_snapshot=False):
-        if load_snapshot and self.save_every and self.snapshot_path:
-            # TODO: Handle snapshot loading
-            pass
+    def train(self, epochs: int, load_snapshot = False):
+        if load_snapshot and self.snapshot_path:
+            print("Loading in a pre-trained model")
+            # Load the model
+            loaded_checkpoint = torch.load('/home/howlanjo/dev/MMVAE/snapshots/test.pth')
+            self.model.load_state_dict(loaded_checkpoint["MODEL_STATE"])
             
         for epoch in range(epochs):
             self.train_epoch(epoch)
             if self.save_every is not None and (epoch + 1) % self.save_every == 0:
-                self.save_snapshot(self.model)
+                self.save_snapshot(self.model, epoch)
         
         if self.writer is not None:
             self.writer.close()

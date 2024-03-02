@@ -25,6 +25,8 @@ class SharedVAE(M.VAE):
         utils._submodules_init_weights_xavier_uniform_(self.decoder)
         utils._submodules_init_weights_xavier_uniform_(self.mean)
         utils._xavier_uniform_(self.var, -1.0) # TODO: Add declare why
+        
+    
 
 class HumanExpert(M.Expert):
 
@@ -115,6 +117,7 @@ def configure_model() -> Model:
                 SharedDecoder(),
                 nn.Linear(256, 128),
                 nn.Linear(256, 128),
+                # nn.Linear(128, 128),
                 init_weights=True
             )
         )

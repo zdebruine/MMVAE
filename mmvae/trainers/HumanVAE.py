@@ -19,7 +19,7 @@ class HumanVAETrainer(BaseTrainer):
         super(HumanVAETrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
         self.annealing_steps = 50
-
+        
     def configure_model(self) -> Module:
         return HumanVAE.configure_model() 
     
@@ -52,6 +52,7 @@ class HumanVAETrainer(BaseTrainer):
         super().train(epochs, load_snapshot)
     
     def train_epoch(self, epoch):
+        
         for train_data in self.dataloader:
             print(f"Training on batch: {self.batch_iteration}, train_data: {train_data.shape} ")
             
@@ -78,5 +79,6 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['encoder'].step()
         self.optimizers['decoder'].step()
 
+        
         self.writer.add_scalar('Loss/KL', kl_loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/ReconstructionFromTrainingData', loss.item(), self.batch_iteration)

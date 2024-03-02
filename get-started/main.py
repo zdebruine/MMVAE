@@ -10,12 +10,12 @@ def main(device):
     trainer = HumanVAETrainer(
         batch_size, 
         device,
-        log_dir='/home/howlanjo/logs/' + datetime.now().strftime("%Y%m%d-%H%M%S") + "_JUST_10",
-        snapshot_path="/home/howlanjo/dev/MMVAE/snapshots/" + datetime.now().strftime("%Y%m%d-%H%M%S") + "_JUST_10" ,
+        log_dir='/home/howlanjo/logs/' + datetime.now().strftime("%Y%m%d-%H%M%S") + "_JUST_10_TRY_LOADING",
+        snapshot_path="/home/howlanjo/dev/MMVAE/snapshots/model" ,
     )
     # Train model with number of epochs
-    trainer.train(epochs = 50)
-
+    trainer.train(epochs = 1, load_snapshot=False)
+    
 if __name__ == "__main__":
     CUDA = True
     device = "cuda" if torch.cuda.is_available() and CUDA else "cpu"
