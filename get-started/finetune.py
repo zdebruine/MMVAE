@@ -26,8 +26,8 @@ def main(device):
     ft_trainer = HumanVAE_FineTune(
         batch_size, 
         device,
-        log_dir='/home/howlanjo/logs/' + datetime.now().strftime("%Y%m%d-%H%M%S") + "FINE_TUNE",
-        snapshot_path="/home/howlanjo/dev/MMVAE/snapshots/" + datetime.now().strftime("%Y%m%d-%H%M%S") + "FINE_TUNE" ,
+        log_dir='/home/howlanjo/logs/' + datetime.now().strftime("%Y%m%d-%H%M%S") + "FINE_TUNE_STALE",
+        snapshot_path="/home/howlanjo/dev/MMVAE/snapshots/" + datetime.now().strftime("%Y%m%d-%H%M%S") + "FINE_TUNE_STALE" ,
     )
     
     ft_trainer.model.expert.load_state_dict(expert)
@@ -36,9 +36,13 @@ def main(device):
     ft_trainer.model.shared_vae.var.load_state_dict(shared_var)
     ft_trainer.model.shared_vae.mean.load_state_dict(shared_mean)
     
-    ft_trainer.model.expert.eval()
-    ft_trainer.model.shared_vae.encoder.eval()
-    ft_trainer.model.shared_vae.decoder.eval()
+    # Freeze parameters of encoder and decoder
+    for param in ft_trainer.model.expert.parameters():
+        param.requires_grad = False
+    for param in ft_trainer.model.shared_vae.encoder.parameters():
+        param.requires_grad = False
+    for param in ft_trainer.model.shared_vae.decoder.parameters():
+        param.requires_grad = False
     
     # Train model with number of epochs
     ft_trainer.train(epochs = 1)

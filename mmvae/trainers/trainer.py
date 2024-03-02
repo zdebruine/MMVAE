@@ -14,7 +14,7 @@ class BaseTrainer:
         device: str,
         log_dir: str = None,
         snapshot_path: str = None, 
-        save_every: int = 1
+        save_every: int = 10
     ) -> None:
         
         self.device = device
