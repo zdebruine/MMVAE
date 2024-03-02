@@ -79,5 +79,4 @@ class BaseTrainer:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:
-            #self.writer.close()
-            pass
+            self.writer.close()

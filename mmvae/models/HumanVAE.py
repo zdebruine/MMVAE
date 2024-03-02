@@ -118,4 +118,3 @@ def configure_model() -> Model:
                 init_weights=True
             )
         )
-     
