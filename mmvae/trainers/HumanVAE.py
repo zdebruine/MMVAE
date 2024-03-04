@@ -19,7 +19,7 @@ class HumanVAETrainer(BaseTrainer):
         super(HumanVAETrainer, self).__init__(*args, **kwargs)
         self.model.to(self.device)
         self.annealing_steps = 50
-        
+
     def configure_model(self) -> Module:
         return HumanVAE.configure_model() 
     
@@ -52,10 +52,7 @@ class HumanVAETrainer(BaseTrainer):
         super().train(epochs, load_snapshot)
     
     def train_epoch(self, epoch):
-        
         for train_data in self.dataloader:
-            print(f"Training on batch: {self.batch_iteration}, train_data: {train_data.shape} ")
-            
             self.batch_iteration += 1
             self.train_trace_complete(train_data, epoch)
 
@@ -68,7 +65,6 @@ class HumanVAETrainer(BaseTrainer):
         # Forwad Pass Over Entire Model
         x_hat, mu, var = self.model(train_data)
         recon_loss = F.l1_loss(x_hat, train_data.to_dense())
-        
         # Shared VAE Loss
         kl_loss = utils.kl_divergence(mu, var)
         kl_weight = min(1.0, epoch / self.annealing_steps)
@@ -79,6 +75,5 @@ class HumanVAETrainer(BaseTrainer):
         self.optimizers['encoder'].step()
         self.optimizers['decoder'].step()
 
-        
         self.writer.add_scalar('Loss/KL', kl_loss.item(), self.batch_iteration)
         self.writer.add_scalar('Loss/ReconstructionFromTrainingData', loss.item(), self.batch_iteration)
