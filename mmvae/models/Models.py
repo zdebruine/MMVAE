@@ -2,7 +2,6 @@ from typing import Tuple, Union, Any
 import torch
 import torch.nn as nn
 import mmvae.models.utils as utils
-import torch.nn.init as init
 
 class Expert(nn.Module):
 
@@ -11,8 +10,6 @@ class Expert(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
         self.discriminator = discriminator
-        self.saved_weight_model = None
-        self.saved_bias_model = None   
 
     def forward(self, x):
         """
@@ -37,11 +34,6 @@ class VAE(nn.Module):
         self.mean = mean
         self.var = var
         
-        # # Initialize fine-tuning layer weights with small random values
-        # init.normal_(self.fine_tune.weight, mean=0.0, std=0.001)
-        # # Initialize fine-tuning layer biases to zeros
-        # init.zeros_(self.fine_tune.bias)
-        
     def reparameterize(self, mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
         eps = torch.randn_like(var)
         return mean + var*eps
@@ -51,9 +43,8 @@ class VAE(nn.Module):
         
         mu = self.mean(x)
         var = self.var(x)
-                
-        x = self.reparameterize(mu, torch.exp(0.5 * var))
         
+        x = self.reparameterize(mu, torch.exp(0.5 * var))
         x, *decoder_results = utils.parameterize_returns(self.decoder(x))
             
         return (x, mu, var, *encoder_results, *decoder_results)
