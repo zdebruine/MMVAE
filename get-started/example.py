@@ -1,5 +1,5 @@
 import torch
-from d_mmvae.trainers import ExampleTrainer
+from mmvae.trainers import ExampleTrainer
 
 def main(device):
     # Define any hyperparameters
