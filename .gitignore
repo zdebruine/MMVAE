@@ -1,6 +1,9 @@
 **/.venv/
 **/__pycache__/
 **/.pytest_cache/
-**/D_MMVAE.egg-info/
+**.egg-info
 **/slurm-*.sh
+meta_discriminators
 **/pytest-test.*.out
+gan_testing/gan_main.py
+/gan_testing/gan_main.py

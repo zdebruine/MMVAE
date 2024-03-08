@@ -27,10 +27,10 @@ package tutorial:
 #     ( twine upload dist/<package>.tar.gz )
 
 setup(
-    name="D-MMVAE",
-    description="A research project on diagonal mixture-of-experts variational autoencoding (D-MMVAE).",
+    name="MMVAE",
+    description="A research project on diagonal mixture-of-experts variational autoencoding (MMVAE).",
     version="0.1.1.dev2",
-    url="https://github.com/zdebruine/D-MMVAE",
+    url="https://github.com/zdebruine/MMVAE",
     author="GVSU Applied Computing Institute",
     packages=find_packages(),
     install_requires=[
