@@ -2,7 +2,6 @@ import pytest
 import torch
 from unittest.mock import patch, MagicMock
 
-# Assuming the classes are defined in a module named `module_name.py`
 from mmvae.trainers.HumanVAE import HumanVAETrainer, HumanVAEConfig
 
 @pytest.fixture

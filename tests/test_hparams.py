@@ -1,5 +1,5 @@
 import pytest
-from mmvae.trainers.hparams import HPConfig  # Replace 'your_module' with the actual name of the module containing HPConfig
+from mmvae.trainers.hparams import HPConfig
 
 class ExampleHPConfig(HPConfig):
     required_hparams = {
