@@ -27,7 +27,7 @@ class BaseTrainer:
         if log_dir is not None:
             self.writer = tb.SummaryWriter(log_dir=log_dir)
             
-        self.configure_dataloader()
+        self.dataloader = self.configure_dataloader()
         self.model = self.configure_model()
         self.optimizers = self.configure_optimizers()
         self.schedulers = self.configure_schedulers()
