@@ -4,22 +4,29 @@ from torch.nn.modules import Module
 from torch.optim.lr_scheduler import LRScheduler
 import mmvae.trainers.utils as utils
 import mmvae.models.HumanVAE as HumanVAE
-from mmvae.trainers.trainer import HPBaseTrainer
+from mmvae.trainers import HPBaseTrainer, BaseTrainerConfig
 
-class HumanVAETrainer(HPBaseTrainer):
-    
+class HumanVAEConfig(BaseTrainerConfig):
     required_hparams = {
         'data_file_path': str,
         'metadata_file_path': str,
         'train_dataset_ratio': float,
         'batch_size': int,
+        'expert.encoder.optimizer.lr': float,
+        'expert.decoder.optimizer.lr': float, 
+        'shr_vae.optimizer.lr': float, 
+        'kl_cyclic.warm_start': int, 
+        'kl_cyclic.cycle_length': float, 
+        'kl_cyclic.min_beta': float, 
+        'kl_cyclic.max_beta': float 
     }
+
+class HumanVAETrainer(HPBaseTrainer):
     
     model: HumanVAE.Model
     
-    def __init__(self, _device: torch.device, _hparams: dict):
-        self._initial_hparams = _hparams
-        super(HumanVAETrainer, self).__init__(_device, _hparams, self.required_hparams)
+    def __init__(self, device: torch.device, hparams: HumanVAEConfig):
+        super(HumanVAETrainer, self).__init__(device, hparams)
         self.writer.add_text('Model Architecture', str(self.model))
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -27,52 +34,37 @@ class HumanVAETrainer(HPBaseTrainer):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     
     def configure_dataloader(self):
-        import mmvae.data.utils as utils
-        (train_data, train_metadata), (validation_data, validation_metadata) = utils.split_data_and_metadata(
+        from mmvae.data.loaders import configure_single_file_dataloaders
+        self.train_loader, self.test_loader = configure_single_file_dataloaders(
             data_file_path=self.hparams['data_file_path'],
             metadata_file_path=self.hparams['metadata_file_path'],
-            train_ratio=self.hparams['train_dataset_ratio'])
-        
-        from mmvae.data.datasets.CellCensusDataSet import CellCensusDataset, collate_fn
-        train_dataset = CellCensusDataset(train_data.to(self.device), train_metadata)
-        test_dataset = CellCensusDataset(validation_data.to(self.device), validation_metadata)
-        
-        from torch.utils.data import DataLoader
-        self.train_loader = DataLoader(
-            train_dataset,
+            train_ratio=self.hparams['train_dataset_ratio'],
             batch_size=self.hparams['batch_size'],
-            shuffle=True,
-            collate_fn=collate_fn,
-        )
-        self.test_loader = DataLoader(
-            test_dataset,
-            shuffle=True,
-            batch_size=self.hparams['batch_size'],
-            collate_fn=collate_fn,
+            device=self.device
         )
         
     def configure_model(self) -> Module:
-        model = HumanVAE.configure_model(self._initial_hparams).to(self.device)
-        return model
+        model = HumanVAE.configure_model(self.hparams.config)
+        return model.to(self.device)
         
     def configure_optimizers(self):
         return {
-            'expert_encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=self.hparams['expert_encoder_optim_lr']),
-            'expert_decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=self.hparams['expert_decoder_optim_lr']),
-            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=self.hparams['shr_vae_optim_lr']),
+            'expert.encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=self.hparams['expert.encoder.optimizer.lr']),
+            'expert.decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=self.hparams['expert.decoder.optimizer.lr']),
+            'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=self.hparams['shr_vae.optimizer.lr']),
         }
         
     def configure_schedulers(self) -> dict[str, LRScheduler]:
         return { 
                 key: torch.optim.lr_scheduler.StepLR(
                     optimizer, 
-                    step_size=self.hparams[f'{key}_optim_sched_step_size'], 
-                    gamma=self.hparams[f"{key}_optim_sched_gamma"])
+                    step_size=self.hparams[f'{key}.optimizer.schedular.step_size'], 
+                    gamma=self.hparams[f"{key}.optimizer.schedular.gamma"])
                 for key, optimizer in self.optimizers.items() 
-                if f'{key}_optim_sched_step_size' in self.hparams \
-                    and self.hparams[f'{key}_optim_sched_step_size'] != "" 
-                    and f'{key}_optim_sched_gamma' in self.hparams
-                    and self.hparams[f'{key}_optim_sched_gamma'] != ""
+                if f'{key}.optimizer.schedular.step_size' in self.hparams 
+                    and self.hparams[f'{key}.optimizer.schedular.step_size'] != "" 
+                    and f'{key}.optimizer.schedular.gamma' in self.hparams
+                    and self.hparams[f'{key}.optimizer.schedular.gamma'] != ""
             }
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -87,9 +79,9 @@ class HumanVAETrainer(HPBaseTrainer):
     
     def log_non_zero_and_zero_reconstruction(self, inputs, targets):
         non_zero_mask = inputs != 0
-        self.metrics['Test/Loss/NonZeroFeatureReconstruction'] += F.mse_loss(inputs[non_zero_mask], targets[non_zero_mask], reduction='mean') 
+        self.metrics['Test/Loss/NonZeroFeatureReconstruction'] += F.mse_loss(inputs[non_zero_mask], targets[non_zero_mask], reduction='sum') 
         zero_mask = ~non_zero_mask
-        self.metrics['Test/Loss/ZeroFeatureReconstruction'] += F.mse_loss(inputs[zero_mask], targets[zero_mask], reduction='mean') 
+        self.metrics['Test/Loss/ZeroFeatureReconstruction'] += F.mse_loss(inputs[zero_mask], targets[zero_mask], reduction='sum') 
     
     def test_trace_expert_reconstruction(self, epoch, kl_weight):
         with torch.no_grad():
@@ -100,7 +92,7 @@ class HumanVAETrainer(HPBaseTrainer):
             for test_idx, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
                 batch_pcc.update(test_data.to_dense(), x_hat)
-                recon_loss, kl_loss = recon_loss.item() / test_data.numel(), kl_loss.item() / mu.numel()
+                recon_loss, kl_loss = recon_loss.item() / test_data.numel(), kl_loss.item() / mu.shape[0]
                 sum_recon_loss += recon_loss 
                 sum_kl_loss += kl_loss 
                 sum_total_loss += recon_loss + (kl_weight * kl_loss)
@@ -109,7 +101,7 @@ class HumanVAETrainer(HPBaseTrainer):
         self.metrics['Test/Loss/KL'] = sum_kl_loss / num_batch_samples
         self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
         self.hparams['epochs'] = self.hparams['epochs'] + 1
-        self.writer.add_hparams(self.hparams, self.metrics, run_name=f"{self.hparams['tensorboard_run_name']}_hparams", global_step=epoch)
+        self.writer.add_hparams(dict(self.hparams), self.metrics, run_name=f"{self.hparams['tensorboard.run_name']}_hparams", global_step=epoch)
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                          Train Configuration                          #
@@ -120,13 +112,12 @@ class HumanVAETrainer(HPBaseTrainer):
         super().train(epochs, load_snapshot)
     
     def train_epoch(self, epoch):
-        self.model.train(True)
+        self.model.train(True) # Ensure model is in train mode after testing
         num_batch_samples = len(self.train_loader)
-        kl_weight = 0.5
-        warm_start = self.hparams['kl_cyclic_warm_start']
-        cycle_length = len(self.train_loader) if self.hparams['kl_cyclic_cycle_length'] == "length_of_dataset" else self.hparams['kl_cyclic_cycle_length']
+        warm_start = self.hparams['kl_cyclic.warm_start']
+        cycle_length = len(self.train_loader) if self.hparams['kl_cyclic.cycle_length'] == "length_of_dataset" else self.hparams['kl_cyclic.cycle_length']
         for (train_data, metadata) in self.train_loader:
-            kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic_min_beta'], max_beta=self.hparams['kl_cyclic_max_beta'])
+            kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic.min_beta'], max_beta=self.hparams['kl_cyclic.max_beta'])
             kl_weight = 0 if epoch < warm_start else kl_weight
             self.writer.add_scalar('Metric/KLWeight', kl_weight, self.batch_iteration)
             self.train_trace_expert_reconstruction(train_data, kl_weight)
@@ -142,9 +133,9 @@ class HumanVAETrainer(HPBaseTrainer):
         x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(train_data)
         loss: torch.Tensor = recon_loss + (kl_weight * kl_loss)
         self.optimizers['shr_vae'].zero_grad()
-        self.optimizers['expert_encoder'].zero_grad()
-        self.optimizers['expert_decoder'].zero_grad()
+        self.optimizers['expert.encoder'].zero_grad()
+        self.optimizers['expert.decoder'].zero_grad()
         loss.backward()
         self.optimizers['shr_vae'].step()
-        self.optimizers['expert_encoder'].step()
-        self.optimizers['expert_decoder'].step()
+        self.optimizers['expert.encoder'].step()
+        self.optimizers['expert.decoder'].step()

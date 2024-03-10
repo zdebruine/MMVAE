@@ -12,7 +12,7 @@ class Expert(nn.Module):
         self.discriminator = discriminator
 
     def forward(self, x):
-        raise RuntimeError("Don't foward the expert")
+        raise NotImplementedError()
 
 class VAE(nn.Module):
     """
@@ -32,12 +32,11 @@ class VAE(nn.Module):
         return mu + std*eps
 
     def forward(self, x: torch.Tensor) -> Tuple[Union[Any, torch.Tensor], Any, Any, Tuple[Any]]:
-        x, *encoder_results = utils.parameterize_returns(self.encoder(x))
         
-        mu = self.mean(x)
+        x = self.encoder(x)
+        mu = self.mean(x) 
         log_var = self.var(x)
         
         x = self.reparameterize(mu, log_var)
-        x, *decoder_results = utils.parameterize_returns(self.decoder(x))
-            
-        return (x, mu, log_var, *encoder_results, *decoder_results)
+        x = self.decoder(x)
+        return x, mu, log_var

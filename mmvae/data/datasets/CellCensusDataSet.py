@@ -1,5 +1,4 @@
 from torch.utils.data import Dataset
-import scipy.sparse as sp
 import torch
 import pandas as pd
 

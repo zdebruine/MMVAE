@@ -31,6 +31,9 @@ def cyclic_annealing(batch_iteration, cycle_length, min_beta=0.0, max_beta=1.0, 
     Returns:
     - beta_value: The calculated annealing rate for the current batch iteration.
     """
+    
+    if (cycle_length <= 0):
+        raise RuntimeError("Cycle length must be greater than 0!")
 
     # Determine the current position in the cycle
     cycle_position = batch_iteration % cycle_length

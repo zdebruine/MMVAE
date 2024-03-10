@@ -83,50 +83,28 @@ class BaseTrainer:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:
-            #self.writer.add_hparams(self.hparams, self.metrics, global_step=epoch)
             self.writer.flush()
             self.writer.close()
 
+from mmvae.trainers.hparams import HPConfig
+class BaseTrainerConfig(HPConfig):
+    required_hparams = {
+        'snapshot.path': str,
+        'snapshot.save_every': int,
+        'tensorboard.directory': str,
+        'tensorboard.run_name': str,
+    }
+    
 class HPBaseTrainer(BaseTrainer):
     
-    __required_hparams = {
-        'snapshot_path': str,
-        'snapshot_save_every': int,
-        'tensorboard_directory': str,
-        'tensorboard_run_name': str,
-    }
-    hparams = {}
-    metrics = {}
-    
-    def __init__(self, device: torch.device, hparams: dict, required_hparams: dict):
-        self.__required_hparams.update(required_hparams)
-        self._flatten_hparams(hparams)
-        self._validate_hparams()
-        
-        log_dir=f"{self.hparams['tensorboard_directory']}{self.hparams['tensorboard_run_name']}"
-        snapshot_path=self.hparams['snapshot_path']
-        save_every=self.hparams['snapshot_save_every']
+    def __init__(self, device: torch.device, hparams: BaseTrainerConfig):
+        self.hparams = hparams
+        log_dir=f"{self.hparams['tensorboard.directory']}{self.hparams['tensorboard.run_name']}"
+        snapshot_path=self.hparams['snapshot.path']
+        save_every=self.hparams['snapshot.save_every']
         
         super(HPBaseTrainer, self).__init__(
             device,
             log_dir=None if log_dir == "" else log_dir,
             snapshot_path=None if snapshot_path == "" else snapshot_path,
             save_every=None if save_every == 0 else save_every)
-        
-    def _flatten_hparams(self, hparams: dict, parent = ""):
-        for key, value in hparams.items():
-            flattened_key = key if parent == "" else f"{parent}_{key}"
-            if isinstance(value, dict):
-                self._flatten_hparams(value, flattened_key)
-            else:
-                if value == None:
-                    value = self.__required_hparams[flattened_key]() if flattened_key in self.__required_hparams else ''
-                self.hparams[flattened_key] = value
-    
-    def _validate_hparams(self):
-        for _req_key, _req_type in self.__required_hparams.items():
-            if _req_key not in self.hparams:
-                raise ValueError(f"Required hparam for HPBaseTrainer {_req_key} not in supplied hparams!")
-            _hp = self.hparams[_req_key]
-            if _hp is not None and not isinstance(_hp, _req_type):
-                raise TypeError(f"Required hparam for HPBaseTrainer {_req_key} expected type {_req_type} but received {type(_hp)}")

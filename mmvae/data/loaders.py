@@ -39,16 +39,6 @@ class MultiModalLoader:
                     return
                 del loaders[loader_idx]
 
-# class MappedCellCensusDataLoader(DataLoader):
-
-#     def __init__(self, batch_size, device, file_path, metadata_file_path):
-#         super(MappedCellCensusDataLoader, self).__init__(
-#             dataset=CCD.CellCensusDataset(data, metadata_file_path), 
-#             batch_size=batch_size, 
-#             shuffle=True, 
-#             collate_fn=CCD.collate_fn,
-#         )
-
 class ChunkedCellCensusDataLoader(dl.DataLoader2):
     """
         Dataloader wrapper for CellCensusPipeline
@@ -69,3 +59,50 @@ class ChunkedCellCensusDataLoader(dl.DataLoader2):
             datapipe_adapter_fn=None,
             reading_service=dl.MultiProcessingReadingService(num_workers=num_workers)
         )
+        
+import mmvae.data.utils as utils
+def configure_single_file_dataloaders(
+    data_file_path: str,
+    metadata_file_path: str,
+    train_ratio: float,
+    batch_size: int,
+    device: torch.device,
+    test_batch_size: int = None
+):
+    """
+    Splits a csr_matrix provided by data_file_path with equal length metadata_file_path by train_ratio 
+        which is a floating point between 0-1 (propertion of training data to test data). 
+    
+    If device is not None -> the entire dataset will be loaded on device at once.
+    """
+    if not test_batch_size:
+        test_batch_size = batch_size
+        
+    (train_data, train_metadata), (validation_data, validation_metadata) = utils.split_data_and_metadata(
+        data_file_path,
+        metadata_file_path,
+        train_ratio)
+    
+    from mmvae.data.datasets.CellCensusDataSet import CellCensusDataset, collate_fn
+    if device:
+        train_data = train_data.to(device)
+        validation_data = validation_data.to(device)
+        
+    train_dataset = CellCensusDataset(train_data, train_metadata)
+    test_dataset = CellCensusDataset(validation_data, validation_metadata)
+    
+    from torch.utils.data import DataLoader
+    return (
+        DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            collate_fn=collate_fn,
+        ),
+        DataLoader(
+            test_dataset,
+            shuffle=True,
+            batch_size=batch_size,
+            collate_fn=collate_fn,
+        )
+    )

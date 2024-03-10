@@ -7,7 +7,8 @@ _CELL_CENSUS_COLUMN_NAMES = ["soma_joinid","dataset_id","assay","cell_type","dev
 def split_data_and_metadata(data_file_path: str, metadata_file_path: pd.DataFrame, train_ratio: float):
     """
     Splits a csr_matrix and its corresponding metadata (pandas DataFrame) into training and validation sets based on a given ratio.
-
+    Important:
+        This function expects the metadata to have no header.
     :param data_file_path: The file path in which to load .npz.
     :param metadata_file_path: The file path to the pandas DataFrame containing metadata corresponding to the csr_matrix's rows.
     :param train_ratio: A float between 0 and 1 indicating the ratio of data to be used for training.
