@@ -67,7 +67,7 @@ class BaseTrainer:
         raise NotImplementedError("Override this method to implement training loop for one epoch")
     
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if self.__initialized and __name in  ('model', 'optimizers', 'dataloader'): 
+        if self.__initialized and __name in  ('model', 'optimizers', 'schedulars'): 
             raise RuntimeError(f"Attribute: {__name} cannot be set after initialization")
         super().__setattr__(__name, __value)
         

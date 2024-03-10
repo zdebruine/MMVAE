@@ -27,15 +27,16 @@ class HumanVAETrainer(HPBaseTrainer):
     
     def __init__(self, device: torch.device, hparams: HumanVAEConfig):
         super(HumanVAETrainer, self).__init__(device, hparams)
-        self.writer.add_text('Model Architecture', str(self.model))
+        if hasattr(self, 'writer'):
+            self.writer.add_text('Model Architecture', str(self.model))
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                             Configuration                             #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     
     def configure_dataloader(self):
-        from mmvae.data.loaders import configure_single_file_dataloaders
-        self.train_loader, self.test_loader = configure_single_file_dataloaders(
+        from mmvae.data import configure_singlechunk_dataloaders
+        self.train_loader, self.test_loader = configure_singlechunk_dataloaders(
             data_file_path=self.hparams['data_file_path'],
             metadata_file_path=self.hparams['metadata_file_path'],
             train_ratio=self.hparams['train_dataset_ratio'],
@@ -101,7 +102,8 @@ class HumanVAETrainer(HPBaseTrainer):
         self.metrics['Test/Loss/KL'] = sum_kl_loss / num_batch_samples
         self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
         self.hparams['epochs'] = self.hparams['epochs'] + 1
-        self.writer.add_hparams(dict(self.hparams), self.metrics, run_name=f"{self.hparams['tensorboard.run_name']}_hparams", global_step=epoch)
+        if hasattr(self, 'writer'):
+            self.writer.add_hparams(dict(self.hparams), self.metrics, run_name=f"{self.hparams['tensorboard.run_name']}_hparams", global_step=epoch)
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                          Train Configuration                          #
@@ -119,7 +121,8 @@ class HumanVAETrainer(HPBaseTrainer):
         for (train_data, metadata) in self.train_loader:
             kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic.min_beta'], max_beta=self.hparams['kl_cyclic.max_beta'])
             kl_weight = 0 if epoch < warm_start else kl_weight
-            self.writer.add_scalar('Metric/KLWeight', kl_weight, self.batch_iteration)
+            if hasattr(self, 'writer'):
+                self.writer.add_scalar('Metric/KLWeight', kl_weight, self.batch_iteration)
             self.train_trace_expert_reconstruction(train_data, kl_weight)
             self.batch_iteration += 1
             

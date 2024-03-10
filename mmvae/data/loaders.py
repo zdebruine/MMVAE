@@ -61,7 +61,7 @@ class ChunkedCellCensusDataLoader(dl.DataLoader2):
         )
         
 import mmvae.data.utils as utils
-def configure_single_file_dataloaders(
+def configure_singlechunk_dataloaders(
     data_file_path: str,
     metadata_file_path: str,
     train_ratio: float,
