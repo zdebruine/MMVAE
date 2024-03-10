@@ -41,7 +41,8 @@ setup(
         # "torchdata==0.7.1",
         "torch",
         "torchdata",
-        "torchvision"
+        "torchvision",
+        "pandas"
     ],
     extras_require={
         "test": [
