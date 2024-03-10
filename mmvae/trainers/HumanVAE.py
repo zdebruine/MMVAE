@@ -112,7 +112,7 @@ class HumanVAETrainer(HPBaseTrainer):
     def train(self, epochs, load_snapshot=False):
         self.batch_iteration = 0
         super().train(epochs, load_snapshot)
-    
+
     def train_epoch(self, epoch):
         self.model.train(True) # Ensure model is in train mode after testing
         num_batch_samples = len(self.train_loader)

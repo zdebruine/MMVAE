@@ -1,7 +1,6 @@
 import torch
-import numpy as np
 
-def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor):
+def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor, reduction="sum"):
     """
     Calculate the KL divergence between a given Gaussian distribution q(z|x)
     and the standard Gaussian distribution p(z).
@@ -14,7 +13,10 @@ def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor):
     Returns:
     - torch.Tensor: The KL divergence.
     """
-    return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    if reduction == "sum":
+        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1)
+    if reduction == "mean":
+        return torch.mean(-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
 
 def cyclic_annealing(batch_iteration, cycle_length, min_beta=0.0, max_beta=1.0, ceil_downswings=True, floor_upswings=False):
     """
