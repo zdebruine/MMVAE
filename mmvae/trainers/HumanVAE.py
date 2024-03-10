@@ -93,7 +93,7 @@ class HumanVAETrainer(HPBaseTrainer):
             for test_idx, (test_data, metadata) in enumerate(self.test_loader):
                 x_hat, mu, logvar, recon_loss, kl_loss = self.trace_expert_reconstruction(test_data)
                 batch_pcc.update(test_data.to_dense(), x_hat)
-                recon_loss, kl_loss = recon_loss.item() / test_data.numel(), kl_loss.item() / mu.shape[0]
+                recon_loss, kl_loss = recon_loss.item() / test_data.numel(), kl_loss.item() / mu.numel()
                 sum_recon_loss += recon_loss 
                 sum_kl_loss += kl_loss 
                 sum_total_loss += recon_loss + (kl_weight * kl_loss)
