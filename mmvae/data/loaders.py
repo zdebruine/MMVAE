@@ -102,7 +102,7 @@ def configure_singlechunk_dataloaders(
         DataLoader(
             test_dataset,
             shuffle=True,
-            batch_size=batch_size,
+            batch_size=test_batch_size,
             collate_fn=collate_fn,
         )
     )
