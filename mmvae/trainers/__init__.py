@@ -1,4 +1,11 @@
+from mmvae.trainers.trainer import BaseTrainer, HPBaseTrainer, BaseTrainerConfig
 from mmvae.trainers.HumanVAE import HumanVAETrainer
 from mmvae.trainers.ExampleTrainer import ExampleTrainer
-from mmvae.trainers.trainer import BaseTrainer
-__all__ = ['HumanVAETrainer', 'ExampleTrainer', 'BaseTrainer']
+
+__all__ = [
+    'BaseTrainer', 
+    'BaseTrainerConfig', 
+    'HPBaseTrainer',
+    'HumanVAETrainer', 
+    'ExampleTrainer',
+]

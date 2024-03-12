@@ -35,12 +35,9 @@ class ExampleTrainer(BaseTrainer):
         optimizers = {}
         for name in self.model.experts.keys():
             expert = self.model.experts[name]
-            optimizers[f'{
-                name}-enc'] = torch.optim.Adam(expert.encoder.parameters())
-            optimizers[f'{
-                name}-dec'] = torch.optim.Adam(expert.decoder.parameters())
-            optimizers[f'{
-                name}-disc'] = torch.optim.Adam(expert.discriminator.parameters())
+            optimizers[f'{name}-enc'] = torch.optim.Adam(expert.encoder.parameters())
+            optimizers[f'{name}-dec'] = torch.optim.Adam(expert.decoder.parameters())
+            optimizers[f'{name}-disc'] = torch.optim.Adam(expert.discriminator.parameters())
 
         optimizers['shr_enc_disc'] = torch.optim.Adam(
             self.model.shared_vae.encoder.discriminator.parameters())

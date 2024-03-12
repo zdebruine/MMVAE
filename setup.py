@@ -37,8 +37,12 @@ setup(
         "numpy",
         "scipy",
         "tensorboard",
-        "torch==2.3.0dev20240101+cu121",
-        "torchdata==0.7.1"
+        # "torch==2.3.0dev20240101+cu121",
+        # "torchdata==0.7.1",
+        "torch",
+        "torchdata",
+        "torchvision",
+        "pandas"
     ],
     extras_require={
         "test": [
