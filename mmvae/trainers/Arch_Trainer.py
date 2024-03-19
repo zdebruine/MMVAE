@@ -2,15 +2,24 @@ import torch
 import torch.nn.functional as F
 import mmvae.trainers.utils as utils
 import torch.utils.tensorboard as tb
+import torch.nn as nn
 import mmvae.models.Arch_Model as Arch_Model
+from mmvae.data import MappedCellCensusDataLoader
 #Would like to import tuning library to tune hyperparameters
 
 class VAETrainer:
 
-    def __init__(self, train_loader, device, model=Arch_Model.VAE(), batch_size=32, learning_rate=0.0001, num_epochs=1, start_kl=0.0, end_kl=1.0, annealing_start=2, annealing_steps=20):
+    def __init__(self, device, model=Arch_Model.VAE(), batch_size=512, learning_rate=0.0001, num_epochs=20, start_kl=0.0, end_kl=0.1, annealing_start=4, annealing_steps=16):
         #Configure
         self.model = model.to(device)
-        self.train_loader = train_loader
+        self.train_loader =  MappedCellCensusDataLoader(
+            batch_size=batch_size,
+            device=device,
+            file_path='/active/debruinz_project/CellCensus_3M/3m_human_chunk_10.npz',
+            #3m_mouse_chunk_10.npz
+            load_all=True
+        )
+        print(len(self.train_loader))
         self.device = device
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         #Hyperparameters
@@ -25,7 +34,7 @@ class VAETrainer:
         self.writer = tb.SummaryWriter()
 
     def loss_function(self, recon_x, x: torch.Tensor, mu, logvar):
-        reconstruction_loss = F.mse_loss(recon_x, x.to_dense(), reduction='sum')
+        reconstruction_loss = F.l1_loss(recon_x, x.to_dense(), reduction='sum') / self.batch_size
         kl_divergence = utils.kl_divergence(mu, logvar) / self.batch_size
         # kl_divergence = (-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())) / self.batch_size
         return reconstruction_loss, kl_divergence
@@ -41,7 +50,7 @@ class VAETrainer:
                 #Check starting epoch for kl
                 annealing = 0
                 if epoch >= self.annealing_start:
-                    annealing_ratio = min((epoch - self.annealing_start) / self.annealing_steps, 0.5)
+                    annealing_ratio = (epoch - self.annealing_start) / self.annealing_steps
                     annealing = self.start_kl + annealing_ratio * (self.end_kl - self.start_kl)
                 
 
@@ -57,7 +66,9 @@ class VAETrainer:
                               .format(epoch + 1, self.num_epochs, i + 1, len(self.train_loader), loss.item()))
 
             #Write loss to tensorboard  
-            self.writer.add_scalar('Loss/KL_Loss', kl_loss.item(), epoch)
-            self.writer.add_scalar('Loss/ReconstructionFromTrainingData', loss.item(), epoch)
+            self.writer.add_scalar('Annealing Schedule', annealing, epoch)
+            self.writer.add_scalar('Loss/KL', kl_loss.item(), epoch)
+            self.writer.add_scalar('Loss/MSE', recon_loss.item(), epoch)
+            self.writer.add_scalar('Loss/Total', loss.item(), epoch)
     
         self.writer.flush()
