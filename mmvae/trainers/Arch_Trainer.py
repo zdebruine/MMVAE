@@ -9,15 +9,15 @@ from mmvae.data import MappedCellCensusDataLoader
 
 class VAETrainer:
 
-    def __init__(self, device, model=Arch_Model.VAE(), batch_size=512, learning_rate=0.0001, num_epochs=20, start_kl=0.0, end_kl=0.1, annealing_start=4, annealing_steps=16):
+    def __init__(self, device, model=Arch_Model.VAE(), batch_size=512, learning_rate=0.00001, num_epochs=10, start_kl=0.0, end_kl=0.1, annealing_start=2, annealing_steps=8):
         #Configure
         self.model = model.to(device)
         self.train_loader =  MappedCellCensusDataLoader(
             batch_size=batch_size,
             device=device,
-            file_path='/active/debruinz_project/CellCensus_3M/3m_human_chunk_10.npz',
+            file_path='/active/debruinz_project/CellCensus_3M_Full/3m_human_full.npz',
             #3m_mouse_chunk_10.npz
-            load_all=True
+            load_all=False
         )
         print(len(self.train_loader))
         self.device = device
