@@ -14,6 +14,8 @@
 
 #SBATCH --output=vae_gan.%j.out ##Name of output file
 
+#SBATCH --gres=gpu:1
+
 module load ml-python/nightly
 module load numpy/1.26.1
 source /active/debruinz_project/jack_lukomski/jacks_venv/bin/activate

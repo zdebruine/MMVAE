@@ -93,12 +93,13 @@ class HumanVAETrainer(HPBaseTrainer):
         self.optimizers['shr_vae'].zero_grad()
         self.optimizers['expert.encoder'].zero_grad()
         self.optimizers['expert.decoder'].zero_grad()
+        G_loss = torch.Tensor
 
         x_hat, mu, logvar = self.model(train_data)
-        score = self.model.realism_bc(x_hat)
-        recon_loss = F.mse_loss(x_hat, train_data.to_dense(), reduction='sum')
-        kl_loss = utils.kl_divergence(mu, logvar)
-        G_loss = F.mse_loss(score, torch.ones_like(score), reduction='sum')
+        #score = self.model.realism_bc(x_hat)
+        recon_loss = F.mse_loss(x_hat, train_data.to_dense())
+        kl_loss = utils.kl_divergence(mu, logvar, reduction='mean')
+        #G_loss = F.mse_loss(score, torch.ones_like(score), reduction='sum')
 
         loss: torch.Tensor = recon_loss + (kl_weight * kl_loss) #+ G_loss
         loss.backward()
@@ -126,29 +127,29 @@ class HumanVAETrainer(HPBaseTrainer):
                 # VAE
                 x_hat, mu, logvar = self.model(test_data)
                 score = self.model.realism_bc(x_hat)
-                recon_loss = F.mse_loss(x_hat, test_data.to_dense(), reduction='sum')
-                kl_loss = utils.kl_divergence(mu, logvar)
-                G_loss = F.mse_loss(score, torch.ones_like(score), reduction='sum')
+                recon_loss = F.mse_loss(x_hat, test_data.to_dense())
+                kl_loss = utils.kl_divergence(mu, logvar, reduction='mean')
+                #G_loss = F.mse_loss(score, torch.ones_like(score), reduction='sum')
                 # end VAE
 
                 # Discriminator
-                real_pred = self.model.realism_bc(test_data)
-                real_loss = F.binary_cross_entropy(real_pred, torch.ones_like(real_pred), reduction='sum')
+                # real_pred = self.model.realism_bc(test_data)
+                # real_loss = F.binary_cross_entropy(real_pred, torch.ones_like(real_pred), reduction='sum')
                 
-                fake_pred = self.model.realism_bc(x_hat)
-                fake_loss = F.binary_cross_entropy(fake_pred, torch.zeros_like(fake_pred), reduction='sum')
+                # fake_pred = self.model.realism_bc(x_hat)
+                # fake_loss = F.binary_cross_entropy(fake_pred, torch.zeros_like(fake_pred), reduction='sum')
 
-                D_loss = real_loss + fake_loss   
+                # D_loss = real_loss + fake_loss   
                 # End Discriminator
 
-                batch_pcc.update(test_data.to_dense(), x_hat)
+                #batch_pcc.update(test_data.to_dense(), x_hat)
 
                 recon_loss, kl_loss = recon_loss.item() / test_data.numel(), kl_loss.item() / mu.numel()
                 sum_recon_loss += recon_loss 
                 sum_kl_loss += kl_loss 
-                sum_G_loss += G_loss
-                sum_D_loss += D_loss
-                sum_total_loss += recon_loss + (kl_weight * kl_loss) + G_loss
+                #sum_G_loss += G_loss
+                #sum_D_loss += D_loss
+                sum_total_loss += recon_loss + (kl_weight * kl_loss) #+ G_loss
         
         md = torch.nn.Sequential(
                 torch.nn.Linear(60664, 256),
@@ -157,15 +158,15 @@ class HumanVAETrainer(HPBaseTrainer):
                 torch.nn.Sigmoid()
             ).to(self.device)
 
-        fpr, tpr, md_auc = utils.md_eval(md=md, md_epochs=10, gen=self.model, dataloader=self.test_loader)
+        fpr, tpr, md_auc = utils.md_eval(md=md, md_epochs=1, gen=self.model, dataloader=self.test_loader)
 
         self.metrics['Test/Loss/Reconstruction'] = sum_recon_loss / num_batch_samples
         self.metrics['Test/Loss/KL'] = sum_kl_loss / num_batch_samples
         self.metrics['Test/Loss/Total_loss'] = sum_total_loss / num_batch_samples
-        self.metrics['Test/Loss/G_Loss']= sum_G_loss / num_batch_samples
-        self.metrics['Test/Loss/D_Loss']= sum_D_loss / num_batch_samples
+        #self.metrics['Test/Loss/G_Loss']= sum_G_loss / num_batch_samples
+        #self.metrics['Test/Loss/D_Loss']= sum_D_loss / num_batch_samples
         
-        self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
+        #self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
         self.metrics['Test/Eval/MD_AUC'] = md_auc
         self.hparams['epochs'] = self.hparams['epochs'] + 1
         if hasattr(self, 'writer'):
@@ -185,8 +186,9 @@ class HumanVAETrainer(HPBaseTrainer):
         warm_start = self.hparams['kl_cyclic.warm_start']
         cycle_length = len(self.train_loader) if self.hparams['kl_cyclic.cycle_length'] == "length_of_dataset" else self.hparams['kl_cyclic.cycle_length']
         for (train_data, metadata) in self.train_loader:
-            kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic.min_beta'], max_beta=self.hparams['kl_cyclic.max_beta'])
-            kl_weight = 0 if epoch < warm_start else kl_weight
+            #kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic.min_beta'], max_beta=self.hparams['kl_cyclic.max_beta'])
+            #kl_weight = 0 if epoch < warm_start else kl_weight
+            kl_weight = 0.5
 
             with torch.no_grad():
                 fake_batch_data, _, _ = self.model(train_data)
@@ -200,7 +202,7 @@ class HumanVAETrainer(HPBaseTrainer):
                 self.writer.add_scalar('Batch_Scale/KLWeight', kl_weight, self.batch_iteration)
                 #self.writer.add_scalar('Batch_Scale/BC_AUC', batch_auc, self.batch_iteration)
                 #self.writer.add_scalar('Batch_Scale/D_Loss', D_loss.item(), self.batch_iteration)
-                self.writer.add_scalar('Batch_Scale/G_Loss', G_loss.item(), self.batch_iteration)
+                #self.writer.add_scalar('Batch_Scale/G_Loss', G_loss.item(), self.batch_iteration)
                 self.writer.add_scalar('Batch_Scale/recon_loss', recon_loss.item(), self.batch_iteration)
                 self.writer.add_scalar('Batch_Scale/kl_loss', kl_loss.item(), self.batch_iteration)
             

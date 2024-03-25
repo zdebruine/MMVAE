@@ -12,7 +12,7 @@ def main(device):
     hparams = human_vae_gan.HumanVAEConfig(config=json_hparams)
     trainer = human_vae_gan.HumanVAETrainer(device=device, hparams=hparams)
 
-    trainer.train(100)
+    trainer.train(12)
 
 if __name__ == "__main__":
     CUDA = True

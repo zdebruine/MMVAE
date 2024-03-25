@@ -118,7 +118,7 @@ def batch_roc(bc, real_batch_data, fake_batch_data):
     return fpr, tpr, roc_auc
 
 def md_eval(md, md_epochs, gen, dataloader):
-  md_optimizer = torch.optim.Adam(md.parameters())
+  md_optimizer = torch.optim.Adam(md.parameters(), lr=1e-6)
   md_loss_fn = torch.nn.MSELoss()
 
   for epoch in range(md_epochs):
@@ -126,14 +126,29 @@ def md_eval(md, md_epochs, gen, dataloader):
       md_optimizer.zero_grad()
 
       real_pred = md(train_data)
+      if torch.isnan(real_pred).any():
+          print("NaN in D output for real data")
       real_loss = md_loss_fn(real_pred, torch.ones_like(real_pred))
+      if torch.isnan(real_loss).any():
+          print("NaN in real_loss")
       real_loss.backward()
 
       fake_data = gen(train_data)[0]
+      if torch.isnan(fake_data).any():
+          print("NaN in G output")
 
       fake_pred = md(fake_data)
+      if torch.isnan(fake_pred).any():
+          print("NaN in D output for fake data")
       fake_loss = md_loss_fn(fake_pred, torch.zeros_like(fake_pred))
+      if torch.isnan(fake_loss).any():
+          print("NaN found in fake_loss")
       fake_loss.backward()
+
+
+      for name, param in md.named_parameters():
+          if param.grad is not None and torch.isnan(param.grad).any():
+              print(f'NaN gradient detected in {name}')
 
       md_optimizer.step()
 
@@ -148,6 +163,10 @@ def md_eval(md, md_epochs, gen, dataloader):
 
     scores = np.array(real_scores + fake_scores)
     y_true = np.array([1] * len(real_scores) + [0] * len(fake_scores))
+    if np.isnan(scores).any():
+        print("NaN found in scores array")
+    if np.isnan(y_true).any():
+        print("NaN found in y_true")
     fpr, tpr, thresholds = roc_curve(y_true, scores)
     roc_auc = auc(fpr, tpr)
 

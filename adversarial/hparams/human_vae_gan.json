@@ -1,13 +1,13 @@
 {
-    "tensorboard.run_name": "baseline",
+    "tensorboard.run_name": "baseline_md_epoch_1",
     "snapshot.path": "",
     "snapshot.save_every": 0,
     "tensorboard.directory": "/active/debruinz_project/jack_lukomski/03_23_2024_logs/",
-    "data_file_path": "/active/debruinz_project/CellCensus_3M/3m_human_chunk_11.npz",
+    "data_file_path": "/active/debruinz_project/CellCensus_3M/3m_human_chunk_10.npz",
     "metadata_file_path": "/active/debruinz_project/CellCensus_3M/3m_human_metadata_10.csv",
     "train_dataset_ratio": 0.8,
     "batch_size": 32,
-    "epochs": 100,
+    "epochs": 12,
     "expert": {
       "encoder": {
         "optimizer": {
@@ -135,7 +135,7 @@
       }
     },
     "kl_cyclic": {
-      "warm_start": 10,
+      "warm_start": 4,
       "cycle_length": 4.0,
       "min_beta": 0.0,
       "max_beta": 1.0
