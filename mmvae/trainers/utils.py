@@ -1,4 +1,6 @@
 import torch
+import numpy as np
+from sklearn.metrics import roc_curve, auc
 
 def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor, reduction="sum"):
     """
@@ -14,7 +16,7 @@ def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor, reduction="sum"):
     - torch.Tensor: The KL divergence.
     """
     if reduction == "sum":
-        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1)
+        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).sum()
     if reduction == "mean":
         return torch.mean(-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
 
@@ -103,6 +105,105 @@ def build_non_zero_mask(crow_indices, col_indices, shape):
             mask[row][col] = True  # Mark non-zero positions as True
     
     return mask
+
+def batch_roc(bc, real_batch_data, fake_batch_data):
+    real_scores = bc(real_batch_data).view(-1).cpu().detach().numpy()
+    fake_scores = bc(fake_batch_data).view(-1).cpu().detach().numpy()
+
+    scores = np.concatenate([real_scores, fake_scores])
+    y_true = np.concatenate([np.ones_like(real_scores), np.zeros_like(fake_scores)])
+    fpr, tpr, thresholds = roc_curve(y_true, scores)
+    roc_auc = auc(fpr, tpr)
+
+    return fpr, tpr, roc_auc
+
+def md_eval(md, md_epochs, gen, dataloader):
+  md_optimizer = torch.optim.Adam(md.parameters())
+  md_loss_fn = torch.nn.MSELoss()
+
+  for epoch in range(md_epochs):
+    for (train_data, label) in dataloader:
+      md_optimizer.zero_grad()
+
+      real_pred = md(train_data)
+      real_loss = md_loss_fn(real_pred, torch.ones_like(real_pred))
+      real_loss.backward()
+
+      fake_data = gen(train_data)[0]
+
+      fake_pred = md(fake_data)
+      fake_loss = md_loss_fn(fake_pred, torch.zeros_like(fake_pred))
+      fake_loss.backward()
+
+      md_optimizer.step()
+
+    real_scores = []
+    fake_scores = []
+
+    with torch.no_grad():
+        for (train_data, label) in dataloader:
+            fake_data = gen(train_data)[0]
+            real_scores.extend(md(train_data).view(-1).tolist())
+            fake_scores.extend(md(fake_data).view(-1).tolist())
+
+    scores = np.array(real_scores + fake_scores)
+    y_true = np.array([1] * len(real_scores) + [0] * len(fake_scores))
+    fpr, tpr, thresholds = roc_curve(y_true, scores)
+    roc_auc = auc(fpr, tpr)
+
+    return fpr, tpr, roc_auc
+
+# class Meta_Discriminator:
+#     def __init__(self, num_input: int, device, G, test_loader, md=None, loss_fn=torch.nn.MSELoss(), optimizer_class=torch.optim.Adam, optimizer_kwargs=None):
+#         self.device = torch.device(device)
+        
+#         if md is None:
+#             self.md = torch.nn.Sequential(
+#                 torch.nn.Linear(num_input, 256),
+#                 torch.nn.ReLU(),
+#                 torch.nn.Linear(256, 1),
+#                 torch.nn.Sigmoid()
+#             ).to(self.device)
+#         else:
+#             self.md = md.to(self.device)
+
+#         self.loss_fn = loss_fn.to(self.device)
+#         self.test_loader = test_loader
+#         self.G = G
+        
+#         if optimizer_kwargs is None:
+#             optimizer_kwargs = {'lr': 0.001}
+#         self.optimizer = optimizer_class(self.md.parameters(), **optimizer_kwargs)
+
+#     def __call__(self):
+#         real_scores = []
+#         fake_scores = []
+
+#         with torch.no_grad():
+#             for (train_data, metadata) in self.test_loader:
+#                 fake_data = self.G(train_data)[0]
+#                 real_scores.extend(self.md(train_data).view(-1).tolist())
+#                 fake_scores.extend(self.md(fake_data).view(-1).tolist())
+
+#         scores = np.array(real_scores + fake_scores)
+#         y_true = np.array([1] * len(real_scores) + [0] * len(fake_scores))
+#         fpr, tpr, thresholds = roc_curve(y_true, scores)
+#         roc_auc = auc(fpr, tpr)
+
+#         return fpr, tpr, roc_auc
+
+#     def train_batch(self, real_batch_data, fake_batch_data):
+#         self.optimizer.zero_grad()
+
+#         real_pred = self.md(real_batch_data)
+#         real_loss = self.loss_fn(real_pred, torch.ones_like(real_pred))
+#         fake_pred = self.md(fake_batch_data)
+#         fake_loss = self.loss_fn(fake_pred, torch.zeros_like(fake_pred))
+
+#         total_loss = real_loss + fake_loss
+#         total_loss.backward()
+#         self.optimizer.step()
+
 
 class BatchPCC:
     def __init__(self):
