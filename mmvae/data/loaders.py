@@ -61,13 +61,41 @@ class ChunkedCellCensusDataLoader(dl.DataLoader2):
         )
         
 import mmvae.data.utils as utils
+
+def configure_singlechunk_dataloader(
+    data_file_path: str,
+    metadata_file_path: str,
+    batch_size: int,
+    shuffle: bool = True,
+    device: torch.device = None,
+):
+    """If device is not None -> the entire dataset will be loaded on device at once."""
+    matrix, metadata = utils.load_data_and_metadata(data_file_path, metadata_file_path)
+    
+    from mmvae.data.datasets.CellCensusDataSet import CellCensusDataset, collate_fn
+    if device:
+        train_data = train_data.to(device)
+        validation_data = validation_data.to(device)
+        
+    dataset = CellCensusDataset(matrix, metadata)
+    
+    from torch.utils.data import DataLoader
+    return DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            collate_fn=collate_fn,
+        )
+    
+    
 def configure_singlechunk_dataloaders(
     data_file_path: str,
     metadata_file_path: str,
     train_ratio: float,
     batch_size: int,
-    device: torch.device,
-    test_batch_size: int = None
+    test_batch_size: int = None,
+    shuffle: bool = True,
+    device: torch.device = None,
 ):
     """
     Splits a csr_matrix provided by data_file_path with equal length metadata_file_path by train_ratio 
@@ -96,12 +124,12 @@ def configure_singlechunk_dataloaders(
         DataLoader(
             train_dataset,
             batch_size=batch_size,
-            shuffle=True,
+            shuffle=shuffle,
             collate_fn=collate_fn,
         ),
         DataLoader(
             test_dataset,
-            shuffle=True,
+            shuffle=shuffle,
             batch_size=test_batch_size,
             collate_fn=collate_fn,
         )
