@@ -172,58 +172,6 @@ def md_eval(md, md_epochs, gen, dataloader):
 
     return fpr, tpr, roc_auc
 
-# class Meta_Discriminator:
-#     def __init__(self, num_input: int, device, G, test_loader, md=None, loss_fn=torch.nn.MSELoss(), optimizer_class=torch.optim.Adam, optimizer_kwargs=None):
-#         self.device = torch.device(device)
-        
-#         if md is None:
-#             self.md = torch.nn.Sequential(
-#                 torch.nn.Linear(num_input, 256),
-#                 torch.nn.ReLU(),
-#                 torch.nn.Linear(256, 1),
-#                 torch.nn.Sigmoid()
-#             ).to(self.device)
-#         else:
-#             self.md = md.to(self.device)
-
-#         self.loss_fn = loss_fn.to(self.device)
-#         self.test_loader = test_loader
-#         self.G = G
-        
-#         if optimizer_kwargs is None:
-#             optimizer_kwargs = {'lr': 0.001}
-#         self.optimizer = optimizer_class(self.md.parameters(), **optimizer_kwargs)
-
-#     def __call__(self):
-#         real_scores = []
-#         fake_scores = []
-
-#         with torch.no_grad():
-#             for (train_data, metadata) in self.test_loader:
-#                 fake_data = self.G(train_data)[0]
-#                 real_scores.extend(self.md(train_data).view(-1).tolist())
-#                 fake_scores.extend(self.md(fake_data).view(-1).tolist())
-
-#         scores = np.array(real_scores + fake_scores)
-#         y_true = np.array([1] * len(real_scores) + [0] * len(fake_scores))
-#         fpr, tpr, thresholds = roc_curve(y_true, scores)
-#         roc_auc = auc(fpr, tpr)
-
-#         return fpr, tpr, roc_auc
-
-#     def train_batch(self, real_batch_data, fake_batch_data):
-#         self.optimizer.zero_grad()
-
-#         real_pred = self.md(real_batch_data)
-#         real_loss = self.loss_fn(real_pred, torch.ones_like(real_pred))
-#         fake_pred = self.md(fake_batch_data)
-#         fake_loss = self.loss_fn(fake_pred, torch.zeros_like(fake_pred))
-
-#         total_loss = real_loss + fake_loss
-#         total_loss.backward()
-#         self.optimizer.step()
-
-
 class BatchPCC:
     def __init__(self):
         self.reset()
