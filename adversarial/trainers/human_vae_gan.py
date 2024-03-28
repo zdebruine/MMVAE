@@ -12,8 +12,6 @@ class HumanVAEConfig(BaseTrainerConfig):
         'metadata_file_path': str,
         'train_dataset_ratio': float,
         'batch_size': int,
-        'expert.encoder.optimizer.lr': float,
-        'expert.decoder.optimizer.lr': float, 
         'shr_vae.optimizer.lr': float, 
         'kl_cyclic.warm_start': int, 
         'kl_cyclic.cycle_length': float, 
@@ -50,10 +48,8 @@ class HumanVAETrainer(HPBaseTrainer):
         
     def configure_optimizers(self):
         return {
-            'expert.encoder': torch.optim.Adam(self.model.expert.encoder.parameters(), lr=self.hparams['expert.encoder.optimizer.lr']),
-            'expert.decoder': torch.optim.Adam(self.model.expert.decoder.parameters(), lr=self.hparams['expert.decoder.optimizer.lr']),
             'shr_vae': torch.optim.Adam(self.model.shared_vae.parameters(), lr=self.hparams['shr_vae.optimizer.lr']),
-            'realism_bc': torch.optim.Adam(self.model.realism_bc.parameters(), lr=self.hparams['realism_bc.optimizer.lr']), 
+            'realism_bc': torch.optim.Adam(self.model.realism_bc.parameters(), lr=self.hparams['realism_bc.optimizer.lr']),
         }
         
     def configure_schedulers(self) -> dict[str, LRScheduler]:
@@ -73,43 +69,24 @@ class HumanVAETrainer(HPBaseTrainer):
     #                          Trace Configuration                          #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-    def train_bc_batch(self, train_data, fake_batch_data):
-        self.optimizers['realism_bc'].zero_grad()
-
+    def trace_bc_feedback(self, train_data: torch.Tensor, fake_train_data: torch.Tensor):
         real_pred = self.model.realism_bc(train_data)
         real_loss = F.binary_cross_entropy(real_pred, torch.ones_like(real_pred), reduction='sum')
-        
-        fake_pred = self.model.realism_bc(fake_batch_data)
-        fake_loss = F.binary_cross_entropy(fake_pred, torch.zeros_like(fake_pred), reduction='sum')
+        fake_pred = self.model.realism_bc(fake_train_data)
+        fake_loss = F.binary_cross_entropy(fake_pred, torch.zeros_like(fake_pred))
 
-        D_loss = real_loss + fake_loss    
-        D_loss.backward()
+        total_loss = real_loss + fake_loss
 
-        self.optimizers['realism_bc'].step()
-
-        return D_loss, real_loss, fake_loss
+        return total_loss, real_loss, fake_loss
     
-    def train_vae_batch(self, train_data, kl_weight):
-        self.optimizers['shr_vae'].zero_grad()
-        self.optimizers['expert.encoder'].zero_grad()
-        self.optimizers['expert.decoder'].zero_grad()
-        G_loss = torch.Tensor
-
+    def trace_expert_reconstruction(self, train_data: torch.Tensor):
         x_hat, mu, logvar = self.model(train_data)
-        #score = self.model.realism_bc(x_hat)
-        recon_loss = F.mse_loss(x_hat, train_data.to_dense())
-        kl_loss = utils.kl_divergence(mu, logvar, reduction='mean')
-        #G_loss = F.mse_loss(score, torch.ones_like(score), reduction='sum')
-
-        loss: torch.Tensor = recon_loss + (kl_weight * kl_loss) #+ G_loss
-        loss.backward()
-
-        self.optimizers['shr_vae'].step()
-        self.optimizers['expert.encoder'].step()
-        self.optimizers['expert.decoder'].step()
-
-        return x_hat, mu, logvar, recon_loss, kl_loss, G_loss
-        
+        recon_loss = F.mse_loss(x_hat, train_data.to_dense(), reduction='sum')
+        kl_loss = utils.kl_divergence(mu, logvar)
+        bc_pred = self.model.realism_bc(x_hat)
+        bc_loss = F.binary_cross_entropy(bc_pred, torch.ones_like(bc_pred), reduction='sum')
+        return x_hat, mu, logvar, recon_loss, kl_loss, bc_loss
+    
     def log_non_zero_and_zero_reconstruction(self, inputs, targets):
         non_zero_mask = inputs != 0
         self.metrics['Test/Loss/NonZeroFeatureReconstruction'] += F.mse_loss(inputs[non_zero_mask], targets[non_zero_mask], reduction='sum') 
@@ -121,52 +98,29 @@ class HumanVAETrainer(HPBaseTrainer):
             self.model.eval()
             num_batch_samples = len(self.test_loader)
             batch_pcc = utils.BatchPCC()
-            sum_recon_loss, sum_kl_loss, sum_total_loss, sum_G_loss, sum_D_loss = 0, 0, 0, 0, 0
-
+            sum_recon_loss, sum_kl_loss, sum_total_loss, sum_bc_loss = 0, 0, 0, 0
             for test_idx, (test_data, metadata) in enumerate(self.test_loader):
-                # VAE
-                x_hat, mu, logvar = self.model(test_data)
-                score = self.model.realism_bc(x_hat)
-                recon_loss = F.mse_loss(x_hat, test_data.to_dense())
-                kl_loss = utils.kl_divergence(mu, logvar, reduction='mean')
-                #G_loss = F.mse_loss(score, torch.ones_like(score), reduction='sum')
-                # end VAE
-
-                # Discriminator
-                # real_pred = self.model.realism_bc(test_data)
-                # real_loss = F.binary_cross_entropy(real_pred, torch.ones_like(real_pred), reduction='sum')
-                
-                # fake_pred = self.model.realism_bc(x_hat)
-                # fake_loss = F.binary_cross_entropy(fake_pred, torch.zeros_like(fake_pred), reduction='sum')
-
-                # D_loss = real_loss + fake_loss   
-                # End Discriminator
-
-                #batch_pcc.update(test_data.to_dense(), x_hat)
-
+                x_hat, mu, logvar, recon_loss, kl_loss, bc_loss = self.trace_expert_reconstruction(test_data)
+                batch_pcc.update(test_data.to_dense(), x_hat)
                 recon_loss, kl_loss = recon_loss.item() / test_data.numel(), kl_loss.item() / mu.numel()
                 sum_recon_loss += recon_loss 
                 sum_kl_loss += kl_loss 
-                #sum_G_loss += G_loss
-                #sum_D_loss += D_loss
-                sum_total_loss += recon_loss + (kl_weight * kl_loss) #+ G_loss
+                sum_bc_loss += bc_loss
+                sum_total_loss += recon_loss + (kl_weight * kl_loss) + bc_loss
         
         md = torch.nn.Sequential(
-                torch.nn.Linear(60664, 256),
-                torch.nn.ReLU(),
-                torch.nn.Linear(256, 1),
-                torch.nn.Sigmoid()
-            ).to(self.device)
+            torch.nn.Linear(60664, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 1),
+            torch.nn.Sigmoid()
+        ).to(self.device)
 
-        fpr, tpr, md_auc = utils.md_eval(md=md, md_epochs=1, gen=self.model, dataloader=self.test_loader)
+        fpr, tpr, md_auc = utils.md_eval(md, 1, self.model, self.test_loader)
 
         self.metrics['Test/Loss/Reconstruction'] = sum_recon_loss / num_batch_samples
         self.metrics['Test/Loss/KL'] = sum_kl_loss / num_batch_samples
-        self.metrics['Test/Loss/Total_loss'] = sum_total_loss / num_batch_samples
-        #self.metrics['Test/Loss/G_Loss']= sum_G_loss / num_batch_samples
-        #self.metrics['Test/Loss/D_Loss']= sum_D_loss / num_batch_samples
-        
-        #self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
+        self.metrics['Test/Loss/bc_loss'] = sum_bc_loss / num_batch_samples
+        self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
         self.metrics['Test/Eval/MD_AUC'] = md_auc
         self.hparams['epochs'] = self.hparams['epochs'] + 1
         if hasattr(self, 'writer'):
@@ -186,35 +140,38 @@ class HumanVAETrainer(HPBaseTrainer):
         warm_start = self.hparams['kl_cyclic.warm_start']
         cycle_length = len(self.train_loader) if self.hparams['kl_cyclic.cycle_length'] == "length_of_dataset" else self.hparams['kl_cyclic.cycle_length']
         for (train_data, metadata) in self.train_loader:
-            #kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic.min_beta'], max_beta=self.hparams['kl_cyclic.max_beta'])
-            #kl_weight = 0 if epoch < warm_start else kl_weight
-            kl_weight = 0.5
-
-            with torch.no_grad():
-                fake_batch_data, _, _ = self.model(train_data)
-            
-            #batch_fpr, batch_tpr, batch_auc = utils.batch_roc(self.model.realism_bc, train_data, fake_batch_data)
-
-            #D_loss, real_loss, fake_loss = self.train_bc_batch(train_data, fake_batch_data)
-            x_hat, mu, logvar, recon_loss, kl_loss, G_loss = self.train_vae_batch(train_data, kl_weight)
+            kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic.min_beta'], max_beta=self.hparams['kl_cyclic.max_beta'])
+            kl_weight = 0 if epoch < warm_start else kl_weight
 
             if hasattr(self, 'writer'):
-                self.writer.add_scalar('Batch_Scale/KLWeight', kl_weight, self.batch_iteration)
-                #self.writer.add_scalar('Batch_Scale/BC_AUC', batch_auc, self.batch_iteration)
-                #self.writer.add_scalar('Batch_Scale/D_Loss', D_loss.item(), self.batch_iteration)
-                #self.writer.add_scalar('Batch_Scale/G_Loss', G_loss.item(), self.batch_iteration)
-                self.writer.add_scalar('Batch_Scale/recon_loss', recon_loss.item(), self.batch_iteration)
-                self.writer.add_scalar('Batch_Scale/kl_loss', kl_loss.item(), self.batch_iteration)
+                self.writer.add_scalar('Metric/KLWeight', kl_weight, self.batch_iteration)
             
+            with torch.no_grad():
+                fake_train_data = self.model(train_data)[0]
+            
+            fpr, tpr, auc = utils.batch_roc(self.model.realism_bc, train_data, fake_train_data)
+            
+            if auc < 0.9:
+                self.train_trace_bc_feedback(train_data, fake_train_data)
+
+            self.train_trace_expert_reconstruction(train_data, kl_weight)
             self.batch_iteration += 1
-
-        #self.writer.add_scalar('Epoch_Scale/BC_AUC', batch_auc, self.batch_iteration)
-        #self.writer.add_scalar('Epoch_Scale/D_Loss', D_loss.item(), self.batch_iteration)
-        # self.writer.add_scalar('Epoch_Scale/G_Loss', G_loss.item(), self.batch_iteration)
-        # self.writer.add_scalar('Epoch_Scale/recon_loss', recon_loss.item(), self.batch_iteration)
-        # self.writer.add_scalar('Epoch_Scale/kl_loss', kl_loss.item(), self.batch_iteration)
-        self.test_trace_expert_reconstruction(epoch, kl_weight)
-
-        # for schedular in self.schedulers.values():
-        #     schedular.step()
             
+        self.test_trace_expert_reconstruction(epoch, kl_weight)
+        
+        for schedular in self.schedulers.values():
+            schedular.step()
+            
+    def train_trace_expert_reconstruction(self, train_data: torch.Tensor, kl_weight: float):
+
+        x_hat, mu, logvar, recon_loss, kl_loss, bc_loss = self.trace_expert_reconstruction(train_data)
+        loss: torch.Tensor = recon_loss + (kl_weight * kl_loss) + bc_loss
+        self.optimizers['shr_vae'].zero_grad()
+        loss.backward()
+        self.optimizers['shr_vae'].step()
+    
+    def train_trace_bc_feedback(self, train_data: torch.Tensor, fake_train_data: torch.Tensor):
+        total_loss, real_loss, fake_loss = self.trace_bc_feedback(train_data, fake_train_data)
+        self.optimizers['realism_bc'].zero_grad()
+        total_loss.backward()
+        self.optimizers['realism_bc'].step()

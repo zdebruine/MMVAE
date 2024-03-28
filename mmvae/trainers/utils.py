@@ -16,7 +16,7 @@ def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor, reduction="sum"):
     - torch.Tensor: The KL divergence.
     """
     if reduction == "sum":
-        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1).sum()
+        return (-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1)).sum()
     if reduction == "mean":
         return torch.mean(-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
 
@@ -119,7 +119,7 @@ def batch_roc(bc, real_batch_data, fake_batch_data):
 
 def md_eval(md, md_epochs, gen, dataloader):
   md_optimizer = torch.optim.Adam(md.parameters(), lr=1e-6)
-  md_loss_fn = torch.nn.MSELoss()
+  md_loss_fn = torch.nn.BCELoss()
 
   for epoch in range(md_epochs):
     for (train_data, label) in dataloader:

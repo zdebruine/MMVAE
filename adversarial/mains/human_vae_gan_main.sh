@@ -20,4 +20,4 @@ module load ml-python/nightly
 module load numpy/1.26.1
 source /active/debruinz_project/jack_lukomski/jacks_venv/bin/activate
 export PYTHONPATH=$PYTHONPATH:/active/debruinz_project/jack_lukomski/MMVAE_Adversarial_Team
-/active/debruinz_project/jack_lukomski/jacks_venv/bin/python human_vae_gan_main.py
+CUDA_LAUNCH_BLOCKING=1 /active/debruinz_project/jack_lukomski/jacks_venv/bin/python human_vae_gan_main.py

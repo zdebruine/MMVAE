@@ -1,101 +1,79 @@
 {
-    "tensorboard.run_name": "baseline_md_epoch_1",
+    "tensorboard.run_name": "with_af_plus_cutoff_new_md_bce_loss_03_25_2024",
     "snapshot.path": "",
     "snapshot.save_every": 0,
     "tensorboard.directory": "/active/debruinz_project/jack_lukomski/03_23_2024_logs/",
     "data_file_path": "/active/debruinz_project/CellCensus_3M/3m_human_chunk_10.npz",
     "metadata_file_path": "/active/debruinz_project/CellCensus_3M/3m_human_metadata_10.csv",
     "train_dataset_ratio": 0.8,
-    "batch_size": 32,
-    "epochs": 12,
-    "expert": {
-      "encoder": {
-        "optimizer": {
-          "lr": 0.001
-        },
-        "model": {
-          "layer1": {
-            "input": 60664,
-            "output": 1024,
-            "activation": "leakyrelu"  
-          },
-          "layer2": {
-            "input": 1024,
-            "output": 768,
-            "activation": "leakyrelu"  
-          },
-          "layer3": {
-            "input": 768,
-            "output": 768,
-            "activation": "leakyrelu"  
-          }
-        }
-      },
-      "decoder": {
-        "optimizer": {
-          "lr": 0.001
-        },
-        "model": {
-          "layer1": {
-            "input": 768,
-            "output": 768,
-            "activation": "leakyrelu"  
-          },
-          "layer2": {
-            "input": 768,
-            "output": 1024,
-            "activation": "leakyrelu"  
-          },
-          "layer3": {
-            "input": 1024,
-            "output": 60664,
-            "activation": "leakyrelu"  
-          }
-        }
-      }
-    },
+    "batch_size": 512,
+    "epochs": 100,
     "shr_vae": {
       "optimizer": {
-        "lr": 0.001
+        "lr": 0.00001
       },
       "model": {
         "encoder": {
           "layer1": {
-            "input": 768,
-            "output": 512,
-            "activation": "leakyrelu"  
+            "input": 60664,
+            "output": 1024,
+            "activation": "relu"  
+          },
+          "BatchNorm1d_1": {
+            "num_features": 1024,
+            "eps": 0.8
           },
           "layer2": {
-            "input": 512,
-            "output": 512,
-            "activation": "leakyrelu"  
+            "input": 1024,
+            "output": 768,
+            "activation": "relu"  
+          },
+          "BatchNorm1d_2": {
+            "num_features": 768,
+            "eps": 0.8
           },
           "layer3": {
-            "input": 512,
+            "input": 768,
             "output": 256,
-            "activation": "leakyrelu"  
+            "activation": "relu"  
+          },
+          "BatchNorm1d_3": {
+            "num_features": 256,
+            "eps": 0.8
           }
         },
         "decoder": {
           "layer1": {
             "input": 128,
             "output": 256,
-            "activation": "leakyrelu"  
+            "activation": "relu"  
+          },
+          "BatchNorm1d_1": {
+            "num_features": 256,
+            "eps": 0.8
           },
           "layer2": {
             "input": 256,
-            "output": 512,
-            "activation": "leakyrelu"  
+            "output": 768,
+            "activation": "relu"  
+          },
+          "BatchNorm1d_2": {
+            "num_features": 768,
+            "eps": 0.8
           },
           "layer3": {
-            "input": 512,
-            "output": 512,
-            "activation": "leakyrelu"  
+            "input": 768,
+            "output": 1024,
+            "activation": "relu"  
+          },
+          "BatchNorm1d_3": {
+            "num_features": 1024,
+            "eps": 0.8
           },
           "layer4": {
-            "input": 512,
-            "output": 768,
-            "activation": "leakyrelu"  
+            "input": 1024,
+            "output": 60664,
+            "activation": "sigmoid"  
           }
         },
         "mu": {
@@ -110,7 +88,7 @@
     },
     "realism_bc": {
       "optimizer": {
-        "lr": 0.001
+        "lr": 0.00000001
       },
       "model": {
         "layer1": {
@@ -135,9 +113,9 @@
       }
     },
     "kl_cyclic": {
-      "warm_start": 4,
-      "cycle_length": 4.0,
+      "warm_start": 3,
+      "cycle_length": 17.0,
       "min_beta": 0.0,
-      "max_beta": 1.0
+      "max_beta": 0.1
     }
 }
