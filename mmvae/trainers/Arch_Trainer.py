@@ -5,18 +5,16 @@ import torch.utils.tensorboard as tb
 import torch.nn as nn
 import mmvae.models.Arch_Model as Arch_Model
 from mmvae.data import MappedCellCensusDataLoader
-#Would like to import tuning library to tune hyperparameters
 
 class VAETrainer:
 
-    def __init__(self, device, model=Arch_Model.VAE(), batch_size=128, learning_rate=0.00001, num_epochs=20, start_kl=0.0, end_kl=0.15, annealing_start=3, annealing_steps=17):
+    def __init__(self, device, model=Arch_Model.VAE(), batch_size=512, learning_rate=0.00001, num_epochs=20, start_kl=0.0, end_kl=0.15, annealing_start=3, annealing_steps=17):
         #Configure
         self.model = model.to(device)
         self.train_loader =  MappedCellCensusDataLoader(
             batch_size=batch_size,
             device=device,
             file_path='/active/debruinz_project/CellCensus_3M_Full/3m_human_full.npz',
-            #3m_mouse_chunk_10.npz
             load_all=False
         )
         print(len(self.train_loader))   
@@ -36,7 +34,6 @@ class VAETrainer:
     def loss_function(self, recon_x, x: torch.Tensor, mu, logvar):
         reconstruction_loss = F.l1_loss(recon_x, x.to_dense(), reduction='sum') / self.batch_size
         kl_divergence = utils.kl_divergence(mu, logvar) / self.batch_size
-        # kl_divergence = (-0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())) / self.batch_size
         return reconstruction_loss, kl_divergence
 
     def train(self):
