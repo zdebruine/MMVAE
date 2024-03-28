@@ -9,7 +9,7 @@ from mmvae.data import MappedCellCensusDataLoader
 
 class VAETrainer:
 
-    def __init__(self, device, model=Arch_Model.VAE(), batch_size=512, learning_rate=0.00001, num_epochs=10, start_kl=0.0, end_kl=0.1, annealing_start=2, annealing_steps=8):
+    def __init__(self, device, model=Arch_Model.VAE(), batch_size=128, learning_rate=0.00001, num_epochs=20, start_kl=0.0, end_kl=0.15, annealing_start=3, annealing_steps=17):
         #Configure
         self.model = model.to(device)
         self.train_loader =  MappedCellCensusDataLoader(
@@ -19,7 +19,7 @@ class VAETrainer:
             #3m_mouse_chunk_10.npz
             load_all=False
         )
-        print(len(self.train_loader))
+        print(len(self.train_loader))   
         self.device = device
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         #Hyperparameters
@@ -61,6 +61,8 @@ class VAETrainer:
                 loss.backward()
                 self.optimizer.step()
 
+                self.writer.add_scalar('Loss/Iteration', loss.item(), epoch * len(self.train_loader) + i)
+
                 if (i + 1) % 3125 == 0:
                     print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                               .format(epoch + 1, self.num_epochs, i + 1, len(self.train_loader), loss.item()))
@@ -68,7 +70,7 @@ class VAETrainer:
             #Write loss to tensorboard  
             self.writer.add_scalar('Annealing Schedule', annealing, epoch)
             self.writer.add_scalar('Loss/KL', kl_loss.item(), epoch)
-            self.writer.add_scalar('Loss/MSE', recon_loss.item(), epoch)
+            self.writer.add_scalar('Loss/L1', recon_loss.item(), epoch)
             self.writer.add_scalar('Loss/Total', loss.item(), epoch)
     
         self.writer.flush()

@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import mmvae.models.utils as utils
+import mmvae.models as M
 
 class VAE(nn.Module):
     def __init__(self):
         super(VAE, self).__init__()
-        # Encoder
+        #Encoder
         self.encoder = nn.Sequential(
             nn.Linear(60664, 1024),
             nn.ReLU(),
@@ -40,6 +41,7 @@ class VAE(nn.Module):
         utils._submodules_init_weights_xavier_uniform_(self.decoder)
         utils._submodules_init_weights_xavier_uniform_(self.fc_mu)
         utils._xavier_uniform_(self.fc_var, -1.0)
+
 
     def encode(self, x):
         x = self.encoder(x)
