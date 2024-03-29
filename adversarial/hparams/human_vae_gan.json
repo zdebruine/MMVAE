@@ -1,5 +1,5 @@
 {
-    "tensorboard.run_name": "with_af_plus_cutoff_new_md_bce_loss_03_25_2024",
+    "tensorboard.run_name": "valid_with_af_plus_7_cutoff",
     "snapshot.path": "",
     "snapshot.save_every": 0,
     "tensorboard.directory": "/active/debruinz_project/jack_lukomski/03_23_2024_logs/",
@@ -25,15 +25,15 @@
           },
           "layer2": {
             "input": 1024,
-            "output": 768,
+            "output": 512,
             "activation": "relu"  
           },
           "BatchNorm1d_2": {
-            "num_features": 768,
+            "num_features": 512,
             "eps": 0.8
           },
           "layer3": {
-            "input": 768,
+            "input": 512,
             "output": 256,
             "activation": "relu"  
           },

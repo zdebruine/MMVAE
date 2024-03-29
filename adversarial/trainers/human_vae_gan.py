@@ -81,7 +81,7 @@ class HumanVAETrainer(HPBaseTrainer):
     
     def trace_expert_reconstruction(self, train_data: torch.Tensor):
         x_hat, mu, logvar = self.model(train_data)
-        recon_loss = F.mse_loss(x_hat, train_data.to_dense(), reduction='sum')
+        recon_loss = F.l1_loss(x_hat, train_data.to_dense(), reduction='sum')
         kl_loss = utils.kl_divergence(mu, logvar)
         bc_pred = self.model.realism_bc(x_hat)
         bc_loss = F.binary_cross_entropy(bc_pred, torch.ones_like(bc_pred), reduction='sum')
@@ -140,8 +140,10 @@ class HumanVAETrainer(HPBaseTrainer):
         warm_start = self.hparams['kl_cyclic.warm_start']
         cycle_length = len(self.train_loader) if self.hparams['kl_cyclic.cycle_length'] == "length_of_dataset" else self.hparams['kl_cyclic.cycle_length']
         for (train_data, metadata) in self.train_loader:
-            kl_weight = utils.cyclic_annealing((self.batch_iteration - (warm_start * num_batch_samples)), cycle_length, min_beta=self.hparams['kl_cyclic.min_beta'], max_beta=self.hparams['kl_cyclic.max_beta'])
-            kl_weight = 0 if epoch < warm_start else kl_weight
+            if epoch < warm_start:
+                kl_weight = 0
+            else:
+                kl_weight = (0.15/(self.hparams['epochs']-3))*epoch
 
             if hasattr(self, 'writer'):
                 self.writer.add_scalar('Metric/KLWeight', kl_weight, self.batch_iteration)
@@ -151,7 +153,7 @@ class HumanVAETrainer(HPBaseTrainer):
             
             fpr, tpr, auc = utils.batch_roc(self.model.realism_bc, train_data, fake_train_data)
             
-            if auc < 0.9:
+            if auc < 0.7:
                 self.train_trace_bc_feedback(train_data, fake_train_data)
 
             self.train_trace_expert_reconstruction(train_data, kl_weight)
