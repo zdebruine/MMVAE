@@ -140,5 +140,6 @@ class HumanVAETrainer(HPBaseTrainer):
         self.optimizers['expert.decoder'].zero_grad()
         loss.backward()
         self.optimizers['shr_vae'].step()
+
         self.optimizers['expert.encoder'].step()
         self.optimizers['expert.decoder'].step()

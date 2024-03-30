@@ -59,5 +59,3 @@ def configure_model(hparams) -> Model:
                 build_seq(hparams["shr_vae"]['model']['logvar'], "logvar"),
             )
         )
-
-        

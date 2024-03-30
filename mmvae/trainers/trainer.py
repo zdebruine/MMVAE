@@ -83,6 +83,7 @@ class BaseTrainer:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:
+
             self.writer.flush()
             self.writer.close()
 

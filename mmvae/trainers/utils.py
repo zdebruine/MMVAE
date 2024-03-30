@@ -1,5 +1,10 @@
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+import io
+import PIL.Image
+import numpy as np
+from torchvision.transforms import ToTensor
 from sklearn.metrics import roc_curve, auc
 
 def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor, reduction="sum"):
@@ -167,6 +172,7 @@ def md_eval(md, md_epochs, gen, dataloader):
         print("NaN found in scores array")
     if np.isnan(y_true).any():
         print("NaN found in y_true")
+
     fpr, tpr, thresholds = roc_curve(y_true, scores)
     roc_auc = auc(fpr, tpr)
 
