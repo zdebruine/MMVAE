@@ -6,27 +6,32 @@ import mmvae.trainers.utils as utils
 import adversarial.models.human_vae_gan as HumanVAE
 from mmvae.trainers import HPBaseTrainer, BaseTrainerConfig
 
-class HumanVAEConfig(BaseTrainerConfig):
+class HumanVAEGANConfig(BaseTrainerConfig):
     required_hparams = {
         'data_file_path': str,
         'metadata_file_path': str,
         'train_dataset_ratio': float,
         'batch_size': int,
-        'shr_vae.optimizer.lr': float, 
+        'shr_vae.optimizer.lr': float,
+        'realism_bc.optimizer.lr': float,
         'kl_cyclic.warm_start': int, 
         'kl_cyclic.cycle_length': float, 
         'kl_cyclic.min_beta': float, 
-        'kl_cyclic.max_beta': float 
+        'kl_cyclic.max_beta': float,
+        # 'kl_early_stop_delta': float
     }
 
-class HumanVAETrainer(HPBaseTrainer):
-    
+class HumanVAEGANTrainer(HPBaseTrainer):
     model: HumanVAE.Model
     
-    def __init__(self, device: torch.device, hparams: HumanVAEConfig):
-        super(HumanVAETrainer, self).__init__(device, hparams)
-        if hasattr(self, 'writer'):
-            self.writer.add_text('Model Architecture', str(self.model))
+    def __init__(self, device: torch.device, hparams: HumanVAEGANConfig):
+        super(HumanVAEGANTrainer, self).__init__(device, hparams)
+
+        #For SSD graphing
+        self.kl_list = []
+        self.loss_list = []
+        self.recon_list = []
+        self.md_list = []
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                             Configuration                             #
@@ -107,7 +112,7 @@ class HumanVAETrainer(HPBaseTrainer):
                 sum_kl_loss += kl_loss 
                 sum_bc_loss += bc_loss
                 sum_total_loss += recon_loss + (kl_weight * kl_loss) + bc_loss
-        
+
         md = torch.nn.Sequential(
             torch.nn.Linear(60664, 256),
             torch.nn.ReLU(),
@@ -115,9 +120,11 @@ class HumanVAETrainer(HPBaseTrainer):
             torch.nn.Sigmoid()
         ).to(self.device)
 
+
         fpr, tpr, md_auc = utils.md_eval(md, 1, self.model, self.test_loader)
 
         self.metrics['Test/Loss/Reconstruction'] = sum_recon_loss / num_batch_samples
+
         self.metrics['Test/Loss/KL'] = sum_kl_loss / num_batch_samples
         self.metrics['Test/Loss/bc_loss'] = sum_bc_loss / num_batch_samples
         self.metrics['Test/Eval/PCC'] = batch_pcc.compute().item()
@@ -125,6 +132,12 @@ class HumanVAETrainer(HPBaseTrainer):
         self.hparams['epochs'] = self.hparams['epochs'] + 1
         if hasattr(self, 'writer'):
             self.writer.add_hparams(dict(self.hparams), self.metrics, run_name=f"{self.hparams['tensorboard.run_name']}_hparams", global_step=epoch)
+
+
+        self.kl_list.append(sum_kl_loss / num_batch_samples)
+        self.recon_list.append(sum_recon_loss / num_batch_samples)
+        self.loss_list.append((sum_total_loss / num_batch_samples).cpu())
+        self.md_list.append(md_auc)
         
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                          Train Configuration                          #
@@ -171,9 +184,20 @@ class HumanVAETrainer(HPBaseTrainer):
         self.optimizers['shr_vae'].zero_grad()
         loss.backward()
         self.optimizers['shr_vae'].step()
+        
     
     def train_trace_bc_feedback(self, train_data: torch.Tensor, fake_train_data: torch.Tensor):
         total_loss, real_loss, fake_loss = self.trace_bc_feedback(train_data, fake_train_data)
         self.optimizers['realism_bc'].zero_grad()
         total_loss.backward()
         self.optimizers['realism_bc'].step()
+    
+    def get_run_csv(self, directory: str):
+        import pandas as pd
+        df = pd.DataFrame({
+            'KL': self.kl_list,
+            'Reconstruction': self.recon_list,
+            'Loss': self.loss_list,
+            'MD': self.md_list
+        })
+        return df.to_csv(directory)

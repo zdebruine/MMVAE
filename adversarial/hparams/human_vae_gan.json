@@ -1,8 +1,8 @@
 {
-    "tensorboard.run_name": "valid_with_af_plus_7_cutoff",
+    "tensorboard.run_name": "",
     "snapshot.path": "",
     "snapshot.save_every": 0,
-    "tensorboard.directory": "/active/debruinz_project/jack_lukomski/03_23_2024_logs/",
+    "tensorboard.directory": "/active/debruinz_project/cardell_taylor/logs/",
     "data_file_path": "/active/debruinz_project/CellCensus_3M/3m_human_chunk_10.npz",
     "metadata_file_path": "/active/debruinz_project/CellCensus_3M/3m_human_metadata_10.csv",
     "train_dataset_ratio": 0.8,

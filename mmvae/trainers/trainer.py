@@ -108,3 +108,12 @@ class HPBaseTrainer(BaseTrainer):
             log_dir=None if log_dir == "" else log_dir,
             snapshot_path=None if snapshot_path == "" else snapshot_path,
             save_every=None if save_every == 0 else save_every)
+
+        self.__log_hyperparameters(hparams.config) 
+
+    def __log_hyperparameters(self, config_dict: dict):
+        import json
+        if hasattr(self, 'writer'):
+            hyperparemeter_string = json.dumps(config_dict, indent=4)
+            text = "".join("\t" + line for line in hyperparemeter_string.splitlines(True))
+            self.writer.add_text('Hyperaparameters', text)
