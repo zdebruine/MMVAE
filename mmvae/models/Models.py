@@ -12,15 +12,7 @@ class Expert(nn.Module):
         self.discriminator = discriminator
 
     def forward(self, x):
-        """
-        Forward pass treated as autoencoder
-        >>> return self.decoder(self.encoder(x))
-        """
-        x = self.encoder(x)
-        x = self.decoder(x)
-        if self.discriminator is not None:
-            x = self.discriminator(x)
-        return x
+        raise NotImplementedError()
 
 class VAE(nn.Module):
     """
@@ -34,17 +26,17 @@ class VAE(nn.Module):
         self.mean = mean
         self.var = var
         
-    def reparameterize(self, mean: torch.Tensor, var: torch.Tensor) -> torch.Tensor:
-        eps = torch.randn_like(var)
-        return mean + var*eps
+    def reparameterize(self, mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mu + std*eps
 
     def forward(self, x: torch.Tensor) -> Tuple[Union[Any, torch.Tensor], Any, Any, Tuple[Any]]:
-        x, *encoder_results = utils.parameterize_returns(self.encoder(x))
         
-        mu = self.mean(x)
-        var = self.var(x)
+        x = self.encoder(x)
+        mu = self.mean(x) 
+        log_var = self.var(x)
         
-        x = self.reparameterize(mu, torch.exp(0.5 * var))
-        x, *decoder_results = utils.parameterize_returns(self.decoder(x))
-            
-        return (x, mu, var, *encoder_results, *decoder_results)
+        x = self.reparameterize(mu, log_var)
+        x = self.decoder(x)
+        return x, mu, log_var

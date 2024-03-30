@@ -5,5 +5,4 @@
 **/slurm-*.sh
 meta_discriminators
 **/pytest-test.*.out
-gan_testing/gan_main.py
-/gan_testing/gan_main.py
+**.out

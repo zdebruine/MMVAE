@@ -8,6 +8,8 @@ from typing import Any
 class BaseTrainer:
 
     __initialized = False
+    metrics = {}
+    hparams = {}
 
     def __init__(
         self, 
@@ -19,15 +21,16 @@ class BaseTrainer:
         
         self.device = device
         self.snapshot_path = snapshot_path
-        self.save_every = save_every
         
+        self.save_every = save_every if save_every else None
+        
+        if log_dir is not None:
+            self.writer = tb.SummaryWriter(log_dir=log_dir)
+            
         self.dataloader = self.configure_dataloader()
         self.model = self.configure_model()
         self.optimizers = self.configure_optimizers()
         self.schedulers = self.configure_schedulers()
-        
-        if log_dir is not None:
-            self.writer = tb.SummaryWriter(log_dir=log_dir)
 
         self.__initialized = True
 
@@ -64,19 +67,54 @@ class BaseTrainer:
         raise NotImplementedError("Override this method to implement training loop for one epoch")
     
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if self.__initialized and __name in  ('epoch', 'model', 'optimizers', 'dataloader'): 
+        if self.__initialized and __name in  ('model', 'optimizers', 'schedulars'): 
             raise RuntimeError(f"Attribute: {__name} cannot be set after initialization")
         super().__setattr__(__name, __value)
         
     def train(self, epochs: int, load_snapshot=False):
-        if load_snapshot and self.save_every and self.snapshot_path:
-            # TODO: Handle snapshot loading
-            pass
+        start_epoch = 0
+        if load_snapshot and self.save_every and self.snapshot_path and self.snapshot_path != '':
+            model, start_epoch = self.load_snapshot()
+            self.model.load_state_dict(model)
             
-        for epoch in range(epochs):
+        for epoch in range(start_epoch, epochs):
             self.train_epoch(epoch)
             if self.save_every is not None and (epoch + 1) % self.save_every == 0:
                 self.save_snapshot(self.model)
         
         if self.writer is not None:
+
+            self.writer.flush()
             self.writer.close()
+
+from mmvae.trainers.hparams import HPConfig
+class BaseTrainerConfig(HPConfig):
+    required_hparams = {
+        'snapshot.path': str,
+        'snapshot.save_every': int,
+        'tensorboard.directory': str,
+        'tensorboard.run_name': str,
+    }
+    
+class HPBaseTrainer(BaseTrainer):
+    
+    def __init__(self, device: torch.device, hparams: BaseTrainerConfig):
+        self.hparams = hparams
+        log_dir=f"{self.hparams['tensorboard.directory']}{self.hparams['tensorboard.run_name']}"
+        snapshot_path=self.hparams['snapshot.path']
+        save_every=self.hparams['snapshot.save_every']
+        
+        super(HPBaseTrainer, self).__init__(
+            device,
+            log_dir=None if log_dir == "" else log_dir,
+            snapshot_path=None if snapshot_path == "" else snapshot_path,
+            save_every=None if save_every == 0 else save_every)
+
+        self.__log_hyperparameters(hparams.config) 
+
+    def __log_hyperparameters(self, config_dict: dict):
+        import json
+        if hasattr(self, 'writer'):
+            hyperparemeter_string = json.dumps(config_dict, indent=4)
+            text = "".join("\t" + line for line in hyperparemeter_string.splitlines(True))
+            self.writer.add_text('Hyperaparameters', text)

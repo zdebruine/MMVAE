@@ -1,47 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import mmvae.models as M
-import mmvae.models.utils as utils
-
-class SharedVAE(M.VAE):
-
-    _initialized = None
-
-    def __init__(self, encoder: nn.Module, decoder: nn.Module, mean: nn.Linear, var: nn.Linear, init_weights = False):
-        super(SharedVAE, self).__init__(encoder, decoder, mean, var)
-
-        if init_weights:
-            print("Initialing SharedEncoder xavier uniform on all submodules")
-            self.__init__weights()
-        self._initialized = True
-        
-
-    def __init__weights(self):
-        if self._initialized:
-            raise RuntimeError("Cannot invoke after intialization!")
-        
-        utils._submodules_init_weights_xavier_uniform_(self.encoder)
-        utils._submodules_init_weights_xavier_uniform_(self.decoder)
-        utils._submodules_init_weights_xavier_uniform_(self.mean)
-        utils._xavier_uniform_(self.var, -1.0) # TODO: Add declare why
-
-class HumanExpert(M.Expert):
-
-    _initialized = None
-
-    def __init__(self, encoder, decoder, init_weights = False):
-        super(HumanExpert, self).__init__(encoder, decoder)
-
-        if init_weights:
-            print("Initialing SharedEncoder xavier uniform on all submodules")
-            self.__init__weights()
-        self._initialized = True
-
-    def __init__weights(self):
-        if self._initialized:
-            raise RuntimeError("Cannot invoke after intialization!")
-        utils._submodules_init_weights_xavier_uniform_(self)
 
 class Model(nn.Module):
 
@@ -53,68 +12,50 @@ class Model(nn.Module):
 
     def forward(self, x: torch.Tensor):
         x = self.expert.encoder(x)
-        x, mu, var = self.shared_vae(x)
+        x, mu, logvar = self.shared_vae(x)
         x = self.expert.decoder(x)
-        return x, mu, var
-
-class SharedEncoder(nn.Module):
-
-    _initialized = None
-
-    def __init__(self):
-        super(SharedEncoder, self).__init__()
-        self.fc1 = nn.Linear(768, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, 256)
-
-    def forward(self, x):
-        x = F.leaky_relu(self.fc1(x))
-        x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        return x
-
-class SharedDecoder(nn.Module):
-
-    def __init__(self):
-        super(SharedDecoder, self).__init__()
-        self.fc1 = nn.Linear(128, 256)
-        self.fc2 = nn.Linear(256, 512)
-        self.fc3 = nn.Linear(512, 512)
-        self.fc4 = nn.Linear(512, 768)
+        return x, mu, logvar
     
-    def forward(self, x):
-        x = F.leaky_relu(self.fc1(x))
-        x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        x = F.leaky_relu(self.fc4(x))
-        return x
+def configure_model(hparams) -> Model:
     
-def configure_model() -> Model:
-        return Model(
-            HumanExpert(
-                nn.Sequential(
-                    nn.Linear(60664, 1024),
-                    nn.LeakyReLU(),
-                    nn.Linear(1024, 768),
-                    nn.LeakyReLU(),
-                    nn.Linear(768, 768),
-                    nn.LeakyReLU(),
-                ),
-                nn.Sequential(
-                    nn.Linear(768, 768),
-                    nn.LeakyReLU(),
-                    nn.Linear(768, 1024),
-                    nn.LeakyReLU(),
-                    nn.Linear(1024, 60664),
-                    nn.LeakyReLU()
-                ),
-                init_weights=True
+    def build_seq(_hparams: dict, name = None):
+        """
+        Build sequence of layers and activation functions where: 
+        { 
+            layer_key: {
+                input: int,
+                output: int,
+                activation: 'relu' | 'leakyrelu'
+                [ if 'leakyrelu' negative_slope: float ]
+            }
+        } 
+        """
+        _hparams = _hparams if name == None else { name: _hparams }
+        sequence = ()
+        for layer in _hparams.keys():
+            input_dim, output_dim = _hparams[layer]['input'], _hparams[layer]['output']
+            activation = None if 'activation' not in _hparams[layer] else _hparams[layer]['activation']
+            sequence = (*sequence, nn.Linear(input_dim, output_dim))
+            if activation == 'leakyrelu':
+                negative_slope = 0.01 if not 'negative_slope' in layer else _hparams[layer]['negative_slope']
+                sequence = (*sequence, nn.LeakyReLU(negative_slope))
+            if activation == 'relu':
+                sequence = (*sequence, nn.ReLU())
+                
+        if len(sequence) == 1:
+            return sequence[0]
+        return nn.Sequential(*sequence)
+
+    
+    return Model(
+            M.Expert(
+                build_seq(hparams["expert"]['encoder']['model']),
+                build_seq(hparams["expert"]['decoder']['model']),
             ),
-            SharedVAE(
-                SharedEncoder(),
-                SharedDecoder(),
-                nn.Linear(256, 128),
-                nn.Linear(256, 128),
-                init_weights=True
+            M.VAE(
+                build_seq(hparams["shr_vae"]['model']['encoder']),
+                build_seq(hparams["shr_vae"]['model']['decoder']),
+                build_seq(hparams["shr_vae"]['model']['mu'], "mu"),
+                build_seq(hparams["shr_vae"]['model']['logvar'], "logvar"),
             )
         )
