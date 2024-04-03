@@ -1,4 +1,4 @@
-import torchdata.dataloader2 as dl
+from torchdata.dataloader2 import DataLoader2, MultiProcessingReadingService, ReadingServiceInterface
 from typing import Generator, Any
 import mmvae.data.pipes as p
 import torch
@@ -12,7 +12,7 @@ class MultiModalLoader:
      - exhaust_all: exhaust all dataloaders to completion (default=True)
     """
 
-    def __init__(self, *modals: dl.DataLoader2, exhaust_all=True):
+    def __init__(self, *modals: DataLoader2, exhaust_all=True):
         self.exhaust_all = exhaust_all
         if len(modals) == 0:
             raise ValueError("A dataloader must be defined!")
@@ -39,7 +39,7 @@ class MultiModalLoader:
                     return
                 del loaders[loader_idx]
 
-class ChunkedCellCensusDataLoader(dl.DataLoader2):
+class ChunkedCellCensusDataLoader(DataLoader2):
     """
         Dataloader wrapper for CellCensusPipeline
 
@@ -53,12 +53,52 @@ class ChunkedCellCensusDataLoader(dl.DataLoader2):
          Attention:
           - num_workers must be greater or equal to the total chunks to load
         """
-    def __init__(self, *args, directory_path: str = None, masks: list[str] = None, batch_size: int = None, num_workers: int = None): # type: ignore
+    def __init__(self, directory_path: str = None, masks: list[str] = None, batch_size: int = None, num_workers: int = None, name=None, verbose=False): # type: ignore
         super(ChunkedCellCensusDataLoader, self).__init__(
-            datapipe=p.CellCensusPipeLine(*args, directory_path=directory_path, masks=masks, batch_size=batch_size), # type: ignore
+            datapipe=p.CellCensusPipeLine(directory_path, masks, batch_size, name=name, verbose=verbose), # type: ignore
             datapipe_adapter_fn=None,
-            reading_service=dl.MultiProcessingReadingService(num_workers=num_workers)
+            reading_service=MultiProcessingReadingService(num_workers=num_workers)
         )
+        
+def configure_multichunk_dataloaders(
+    train_batch_size: int,
+    train_directory_path: str,
+    train_masks: list[str],
+    test_batch_size: int,
+    test_directory_path: str,
+    test_masks: list[str],
+    train_num_workers: int = 2,
+    test_num_workers: int = 2,
+    verbose: bool =False
+) -> tuple[ChunkedCellCensusDataLoader, ChunkedCellCensusDataLoader]:
+    """
+    Returns tuple of (train_dataset, test_dataset).
+    """
+        
+    if train_batch_size <= 0 or test_batch_size <= 0:
+        raise RuntimeError("Train and test batchsizes must be greater than 0!")
+    if len(train_masks) < train_num_workers:
+        train_num_workers = len(train_masks)
+    if len(test_masks) < test_num_workers:
+        test_num_workers = len(test_masks)
+    return (
+        ChunkedCellCensusDataLoader(
+            directory_path=train_directory_path, 
+            masks=train_masks, 
+            batch_size=train_batch_size, 
+            num_workers=train_num_workers,
+            name='train',
+            verbose=verbose
+        ),
+        ChunkedCellCensusDataLoader(
+            directory_path=test_directory_path,
+            masks=test_masks, 
+            batch_size=test_batch_size, 
+            num_workers=test_num_workers,
+            name='test',
+            verbose=verbose
+        ),
+    )
         
 import mmvae.data.utils as utils
 
@@ -102,24 +142,33 @@ def configure_singlechunk_dataloaders(
         which is a floating point between 0-1 (propertion of training data to test data). 
     
     If device is not None -> the entire dataset will be loaded on device at once.
+    If train_ratio = 1 | 0 | None -> don't split for training and return just one dataloader
     """
     if not test_batch_size:
         test_batch_size = batch_size
         
-    (train_data, train_metadata), (validation_data, validation_metadata) = utils.split_data_and_metadata(
+    split = utils.split_data_and_metadata(
         data_file_path,
         metadata_file_path,
         train_ratio)
     
     from mmvae.data.datasets.CellCensusDataSet import CellCensusDataset, collate_fn
+
     if device:
-        train_data = train_data.to(device)
-        validation_data = validation_data.to(device)
-        
-    train_dataset = CellCensusDataset(train_data, train_metadata)
-    test_dataset = CellCensusDataset(validation_data, validation_metadata)
+        split[0][0] = split[0][0].to(device)
+        if len(split) == 2:
+            split[1][0] = split[1][0].to(device)
     
+    train_dataset = CellCensusDataset(*split[0])
     from torch.utils.data import DataLoader
+    if len(split) == 1:
+        return DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            collate_fn=collate_fn,
+        )
+    test_dataset = CellCensusDataset(*split[1])
     return (
         DataLoader(
             train_dataset,
