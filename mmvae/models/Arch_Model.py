@@ -9,14 +9,14 @@ class VAE(nn.Module):
         #Encoder
         self.encoder = nn.Sequential(
             nn.Linear(60664, 1024),
-            nn.ReLU(),
             nn.BatchNorm1d(1024, 0.8),
+            nn.ReLU(),
             nn.Linear(1024, 768),
-            nn.ReLU(),
             nn.BatchNorm1d(768, 0.8),
-            nn.Linear(768, 256),
             nn.ReLU(),
-            nn.BatchNorm1d(256, 0.8)
+            nn.Linear(768, 256),
+            nn.BatchNorm1d(256, 0.8),
+            nn.ReLU()
         )
         
         self.fc_mu = nn.Linear(256, 128)
@@ -25,16 +25,16 @@ class VAE(nn.Module):
         # Decoder
         self.decoder = nn.Sequential(
             nn.Linear(128, 256),
-            nn.ReLU(),
             nn.BatchNorm1d(256, 0.8),
+            nn.ReLU(),
             nn.Linear(256, 768),
-            nn.ReLU(),
             nn.BatchNorm1d(768, 0.8),
-            nn.Linear(768, 1024),
             nn.ReLU(),
+            nn.Linear(768, 1024),
             nn.BatchNorm1d(1024, 0.8),
+            nn.ReLU(),
             nn.Linear(1024, 60664),
-            nn.Sigmoid(),
+            nn.ReLU(),
         )
 
         utils._submodules_init_weights_xavier_uniform_(self.encoder)

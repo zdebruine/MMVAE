@@ -8,7 +8,7 @@ from mmvae.data import configure_singlechunk_dataloaders
 
 class VAETrainer:
 
-    def __init__(self, device, model=Arch_Model.VAE(), batch_size=256, learning_rate=0.00001, num_epochs=20, start_kl=0.0, end_kl=0.15, annealing_start=3, annealing_steps=17):
+    def __init__(self, device, model=Arch_Model.VAE(), batch_size=128, learning_rate=0.0001, num_epochs=10, start_kl=0.0, end_kl=0.1, annealing_start=0, annealing_steps=10):
         #Configure
         self.model = model.to(device)
         self.device = device
@@ -16,10 +16,10 @@ class VAETrainer:
         #Hyperparameters
         self.lr = learning_rate
         self.num_epochs = num_epochs
-        self.start_kl = start_kl
-        self.end_kl = end_kl
-        self.annealing_start = annealing_start
-        self.annealing_steps = annealing_steps
+        self.start_kl = start_kl #Initial Weight of KL loss
+        self.end_kl = end_kl    #End weight of KL loss
+        self.annealing_start = annealing_start  #Specify what epoch to start annealing kl 
+        self.annealing_steps = annealing_steps  #Specify number of steps to anneal kl over
         self.batch_size = batch_size
         #Tensorboard
         self.writer = tb.SummaryWriter()
@@ -33,10 +33,9 @@ class VAETrainer:
         )
 
     def loss_function(self, recon_x, x: torch.Tensor, mu, logvar):
-        reconstruction_loss = F.l1_loss(recon_x, x.to_dense(), reduction='sum') / self.batch_size
-        # kl_divergence = utils.kl_divergence(mu, logvar, reduction='sum') / self.batch_size
-        # kl_divergence = kl_divergence.mean()
-        kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) / self.batch_size
+        reconstruction_loss = F.mse_loss(recon_x, x.to_dense(), reduction='mean') 
+        kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp()) 
+        kl_divergence = kl_divergence.mean()
         return reconstruction_loss, kl_divergence
 
     def train(self):
@@ -59,20 +58,18 @@ class VAETrainer:
                 loss = recon_loss + annealing_kl
 
                 loss.backward()
-                #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 self.optimizer.step()
 
 
                 self.writer.add_scalar('Loss/Iteration', loss.item(), epoch * len(self.train_loader) + i)
-
-                if (i + 1) % 3125 == 0:
-                    print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
-                              .format(epoch + 1, self.num_epochs, i + 1, len(self.train_loader), loss.item()))
 
             #Write loss to tensorboard  
             self.writer.add_scalar('Annealing Schedule', annealing, epoch)
             self.writer.add_scalar('Loss/KL', kl_loss.item(), epoch)
             self.writer.add_scalar('Loss/L1', recon_loss.item(), epoch)
             self.writer.add_scalar('Loss/Total', loss.item(), epoch)
-    
+            
+        print("done training")
+
         self.writer.flush()
