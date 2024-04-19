@@ -9,29 +9,31 @@ class VAE(nn.Module):
         #Encoder
         self.encoder = nn.Sequential(
             nn.Linear(60664, 1024),
-            nn.BatchNorm1d(1024, 0.8),
+            nn.BatchNorm1d(1024, 1),
             nn.ReLU(),
-            nn.Linear(1024, 768),
-            nn.BatchNorm1d(768, 0.8),
+            nn.Linear(1024, 512),
+            nn.BatchNorm1d(512, 1),
             nn.ReLU(),
-            nn.Linear(768, 256),
-            nn.BatchNorm1d(256, 0.8),
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256, 1),
+            nn.ReLU(),
+            nn.Linear(256, 64),
             nn.ReLU()
         )
         
-        self.fc_mu = nn.Linear(256, 128)
-        self.fc_var = nn.Linear(256, 128)
+        self.fc_mu = nn.Linear(64, 64)
+        self.fc_var = nn.Linear(64, 64)
         
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(128, 256),
-            nn.BatchNorm1d(256, 0.8),
+            nn.Linear(64, 256),
+            nn.BatchNorm1d(256, 1),
             nn.ReLU(),
-            nn.Linear(256, 768),
-            nn.BatchNorm1d(768, 0.8),
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512, 1),
             nn.ReLU(),
-            nn.Linear(768, 1024),
-            nn.BatchNorm1d(1024, 0.8),
+            nn.Linear(512, 1024),
+            nn.BatchNorm1d(1024, 1),
             nn.ReLU(),
             nn.Linear(1024, 60664),
             nn.ReLU(),
