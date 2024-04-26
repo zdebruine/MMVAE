@@ -1,3 +1,6 @@
+from typing import Tuple
+import numpy as np
+from sklearn.metrics import roc_curve, auc as sk_auc
 import torch
 
 def kl_divergence(mu: torch.Tensor, logvar: torch.Tensor, reduction="sum"):
@@ -135,3 +138,23 @@ class BatchPCC:
         variance_y = (self.sum_y2 / self.n) - (mean_y ** 2)
         pcc = covariance / torch.sqrt(torch.tensor(variance_x * variance_y))
         return pcc
+
+def compute_roc(d_labels: np.ndarray, d_preds: np.ndarray) -> Tuple[np.ndarray, np.ndarray, float]:
+    """
+    Compute the FPR, TPR, and AUC for a given set of true binary labels and prediction scores.
+
+    Parameters:
+    - d_labels : np.ndarray, shape = [n_samples]
+                 True binary labels in range {0, 1}.
+    - d_preds : np.ndarray, shape = [n_samples]
+                Target scores, can either be probability estimates of the positive class,
+                confidence values, or non-thresholded measure of decisions.
+
+    Returns:
+    - fpr : np.ndarray, False Positive Rates
+    - tpr : np.ndarray, True Positive Rates
+    - roc_auc : float, Area Under the ROC Curve
+    """
+    fpr, tpr, _ = roc_curve(d_labels, d_preds)
+    roc_auc = sk_auc(fpr, tpr)
+    return fpr, tpr, roc_auc
