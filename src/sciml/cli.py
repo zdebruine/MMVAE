@@ -1,6 +1,5 @@
 from lightning.pytorch.cli import LightningCLI
 import torch
-import os
 
 class SCIMLCli(LightningCLI):
     

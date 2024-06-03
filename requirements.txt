@@ -1,0 +1,7 @@
+# torch=nightly - install first
+torchdata
+cellxgene_census
+mlflow
+tensorboard
+lightning
+jsonargparse[signatures]>=4.27.7
