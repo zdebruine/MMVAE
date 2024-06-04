@@ -17,7 +17,6 @@ class VAE(pl.LightningModule):
         encoder_layers = [60664, 1024, 512], 
         latent_dim=256, 
         decoder_layers = [256, 512, 1024, 60664], 
-        learning_rate = 1e-4, 
         predict_keys = [RK.X_HAT, RK.Z],
         kl_weight=1.0
     ):
@@ -64,10 +63,6 @@ class VAE(pl.LightningModule):
         return nn.Sequential(*layers)
         
     build_decoder = _build_decoder
-
-    def configure_optimizers(self):
-        super().configure_optimizers()
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
     
     def encode(self, x):
         return self.encoder(x)
