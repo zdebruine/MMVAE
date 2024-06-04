@@ -5,3 +5,5 @@ mlflow
 tensorboard
 lightning
 jsonargparse[signatures]>=4.27.7
+psutil
+omegaconf

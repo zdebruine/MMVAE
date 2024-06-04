@@ -47,7 +47,7 @@ class VAE(pl.LightningModule):
     build_encoder = _build_encoder
     
     def _build_mean_var(self):
-        return nn.Linear(256, self.hparams.latent_dim)
+        return nn.Linear(self.hparams.encoder_layers[-1], self.hparams.latent_dim)
     
     build_mean = _build_mean_var
     build_var = _build_mean_var

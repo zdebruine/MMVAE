@@ -5,7 +5,7 @@ import tiledbsoma as soma
 import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
 
-DEFAULT_WEIGHTS = {"train": 0.8, "test": 0.15, "val": 0.05}
+DEFAULT_WEIGHTS = {"train": 0.7, "val": 0.2, "test": 0.1}
 
 ASSAY_ONTOLOGY_TERM_IDS = [
     "EFO:0009901", # 10x 3'v1

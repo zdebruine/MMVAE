@@ -3,16 +3,9 @@ strategy: auto
 devices: auto
 num_nodes: 1
 precision: 16-mixed
-logger: 
-  - class_path: lightning.pytorch.loggers.MLFlowLogger
-    init_args: 
-        log_model: all
-
-  - class_path: lightning.pytorch.loggers.TensorBoardLogger
 callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
-      dirpath: /mnt/projects/debruinz_project/integration/checkpoints
       filename: '{epoch}-{val_loss:.2f}'
       save_top_k: 3
       monitor: val_loss
@@ -23,6 +16,7 @@ callbacks:
       monitor: val_loss
       patience: 3
       mode: min
+
 max_epochs: 10
 limit_val_batches: 500
 limit_test_batches: null
@@ -33,4 +27,15 @@ check_val_every_n_epoch: 1
 enable_checkpointing: true
 enable_progress_bar: true
 enable_model_summary: true
-default_root_dir: /mnt/home/projects/debruinz_project/integration/
+
+logger:
+  - class_path: lightning.pytorch.loggers.TensorBoardLogger
+    init_args: 
+      # TENSORBOARD DIRECTORY
+      save_dir: /Users/jaggerdenhof/Workspaces/repos/sci-ml/integration
+      
+  - class_path: lightning.pytorch.loggers.MLFlowLogger
+    init_args:
+      # ML FLOW TRACKING URI
+      tracking_uri: /Users/jaggerdenhof/Workspaces/repos/sci-ml/integration/mlflow
+      save_dir: ''
