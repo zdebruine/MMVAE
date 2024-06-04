@@ -47,9 +47,6 @@ class CellxgeneDataModule(L.LightningDataModule):
             soma_chunk_size=self.hparams.soma_chunk_size)
         
         self.obs_encoders = experiment_datapipe.obs_encoders
-        
-        if stage == 'predict':
-            self.predict_dp = experiment_datapipe.obs_encoders
             
         self.train_dp, self.test_dp, self.val_dp = experiment_datapipe.random_split(
             total_length=len(experiment_datapipe),
