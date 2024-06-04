@@ -6,17 +6,9 @@ import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
 
 DEFAULT_WEIGHTS = {"train": 0.7, "val": 0.2, "test": 0.1}
+from sciml._constant import REGISTRY_KEYS as RK
 
-ASSAY_ONTOLOGY_TERM_IDS = [
-    "EFO:0009901", # 10x 3'v1
-    "EFO:0009899", # 10x 3'v2
-    "EFO:0009922", # 10x 3'v3
-    "EFO:0022604", # 10x 3'v4
-    "EFO:0011025", # 10x 5'v1
-    "EFO:0009900", # 10x 5'v2
-    "EFO:0022605", # 10x 5'v3
-    "EFO:0030002", # microwell-seq
-]
+DEFAULT_WEIGHTS = {"train": 0.7, "val": 0.2, "test": 0.1, }
 
 OBS_COL_NAMES = (
     "dataset_id",
@@ -58,44 +50,45 @@ class CellxgeneDataModule(L.LightningDataModule):
             soma_chunk_size=self.hparams.soma_chunk_size)
         
         self.obs_encoders = experiment_datapipe.obs_encoders
-        
-        if stage == 'predict':
-            self.predict_dp = experiment_datapipe.obs_encoders
             
-        self.train_dp, self.test_dp, self.val_dp = experiment_datapipe.random_split(
+        datapipes = experiment_datapipe.random_split(
             total_length=len(experiment_datapipe),
             weights=self.hparams.weights, 
             seed=self.hparams.seed)
+        
+        self.datapipes = { key: dp for key, dp in zip(self.hparams.weights.keys(), datapipes)}
         
     def teardown(self, stage):
         if self.census and hasattr(self.census, 'close'):
             self.census.close()
         
-    def cell_census_dataloader(self, dp):
+    def cell_census_dataloader(self, dp: str):
+        if not dp in self.datapipes:
+            raise ValueError(f"{dp} is not key in datapipes: available options: {self.datapipes.keys()}")
         return census_ml.experiment_dataloader(
-            dp,
+            self.datapipes[dp],
             pin_memory=True,
             num_workers=self.hparams.num_workers,
             persistent_workers=self.hparams.num_workers > 0
         )
         
     def train_dataloader(self):
-        return self.cell_census_dataloader(self.train_dp)
+        return self.cell_census_dataloader('train')
         
     def test_dataloader(self):
-        return self.cell_census_dataloader(self.test_dp)
+        return self.cell_census_dataloader('test')
         
     def val_dataloader(self):
-        return self.cell_census_dataloader(self.val_dp)
+        return self.cell_census_dataloader('val')
     
     def predict_dataloader(self) -> Any:
-        return self.cell_census_dataloader(self.predict_dp)
+        return self.cell_census_dataloader('test')
     
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         
         batch_dict = {
-            'x': batch[0],
-            'y': batch[1]
+            RK.X: batch[0],
+            RK.Y: batch[1]
         }
         
         if self.trainer.predicting:
