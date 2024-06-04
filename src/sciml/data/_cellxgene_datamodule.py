@@ -5,18 +5,7 @@ import tiledbsoma as soma
 import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
 
-DEFAULT_WEIGHTS = {"train": 0.8, "test": 0.15, "val": 0.05}
-
-ASSAY_ONTOLOGY_TERM_IDS = [
-    "EFO:0009901", # 10x 3'v1
-    "EFO:0009899", # 10x 3'v2
-    "EFO:0009922", # 10x 3'v3
-    "EFO:0022604", # 10x 3'v4
-    "EFO:0011025", # 10x 5'v1
-    "EFO:0009900", # 10x 5'v2
-    "EFO:0022605", # 10x 5'v3
-    "EFO:0030002", # microwell-seq
-]
+DEFAULT_WEIGHTS = {"train": 0.7, "val": 0.2, "test": 0.1, }
 
 OBS_COL_NAMES = (
     "dataset_id",
