@@ -4,8 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import lightning.pytorch as pl
 from . import utils
-import time
-from lightning.pytorch.loggers import TensorBoardLogger
 
 from sciml._constant import REGISTRY_KEYS as RK
         
@@ -29,7 +27,7 @@ class VAE(pl.LightningModule):
         self.mean = self.build_mean()
         self.var = self.build_var()
       
-        self.register_buffer('kl_weight', torch.tensor(self.hparams.kl_weight))
+        self.register_buffer('kl_weight', torch.tensor(self.hparams.kl_weight, requires_grad=False))
         
     def _build_encoder(self):
         layers = []
@@ -115,23 +113,19 @@ class VAE(pl.LightningModule):
     def training_step(self, batch, batch_idx):
 
         loss_outputs = self.loss(batch)
+        loss_outputs = tag_loss_outputs(loss_outputs, 'train')
         
-        self.log_dict({
-            f"train_{key}": value
-            for key, value in loss_outputs.items()
-        }, on_step=True, on_epoch=True, logger=True)
+        self.log_dict(loss_outputs, on_step=True, on_epoch=True, logger=self.trainer.loggers[0])
 
-        return loss_outputs
+        return loss_outputs['train_loss']
 
     def validation_step(self, batch, batch_idx):
         
         loss_outputs = self.loss(batch)
-
-        return {
-            f"val_{key}": value
-            for key, value in loss_outputs.items()
-        }
-    
+        loss_outputs = tag_loss_outputs(loss_outputs, 'val')
+        
+        self.log_dict(loss_outputs, on_step=False, on_epoch=True, logger=self.trainer.loggers[0])
+        
     def predict_step(self, batch, batch_idx):
         forward_outputs = self(batch)
         return { 
@@ -159,6 +153,12 @@ class VAE(pl.LightningModule):
             zs.append(predict_outputs[RK.Z])
         
         return torch.cat(zs).numpy()
+    
+def tag_loss_outputs(loss_outputs: dict[str, torch.Tensor], tag: str, sep="_"):
+    return {
+        f"{tag}{sep}{key}": value
+        for key, value in loss_outputs.items()
+    }
     
 class DFBlock(nn.Module):
     

@@ -34,7 +34,7 @@ class CellxgeneDataLoaders:
         seed: int = 42,
         obs_query_value_filter: str = OBS_QUERY_VALUE_FILTER,
         obs_column_names: str = OBS_COL_NAMES,
-        soma_chunk_size: int = 1000,
+        soma_chunk_size: int = None,
         weights = DEFAULT_WEIGHTS
     ):
         self.census = cell_census.open_soma(census_version="2023-12-15")

@@ -1,7 +1,6 @@
-accelerator: auto
+accelerator: cuda
 strategy: auto
-devices: auto
-num_nodes: 1
+devices: 1
 precision: 16-mixed
 callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
@@ -18,8 +17,8 @@ callbacks:
       patience: 3
       mode: min
 
-max_epochs: 10
-limit_val_batches: 500
+max_epochs: 1
+limit_val_batches: 100
 limit_test_batches: null
 limit_predict_batches: null
 overfit_batches: 0.0
@@ -30,13 +29,12 @@ enable_progress_bar: true
 enable_model_summary: true
 
 logger:
-  - class_path: lightning.pytorch.loggers.TensorBoardLogger
-    init_args: 
-      # TENSORBOARD DIRECTORY
-      save_dir: /mnt/projects/debruinz_project/integration
-      
   - class_path: lightning.pytorch.loggers.MLFlowLogger
     init_args:
       # ML FLOW TRACKING URI
       tracking_uri: /mnt/projects/debruinz_project/integration/mlflow
       save_dir: ''
+  - class_path: lightning.pytorch.loggers.TensorBoardLogger
+    init_args: 
+      # TENSORBOARD DIRECTORY
+      save_dir: /mnt/projects/debruinz_project/integration

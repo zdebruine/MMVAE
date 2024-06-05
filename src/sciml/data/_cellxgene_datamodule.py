@@ -5,10 +5,9 @@ import tiledbsoma as soma
 import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
 
-DEFAULT_WEIGHTS = {"train": 0.7, "val": 0.2, "test": 0.1}
 from sciml._constant import REGISTRY_KEYS as RK
 
-DEFAULT_WEIGHTS = {"train": 0.7, "val": 0.2, "test": 0.1, }
+DEFAULT_WEIGHTS = { "train": 0.8, "val": 0.1, "test": 0.1 }
 
 OBS_COL_NAMES = (
     "dataset_id",
@@ -28,7 +27,7 @@ class CellxgeneDataModule(L.LightningDataModule):
         obs_query_value_filter: str = OBS_QUERY_VALUE_FILTER,
         obs_column_names: Sequence[str] = OBS_COL_NAMES,
         weights: dict[str, float] = DEFAULT_WEIGHTS,
-        soma_chunk_size: int = 1000,
+        soma_chunk_size: int = None,
         num_workers: int = 3
     ):
         super(CellxgeneDataModule, self).__init__()
@@ -50,7 +49,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             soma_chunk_size=self.hparams.soma_chunk_size)
         
         self.obs_encoders = experiment_datapipe.obs_encoders
-            
+        print("Num samples", len(experiment_datapipe))
         datapipes = experiment_datapipe.random_split(
             total_length=len(experiment_datapipe),
             weights=self.hparams.weights, 
@@ -69,16 +68,20 @@ class CellxgeneDataModule(L.LightningDataModule):
             self.datapipes[dp],
             pin_memory=True,
             num_workers=self.hparams.num_workers,
-            persistent_workers=self.hparams.num_workers > 0
+            persistent_workers=self.hparams.num_workers > 0,
+            drop_last=True
         )
         
     def train_dataloader(self):
+        print("Building Train Dataloader")
         return self.cell_census_dataloader('train')
         
     def test_dataloader(self):
+        print("Building Test Dataloader")
         return self.cell_census_dataloader('test')
         
     def val_dataloader(self):
+        print("Building Val Dataloader")
         return self.cell_census_dataloader('val')
     
     def predict_dataloader(self) -> Any:
