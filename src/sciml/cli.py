@@ -1,6 +1,7 @@
 
 from pathlib import Path
-from lightning.pytorch.cli import LightningCLI
+from lightning import LightningModule, Trainer
+from lightning.pytorch.cli import LightningCLI, SaveConfigCallback
 import torch
 
 from lightning.pytorch.loggers import MLFlowLogger
@@ -22,29 +23,23 @@ class SCIMLCli(LightningCLI):
                 "default_env": True, 
             }
             
-        if not 'save_config_kwargs' in kwargs:
-            kwargs['save_config_kwargs'] = {
-                "overwrite": True
-            }
-            
         from sciml import VAE, CellxgeneDataModule
         super().__init__(
             model_class=VAE, 
             datamodule_class=CellxgeneDataModule, 
             subclass_mode_data=True, 
             subclass_mode_model=True,
+            save_config_callback=SaveConfigCallback,
+            save_config_kwargs={
+                "config_filename": "configs/config.yaml"
+            },
             **kwargs)
     
     def add_arguments_to_parser(self, parser):
         
-        parser.add_argument('--root_dir', type=str, help="Root Directory for experiment tracking")
-        
         parser.add_optimizer_args(torch.optim.Adam)
         parser.add_lr_scheduler_args(torch.optim.lr_scheduler.LinearLR)
         
-    def before_instantiate_classes(self) -> None:
-        print(self.config)
-        exit(1)
         
 if __name__ == "__main__":
     
