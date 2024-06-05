@@ -6,7 +6,6 @@ import lightning.pytorch as pl
 from . import utils
 
 from sciml._constant import REGISTRY_KEYS as RK
-        
 
 class VAE(pl.LightningModule):
 
@@ -65,19 +64,19 @@ class VAE(pl.LightningModule):
     def encode(self, x):
         return self.encoder(x)
     
+    def before_reparameterize(self, x):
+        return x
+    
     def reparameterize(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std, device=self.device)
         return mu + eps * std
     
-    def decode(self, x):
-        return self.decoder(x)
-    
-    def before_reparameterize(self, x):
-        return x
-    
     def after_reparameterize(self, x, metadata):
         return x
+    
+    def decode(self, x):
+        return self.decoder(x)
     
     def forward(self, forward_inputs):
         x = forward_inputs.get(RK.X)
@@ -125,14 +124,21 @@ class VAE(pl.LightningModule):
         loss_outputs = tag_loss_outputs(loss_outputs, 'val')
         
         self.log_dict(loss_outputs, on_step=False, on_epoch=True, logger=self.trainer.loggers[0])
-        
+    
     def predict_step(self, batch, batch_idx):
         forward_outputs = self(batch)
         return { 
             key: value for key, value in forward_outputs 
             if key in self.hparams.predict_keys
         }
-            
+        
+    def test_step(self, batch, batch_idx):
+        
+        loss_outputs = self.loss(batch)
+        loss_outputs = tag_loss_outputs(loss_outputs, 'val')
+        
+        self.log_dict(loss_outputs, on_step=True, on_epoch=True, logger=self.trainer.loggers[0])
+        
     def get_latent_representations(
         self,
         adata,

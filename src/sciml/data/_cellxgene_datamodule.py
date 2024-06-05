@@ -49,9 +49,8 @@ class CellxgeneDataModule(L.LightningDataModule):
             soma_chunk_size=self.hparams.soma_chunk_size)
         
         self.obs_encoders = experiment_datapipe.obs_encoders
-        print("Num samples", len(experiment_datapipe))
+        
         datapipes = experiment_datapipe.random_split(
-            total_length=len(experiment_datapipe),
             weights=self.hparams.weights, 
             seed=self.hparams.seed)
         
@@ -69,7 +68,6 @@ class CellxgeneDataModule(L.LightningDataModule):
             pin_memory=True,
             num_workers=self.hparams.num_workers,
             persistent_workers=self.hparams.num_workers > 0,
-            drop_last=True
         )
         
     def train_dataloader(self):

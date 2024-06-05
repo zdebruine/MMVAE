@@ -8,6 +8,7 @@ callbacks:
       dirpath: /mnt/projects/debruinz_project/integration/checkpoints
       filename: '{epoch}-{val_loss:.2f}'
       save_top_k: 3
+      save_last: true
       monitor: val_loss
       mode: min
 
@@ -29,12 +30,13 @@ enable_progress_bar: true
 enable_model_summary: true
 
 logger:
-  - class_path: lightning.pytorch.loggers.MLFlowLogger
-    init_args:
-      # ML FLOW TRACKING URI
-      tracking_uri: /mnt/projects/debruinz_project/integration/mlflow
-      save_dir: ''
   - class_path: lightning.pytorch.loggers.TensorBoardLogger
     init_args: 
       # TENSORBOARD DIRECTORY
       save_dir: /mnt/projects/debruinz_project/integration
+  - class_path: sciml.cli.CustomMLFLowLogger
+    init_args:
+      # ML FLOW TRACKING URI
+      tracking_uri: file:/mnt/projects/debruinz_project/integration/mlflow
+      log_model: 'all'
+
