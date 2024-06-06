@@ -3,6 +3,7 @@ torchdata
 cellxgene_census
 mlflow
 tensorboard
+tensorboard-plugin-profile
 lightning
 jsonargparse[signatures]>=4.27.7
 psutil

@@ -14,3 +14,11 @@ def init_weights(m: nn.Module):
         init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
         if m.bias is not None:
             init.constant_(m.bias, 0)
+            
+def tag_loss_outputs(loss_outputs: dict[str, torch.Tensor], tag: str, sep="_"):
+    outputs = {
+        f"{tag}{sep}{key}": value
+        for key, value in loss_outputs.items()
+    }
+    del loss_outputs
+    return outputs

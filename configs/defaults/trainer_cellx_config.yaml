@@ -2,10 +2,24 @@ accelerator: cuda
 strategy: auto
 devices: 1
 precision: 16-mixed
+
+max_epochs: 10
+limit_train_batches: null
+limit_val_batches: 100
+limit_test_batches: null
+limit_predict_batches: null
+overfit_batches: 0.0
+val_check_interval: 2000
+check_val_every_n_epoch: 1
+enable_checkpointing: true
+enable_progress_bar: false
+enable_model_summary: true
+
+default_root_dir: /mnt/projects/debruinz_project/integration
+
 callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
-      dirpath: /mnt/projects/debruinz_project/integration/checkpoints
       filename: '{epoch}-{val_loss:.2f}'
       save_top_k: 3
       save_last: true
@@ -17,26 +31,8 @@ callbacks:
       monitor: val_loss
       patience: 3
       mode: min
-
-max_epochs: 1
-limit_val_batches: 100
-limit_test_batches: null
-limit_predict_batches: null
-overfit_batches: 0.0
-val_check_interval: 1000
-check_val_every_n_epoch: 1
-enable_checkpointing: true
-enable_progress_bar: true
-enable_model_summary: true
-
+      
 logger:
   - class_path: lightning.pytorch.loggers.TensorBoardLogger
     init_args: 
-      # TENSORBOARD DIRECTORY
-      save_dir: /mnt/projects/debruinz_project/integration
-  - class_path: sciml.cli.CustomMLFLowLogger
-    init_args:
-      # ML FLOW TRACKING URI
-      tracking_uri: file:/mnt/projects/debruinz_project/integration/mlflow
-      log_model: 'all'
-
+      save_dir: ${default_root_dir}/tensorboard

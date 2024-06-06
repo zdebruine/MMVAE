@@ -9,6 +9,7 @@ class _REGISTRY_KEYS_NT(NamedTuple):
     QZM: str = "qzm"
     QZV: str = "qzv"
     Z: str = "z"
+    Z_STAR: str = "z_start"
     X: str = "x"
     X_HAT: str = "x_hat"
     Y: str = "Y"

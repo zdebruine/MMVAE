@@ -1,4 +1,6 @@
+import random
 import numpy as np
+import torch
 from typing import Any, Sequence, Union
 import lightning as L
 import tiledbsoma as soma
@@ -31,13 +33,13 @@ class CellxgeneDataModule(L.LightningDataModule):
         num_workers: int = 3
     ):
         super(CellxgeneDataModule, self).__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(logger=False)
         self.census = None
         
     def setup(self, stage):
         self.census = cell_census.open_soma(census_version="2023-12-15")
         
-        experiment_datapipe = census_ml.ExperimentDataPipe(
+        self.experiment_datapipe = census_ml.ExperimentDataPipe(
             experiment=self.census["census_data"]["homo_sapiens"],
             measurement_name="RNA",
             X_name="normalized",
@@ -48,56 +50,49 @@ class CellxgeneDataModule(L.LightningDataModule):
             seed=self.hparams.seed,
             soma_chunk_size=self.hparams.soma_chunk_size)
         
-        self.obs_encoders = experiment_datapipe.obs_encoders
-        
-        datapipes = experiment_datapipe.random_split(
-            weights=self.hparams.weights, 
-            seed=self.hparams.seed)
-        
-        self.datapipes = { key: dp for key, dp in zip(self.hparams.weights.keys(), datapipes)}
+        self.train, self.val, self.test = self.experiment_datapipe.random_split(
+            seed=self.hparams.seed,
+            weights=self.hparams.weights)
         
     def teardown(self, stage):
         if self.census and hasattr(self.census, 'close'):
             self.census.close()
         
-    def cell_census_dataloader(self, dp: str):
-        if not dp in self.datapipes:
-            raise ValueError(f"{dp} is not key in datapipes: available options: {self.datapipes.keys()}")
+    def cell_census_dataloader(self, dp):
         return census_ml.experiment_dataloader(
-            self.datapipes[dp],
+            dp,
             pin_memory=True,
             num_workers=self.hparams.num_workers,
             persistent_workers=self.hparams.num_workers > 0,
+            prefetch_factor=1,
         )
         
     def train_dataloader(self):
-        print("Building Train Dataloader")
-        return self.cell_census_dataloader('train')
+        return self.cell_census_dataloader(self.train)
+    
+    def val_dataloader(self):
+        return self.cell_census_dataloader(self.val)
         
     def test_dataloader(self):
-        print("Building Test Dataloader")
-        return self.cell_census_dataloader('test')
+        return self.cell_census_dataloader(self.test)
         
-    def val_dataloader(self):
-        print("Building Val Dataloader")
-        return self.cell_census_dataloader('val')
-    
     def predict_dataloader(self) -> Any:
-        return self.cell_census_dataloader('test')
+        return self.cell_census_dataloader(self.test)
     
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         
-        batch_dict = {
-            RK.X: batch[0],
-            RK.Y: batch[1]
-        }
-        
-        if self.trainer.predicting:
+        metadata = None
+        if self.trainer.predicting or self.trainer.validating:
             batch_labels = batch[1]
             metadata = []
             for i, key in enumerate(self.hparams.obs_column_names, start=1):
-                data = self.obs_encoders[key].inverse_transform(batch_labels[:, i])
+                data = self.experiment_datapipe.obs_encoders[key].inverse_transform(batch_labels[:, i])
                 metadata.append(data)
-            batch_dict['metadata'] = np.stack(metadata, axis=1)
+            metadata = np.stack(metadata, axis=1)
         
-        return batch_dict
+        return {
+            RK.X: batch[0],
+            RK.Y: batch[1],
+            RK.METADATA: metadata,
+        }
+    
