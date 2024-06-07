@@ -33,7 +33,7 @@ class CellxgeneDataModule(L.LightningDataModule):
         num_workers: int = 3
     ):
         super(CellxgeneDataModule, self).__init__()
-        self.save_hyperparameters(logger=False)
+        self.save_hyperparameters(logger=True)
         self.census = None
         
     def setup(self, stage):
@@ -63,7 +63,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             dp,
             pin_memory=True,
             num_workers=self.hparams.num_workers,
-            persistent_workers=self.hparams.num_workers > 0,
+            persistent_workers=self.trainer.training and self.hparams.num_workers > 0,
             prefetch_factor=1,
         )
         

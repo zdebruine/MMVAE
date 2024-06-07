@@ -4,6 +4,8 @@ from lightning.pytorch.cli import LightningCLI, SaveConfigCallback
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
+
+
 class SCIMLCli(LightningCLI):
     
     def __init__(self, **kwargs):
@@ -28,15 +30,10 @@ class SCIMLCli(LightningCLI):
         parser.add_lr_scheduler_args(torch.optim.lr_scheduler.LinearLR)
         
         
-    def before_instantiate_classes(self) -> None:
-        # # Add unique timestamp to checkpoint dirpath
-        # timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        # self.config.fit.trainer.callbacks[0].init_args.dirpath += f"/{timestamp}"
-        """"""
-        
-        
 if __name__ == "__main__":
     
     cli = SCIMLCli()
     
     print(cli.model)
+
+                                                                                                                                        

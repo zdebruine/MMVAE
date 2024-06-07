@@ -10,6 +10,7 @@ from ._vae_builder_mixin import VAEBuilderMixIn
 from ._vae_model_mixin import VAEModelMixIn
 
 
+
 class VAE(VAEBuilderMixIn, VAEModelMixIn, pl.LightningModule):
 
     def __init__(
@@ -21,7 +22,7 @@ class VAE(VAEBuilderMixIn, VAEModelMixIn, pl.LightningModule):
         kl_weight=1.0
     ):
         super(VAE, self).__init__()
-        self.save_hyperparameters(ignore=[])
+        self.save_hyperparameters(logger=True)
 
         self.encoder = self.build_encoder()
         self.decoder = self.build_decoder()
@@ -33,9 +34,12 @@ class VAE(VAEBuilderMixIn, VAEModelMixIn, pl.LightningModule):
         
         self.z_val = []
         self.z_val_metadata = []
+        self.validation_epoch_end = -1
             
     def criterion(self, x, forward_outputs):
-        recon_loss = F.mse_loss(forward_outputs[RK.X_HAT], x, reduction='mean')
+        # Mean Square Error of input batch to reconstructed batch with sum reduction
+        recon_loss = F.mse_loss(forward_outputs[RK.X_HAT], x, reduction='sum')
+        # Kl Divergence from posterior distribution to normal distribution
         kl_loss = utils.kl_divergence(forward_outputs[RK.QZM], forward_outputs[RK.QZV])
         loss = recon_loss + self.kl_weight * kl_loss
         return { RK.KL_LOSS: kl_loss, RK.RECON_LOSS: recon_loss, RK.LOSS: loss }
@@ -71,16 +75,25 @@ class VAE(VAEBuilderMixIn, VAEModelMixIn, pl.LightningModule):
             self.z_val_metadata.append(batch_dict.get(RK.METADATA))
     
     def on_validation_epoch_end(self):
-        
+        self.validation_epoch_end += 1
         if not self.trainer.sanity_checking and len(self.z_val) > 0:
             embeddings = torch.cat(self.z_val, dim=0)
             metadata = np.concatenate(self.z_val_metadata, axis=0)
+            assert len(embeddings) == len(metadata)
             
-            self.z_val = []
-            self.z_val_metadata = []
+            print("Metadata", metadata, flush=True)
+            import time
+            time.sleep(2)
+            exit(1)
             
-            writer = self.trainer.logger.experiment
-            writer.add_embedding(mat=embeddings, metadata=metadata)
+            self.trainer.logger.experiment.add_embedding(
+                mat=embeddings, 
+                metadata=metadata, 
+                global_step=self.validation_epoch_end, 
+                metadata_header=self.trainer.datamodule.hparams.obs_column_names)
+        
+        self.z_val = []
+        self.z_val_metadata = []
             
     def test_step(self, batch, batch_idx):
         
