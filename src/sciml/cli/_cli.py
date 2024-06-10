@@ -1,10 +1,5 @@
-from datetime import datetime
 import torch
 from lightning.pytorch.cli import LightningCLI, SaveConfigCallback
-from lightning.pytorch.loggers import TensorBoardLogger
-from lightning.pytorch.callbacks import ModelCheckpoint
-
-
 
 class SCIMLCli(LightningCLI):
     
@@ -29,11 +24,4 @@ class SCIMLCli(LightningCLI):
         parser.add_optimizer_args(torch.optim.Adam)
         parser.add_lr_scheduler_args(torch.optim.lr_scheduler.LinearLR)
         
-        
-if __name__ == "__main__":
-    
-    cli = SCIMLCli()
-    
-    print(cli.model)
-
-                                                                                                                                        
+        parser.link_arguments('data.init_args.batch_size', 'model.init_args.batch_size')

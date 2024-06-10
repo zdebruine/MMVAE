@@ -14,8 +14,10 @@ class AnnDataDataset(Dataset):
         return self.data.shape[0]
 
     def __getitem__(self, idx):
+        
         sample = self.data[idx]
+        batch_dict = { RK.X: sample }
         if self.labels is not None:
             label = self.labels[idx]
-            return sample, label
-        return sample
+            batch_dict[RK.METADATA] = label
+        return batch_dict

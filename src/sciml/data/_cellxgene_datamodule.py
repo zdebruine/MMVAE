@@ -6,10 +6,11 @@ import lightning as L
 import tiledbsoma as soma
 import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
+from collections import OrderedDict
 
 from sciml._constant import REGISTRY_KEYS as RK
 
-DEFAULT_WEIGHTS = { "train": 0.8, "val": 0.1, "test": 0.1 }
+DEFAULT_WEIGHTS = OrderedDict([("train", 0.8), ("val", 0.1), ("test", 0.1)])
 
 OBS_COL_NAMES = (
     "dataset_id",
@@ -20,64 +21,100 @@ OBS_COL_NAMES = (
 OBS_QUERY_VALUE_FILTER = 'is_primary_data == True and assay in ["microwell-seq", "10x 3\' v1", "10x 3\' v2", "10x 3\' v3", "10x 3\' transcription profiling", "10x 5\' transcription profiling", "10x 5\' v1", "10x 5\' v2"]'
 
 
-class CellxgeneDataModule(L.LightningDataModule):
+class CellxgeneDataManager:
     
     def __init__(
         self,
-        batch_size: int = 64,
-        seed: int = 42,
+        batch_size: int,
+        seed: int,
+        split_weights: OrderedDict[str, Union[float, int]] = DEFAULT_WEIGHTS,
         obs_query_value_filter: str = OBS_QUERY_VALUE_FILTER,
-        obs_column_names: Sequence[str] = OBS_COL_NAMES,
-        weights: dict[str, float] = DEFAULT_WEIGHTS,
-        soma_chunk_size: int = None,
-        num_workers: int = 3
+        obs_column_names: tuple[str] = OBS_COL_NAMES,
+        soma_chunk_size: int = None
     ):
-        super(CellxgeneDataModule, self).__init__()
-        self.save_hyperparameters(logger=True)
+        self.batch_size = batch_size
+        self.obs_query_value_filter = obs_query_value_filter
+        self.seed = seed
+        self.split_weights = split_weights
+        self.obs_column_names = obs_column_names
+        self.soma_chunk_size = soma_chunk_size
         self.census = None
         
-    def setup(self, stage):
+    def setup(self):
         self.census = cell_census.open_soma(census_version="2023-12-15")
         
         self.experiment_datapipe = census_ml.ExperimentDataPipe(
             experiment=self.census["census_data"]["homo_sapiens"],
             measurement_name="RNA",
             X_name="normalized",
-            obs_query=soma.AxisQuery(value_filter=self.hparams.obs_query_value_filter),
-            obs_column_names=self.hparams.obs_column_names,
+            obs_query=soma.AxisQuery(value_filter=self.obs_query_value_filter),
+            obs_column_names=self.obs_column_names,
             shuffle=True,
-            batch_size=self.hparams.batch_size,
-            seed=self.hparams.seed,
-            soma_chunk_size=self.hparams.soma_chunk_size)
+            batch_size=self.batch_size,
+            seed=self.seed,
+            soma_chunk_size=self.soma_chunk_size,
+            use_eager_fetch=False)
         
-        self.train, self.val, self.test = self.experiment_datapipe.random_split(
-            seed=self.hparams.seed,
-            weights=self.hparams.weights)
+        datapipes = self.experiment_datapipe.random_split(
+            seed=self.seed,
+            weights=self.split_weights)
         
-    def teardown(self, stage):
+        self.datapipes = dict((k, v) for k, v in zip(self.split_weights.keys(), datapipes))
+    
+    def teardown(self):
         if self.census and hasattr(self.census, 'close'):
             self.census.close()
         
-    def cell_census_dataloader(self, dp):
+    def create_dataloader(self, target: str, num_workers: int):
+        if not target in self.datapipes:
+            raise ValueError(f"target {target} not in {self.split_weights.keys()}")
+        dp = self.datapipes[target]
+        
         return census_ml.experiment_dataloader(
             dp,
             pin_memory=True,
-            num_workers=self.hparams.num_workers,
-            persistent_workers=self.trainer.training and self.hparams.num_workers > 0,
-            prefetch_factor=1,
+            num_workers=num_workers,
+            # causes OOM error
+            # persistent_workers=self.trainer.training and self.hparams.num_workers > 0,
+            prefetch_factor=1)
+    
+    
+class CellxgeneDataModule(L.LightningDataModule):
+    
+    def __init__(
+        self,
+        batch_size: int = 128,
+        seed: int = 42,
+        obs_query_value_filter: str = OBS_QUERY_VALUE_FILTER,
+        obs_column_names: Sequence[str] = OBS_COL_NAMES,
+        split_weights: dict[str, float] = DEFAULT_WEIGHTS,
+        soma_chunk_size: int = None,
+        num_workers: int = 3
+    ):
+        super(CellxgeneDataModule, self).__init__()
+        self.cellx_manager = CellxgeneDataManager(
+            batch_size, seed, split_weights, obs_query_value_filter,
+            obs_column_names, soma_chunk_size
         )
+        self.save_hyperparameters(logger=True)
+        
+    def setup(self, stage):
+        self.cellx_manager.setup()
+        
+    def teardown(self, stage):
+        self.cellx_manager.teardown()
         
     def train_dataloader(self):
-        return self.cell_census_dataloader(self.train)
+        return self.cellx_manager.create_dataloader('train', self.hparams.num_workers)
     
     def val_dataloader(self):
-        return self.cell_census_dataloader(self.val)
+        return self.cellx_manager.create_dataloader('val', 2)
         
     def test_dataloader(self):
-        return self.cell_census_dataloader(self.test)
+        return self.cellx_manager.create_dataloader('test', 2)
         
     def predict_dataloader(self) -> Any:
-        return self.cell_census_dataloader(self.test)
+        return self.cellx_manager.create_dataloader('test', 2)
     
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         
