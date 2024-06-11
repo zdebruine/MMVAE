@@ -122,7 +122,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             batch_labels = batch[1]
             metadata = []
             for i, key in enumerate(self.hparams.obs_column_names, start=1):
-                data = self.experiment_datapipe.obs_encoders[key].inverse_transform(batch_labels[:, i])
+                data = self.cellx_manager.experiment_datapipe.obs_encoders[key].inverse_transform(batch_labels[:, i])
                 metadata.append(data)
             metadata = np.stack(metadata, axis=1)
         
