@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from ._vae import VAE
+from .vae import VAEModel
 
 
 class DFBlock(nn.Module):
@@ -22,7 +22,7 @@ class DFBlock(nn.Module):
         return self.layers(x)
         
     
-class DFVAE(VAE):
+class DFVAE(VAEModel):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

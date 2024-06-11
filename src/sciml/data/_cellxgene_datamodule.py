@@ -8,7 +8,7 @@ import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
 from collections import OrderedDict
 
-from sciml._constant import REGISTRY_KEYS as RK
+from sciml.utils.constants import REGISTRY_KEYS as RK
 
 DEFAULT_WEIGHTS = OrderedDict([("train", 0.8), ("val", 0.1), ("test", 0.1)])
 

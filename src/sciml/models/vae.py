@@ -1,40 +1,26 @@
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import lightning.pytorch as pl
 from . import utils
 
-from sciml._constant import REGISTRY_KEYS as RK
-from ._vae_builder_mixin import VAEBuilderMixIn
-from ._vae_model_mixin import VAEModelMixIn
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import torch.utils.tensorboard as tb
+from sciml.utils.constants import REGISTRY_KEYS as RK
+from sciml.modules import BasicVAE
 
 
-
-class VAE(VAEBuilderMixIn, VAEModelMixIn, pl.LightningModule):
+ 
+class VAEModel(BasicVAE, pl.LightningModule):
 
     def __init__(
-        self, 
-        encoder_layers = [60664, 1024, 512], 
-        latent_dim=256, 
-        decoder_layers = [512, 1024, 60664], 
+        self,
         predict_keys = [RK.X_HAT, RK.Z],
         kl_weight=1.0,
         batch_size: int = 128,
-        num_workers: int = 3
+        num_workers: int = 3,
+        plot_z_embeddings: bool = False,
     ):
-        super(VAE, self).__init__()
+        super(VAEModel, self).__init__()
         self.save_hyperparameters(logger=True)
-
-        self.encoder = self.build_encoder()
-        self.decoder = self.build_decoder()
-        
-        self.fc_mean = self.build_mean()
-        self.fc_var = self.build_var()
       
         self.register_buffer('kl_weight', torch.tensor(self.hparams.kl_weight, requires_grad=False))
         
@@ -76,21 +62,21 @@ class VAE(VAEBuilderMixIn, VAEModelMixIn, pl.LightningModule):
         
         if not self.trainer.sanity_checking:
             self.log_dict(loss_outputs, on_step=False, on_epoch=True, logger=True, batch_size=self.hparams.batch_size)
-        
-            self.z_val.append(forward_outputs[RK.Z].detach().cpu())
-            self.z_val_metadata.append(batch_dict.get(RK.METADATA))
+            
+            if self.hparams.plot_z_embeddings:
+                self.z_val.append(forward_outputs[RK.Z].detach().cpu())
+                self.z_val_metadata.append(batch_dict.get(RK.METADATA))
     
     def on_validation_epoch_end(self):
-        self.validation_epoch_end += 1
-        if not self.trainer.sanity_checking and len(self.z_val) > 0:
-            
+        if self.hparams.plot_z_embeddings \
+            and not self.trainer.sanity_checking \
+            and len(self.z_val) > 0:
+                
+            self.validation_epoch_end += 1
             embeddings = torch.cat(self.z_val, dim=0)
             metadata = np.concatenate(self.z_val_metadata, axis=0)
             
             writer = self.trainer.logger.experiment
-            
-            if TYPE_CHECKING:
-                writer: tb.SummaryWriter = writer
                 
             writer.add_embedding(
                 mat=embeddings, 
@@ -98,8 +84,8 @@ class VAE(VAEBuilderMixIn, VAEModelMixIn, pl.LightningModule):
                 global_step=self.validation_epoch_end, 
                 metadata_header=list(self.trainer.datamodule.hparams.obs_column_names))
         
-        self.z_val = []
-        self.z_val_metadata = []
+            self.z_val = []
+            self.z_val_metadata = []
             
     def test_step(self, batch, batch_idx):
         

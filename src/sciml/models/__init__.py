@@ -1,2 +1,2 @@
 from . import _utils as utils
-from ._vae import VAE
+from ._vae import VAEModel

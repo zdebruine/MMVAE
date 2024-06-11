@@ -17,4 +17,3 @@ if __name__ == "__main__":
     adata.obsm["X_emb"] = latents
     
     sc.write('/mnt/projects/debruinz_project/integration/adata/integrated_anndata.h5ad', adata)
-    
