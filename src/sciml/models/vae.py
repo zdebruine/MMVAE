@@ -1,5 +1,7 @@
+from typing import Union
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import lightning.pytorch as pl
 from . import utils
@@ -9,24 +11,30 @@ from sciml.modules import BasicVAE
 
 
  
-class VAEModel(BasicVAE, pl.LightningModule):
+class VAEModel(pl.LightningModule):
 
     def __init__(
         self,
+        vae: nn.Module,
         predict_keys = [RK.X_HAT, RK.Z],
         kl_weight=1.0,
         batch_size: int = 128,
         num_workers: int = 3,
         plot_z_embeddings: bool = False,
     ):
-        super(VAEModel, self).__init__()
-        self.save_hyperparameters(logger=True)
-      
-        self.register_buffer('kl_weight', torch.tensor(self.hparams.kl_weight, requires_grad=False))
+        super().__init__()
         
+        self.save_hyperparameters(ignore=['vae'], logger=True)
+        self.register_buffer('kl_weight', torch.tensor(self.hparams.kl_weight, requires_grad=False))
+        self.vae = vae
+        
+        # container for z embeddings/metadata/global_step
         self.z_val = []
         self.z_val_metadata = []
         self.validation_epoch_end = -1
+        
+    def forward(self, x):
+        return self.vae(x)
             
     def criterion(self, x, forward_outputs):
         # Mean Square Error of input batch to reconstructed batch with sum reduction
@@ -38,9 +46,8 @@ class VAEModel(BasicVAE, pl.LightningModule):
     
     def loss(self, batch_dict, return_outputs = False):
         
-        x = batch_dict[RK.X]
-        forward_outputs = self(x, batch_dict.get(RK.METADATA))
-        loss_outputs = self.criterion(x, forward_outputs)
+        forward_outputs = self(batch_dict)
+        loss_outputs = self.criterion(batch_dict[RK.X], forward_outputs)
         
         if return_outputs:
             return loss_outputs, forward_outputs
@@ -126,4 +133,3 @@ class VAEModel(BasicVAE, pl.LightningModule):
                 zs.append(predict_outputs[RK.Z])
         
         return torch.cat(zs).numpy()
-    

@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import anndata
 
-from sciml.constants import REGISTRY_KEYS as RK
+from sciml.utils.constants import REGISTRY_KEYS as RK
 
 class AnnDataDataset(Dataset):
     def __init__(self, adata):

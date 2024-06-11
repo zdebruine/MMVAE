@@ -1,6 +1,6 @@
-from .vae_module import VAE, BasicVAE
+from .vae_module import VAEMixIn, BasicVAE
 
 __all__ = [
     'BasicVAE',
-    'VAE'
+    'VAEMixIn' 
 ]

@@ -4,15 +4,8 @@ from sciml.utils.constants import REGISTRY_KEYS as RK
         
         
 
-class VAE(nn.Module):
+class VAEMixIn:
     
-    def __init__(self, encoder: nn.Module, decoder: nn.Module, fc_mean: nn.Module, fc_var: nn.Module):
-        super().__init__()
-        self.encoder = encoder
-        self.decoder = decoder
-        self.fc_mean = fc_mean
-        self.fc_var = fc_var
-        
     def encode(self, x):
         x = self.encoder(x)
         x = self.before_reparameterize(x)
@@ -23,7 +16,7 @@ class VAE(nn.Module):
     
     def reparameterize(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std, device=self.device)
+        eps = torch.randn_like(std, device=std.device)
         return mu + eps * std
     
     def after_reparameterize(self, z, metadata):
@@ -32,7 +25,10 @@ class VAE(nn.Module):
     def decode(self, z):
         return self.decoder(z)
     
-    def forward(self, x, metadata):
+    def forward(self, input_dict):
+        
+        x = input_dict[RK.X]
+        metadata = input_dict.get(RK.METADATA)
         
         qzm, qzv = self.encode(x)
         z = self.reparameterize(qzm, qzv)
@@ -47,20 +43,19 @@ class VAE(nn.Module):
             RK.X_HAT: x_hat, 
         }
         
-class BasicVAE(VAE):
+class BasicVAE(VAEMixIn, nn.Module):
     
     def __init__(
         self,
         encoder_layers = [60664, 1024, 512], 
-        latent_dim=256, 
-        decoder_layers = [512, 1024, 60664], 
+        latent_dim = 256, 
+        decoder_layers = [512, 1024, 60664],
     ):
+        super().__init__()
         self.latent_dim = latent_dim
         self.encoder_layers = encoder_layers
         self.decoder_layers = decoder_layers
-        
-        kwargs = self._vae_kwargs()
-        super(BasicVAE, self).__init__(**kwargs)
+        self.build()
         
     def build_encoder(self):
         layers = []
@@ -91,11 +86,9 @@ class BasicVAE(VAE):
     build_mean = _build_mean_var
     build_var = _build_mean_var
     
-    def _vae_kwargs(self):
+    def build(self):
         """Returns dictinoary of encoder, decoder, mean, var keys and their instaniated builds"""
-        return {
-            'encoder': self.build_encoder(),
-            'decoder': self.build_decoder(),
-            'fc_mean': self.build_mean(),
-            'fc_var': self.build_var(),
-        }
+        self.encoder = self.build_encoder()
+        self.decoder = self.build_decoder()
+        self.fc_mean = self.build_mean()
+        self.fc_var = self.build_var()

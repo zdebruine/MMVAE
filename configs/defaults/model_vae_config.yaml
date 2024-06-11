@@ -1,16 +1,5 @@
 # lightning.pytorch==2.2.5
-class_path: sciml.VAE
+class_path: sciml.VAEModel
 init_args:
-  encoder_layers:
-  - 60664
-  - 1024
-  - 512
-  latent_dim: 256
-  decoder_layers:
-  - 512
-  - 1024
-  - 60664
-  predict_keys:
-  - x_hat
-  - z
-  kl_weight: 1.0
+  vae: 
+    class_path: sciml.modules.BasicVAE

@@ -1,16 +1,15 @@
 import random
 import numpy as np
 import torch
-from typing import Any, Sequence, Union
+from typing import Any, Literal, Sequence, Union
 import lightning as L
 import tiledbsoma as soma
 import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
-from collections import OrderedDict
 
 from sciml.utils.constants import REGISTRY_KEYS as RK
 
-DEFAULT_WEIGHTS = OrderedDict([("train", 0.8), ("val", 0.1), ("test", 0.1)])
+DEFAULT_WEIGHTS = dict((("train", 0.8), ("val", 0.1), ("test", 0.1)))
 
 OBS_COL_NAMES = (
     "dataset_id",
@@ -27,7 +26,7 @@ class CellxgeneDataManager:
         self,
         batch_size: int,
         seed: int,
-        split_weights: OrderedDict[str, Union[float, int]] = DEFAULT_WEIGHTS,
+        split_weights = DEFAULT_WEIGHTS,
         obs_query_value_filter: str = OBS_QUERY_VALUE_FILTER,
         obs_column_names: tuple[str] = OBS_COL_NAMES,
         soma_chunk_size: int = None

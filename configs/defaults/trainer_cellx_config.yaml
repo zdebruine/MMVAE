@@ -1,8 +1,3 @@
-accelerator: cuda
-strategy: auto
-devices: 1
-precision: 16-mixed
-
 max_epochs: 10
 min_epochs: 3
 limit_train_batches: null
@@ -15,8 +10,6 @@ check_val_every_n_epoch: 1
 enable_checkpointing: true
 enable_progress_bar: false
 enable_model_summary: true
-
-default_root_dir: /mnt/projects/debruinz_project/integration
 
 callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint

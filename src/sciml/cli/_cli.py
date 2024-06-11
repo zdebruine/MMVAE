@@ -11,9 +11,9 @@ class SCIMLCli(LightningCLI):
                 "parser_mode": "omegaconf"
             }
             
-        from sciml import VAE, CellxgeneDataModule
+        from sciml import VAEModel, CellxgeneDataModule
         super().__init__(
-            model_class=VAE, 
+            model_class=VAEModel, 
             datamodule_class=CellxgeneDataModule, 
             subclass_mode_data=True, 
             subclass_mode_model=True,
