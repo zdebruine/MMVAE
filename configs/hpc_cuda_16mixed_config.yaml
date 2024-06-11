@@ -5,7 +5,7 @@ trainer:
   strategy: auto
   devices: 1
   num_nodes: 1
-  precision: 16_mixed
+  precision: 16-mixed
   logger:
     class_path: lightning.pytorch.loggers.TensorBoardLogger
     init_args:
