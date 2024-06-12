@@ -1,0 +1,140 @@
+# lightning.pytorch==2.2.5
+seed_everything: true
+trainer:
+  accelerator: cuda
+  strategy: auto
+  devices: auto
+  num_nodes: 1
+  precision: 16-mixed
+  logger:
+    class_path: lightning.pytorch.loggers.TensorBoardLogger
+    init_args:
+      save_dir: /mnt/projects/debruinz_project/integration/tensorboard
+      name: lightning_logs
+      version: null
+      log_graph: false
+      default_hp_metric: true
+      prefix: ''
+      sub_dir: null
+      n_version_placeholders: 4
+      comment: ''
+      purge_step: null
+      max_queue: 10
+      flush_secs: 120
+      filename_suffix: ''
+  callbacks:
+  - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+    init_args:
+      dirpath: null
+      filename: '{epoch}-{val_loss:.2f}'
+      monitor: val_loss
+      verbose: false
+      save_last: true
+      save_top_k: 3
+      save_weights_only: false
+      mode: min
+      auto_insert_metric_name: true
+      every_n_train_steps: null
+      train_time_interval: null
+      every_n_epochs: null
+      save_on_train_epoch_end: null
+      enable_version_counter: true
+  - class_path: lightning.pytorch.callbacks.EarlyStopping
+    init_args:
+      monitor: val_loss
+      min_delta: 0.0
+      patience: 3
+      verbose: false
+      mode: min
+      strict: true
+      check_finite: true
+      stopping_threshold: null
+      divergence_threshold: null
+      check_on_train_epoch_end: null
+      log_rank_zero_only: false
+  fast_dev_run: false
+  max_epochs: 10
+  min_epochs: 1
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: null
+  limit_val_batches: 1000
+  limit_test_batches: null
+  limit_predict_batches: null
+  overfit_batches: 0.0
+  val_check_interval: 5000
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  log_every_n_steps: null
+  enable_checkpointing: true
+  enable_progress_bar: false
+  enable_model_summary: true
+  accumulate_grad_batches: 1
+  gradient_clip_val: null
+  gradient_clip_algorithm: null
+  deterministic: null
+  benchmark: null
+  inference_mode: true
+  use_distributed_sampler: true
+  profiler: null
+  detect_anomaly: false
+  barebones: false
+  plugins: null
+  sync_batchnorm: false
+  reload_dataloaders_every_n_epochs: 0
+  default_root_dir: null
+optimizer:
+  lr: 0.001
+  betas:
+  - 0.9
+  - 0.999
+  eps: 1.0e-08
+  weight_decay: 0
+  amsgrad: false
+  foreach: null
+  maximize: false
+  capturable: false
+  differentiable: false
+  fused: null
+lr_scheduler:
+  start_factor: 0.3333333333333333
+  end_factor: 1.0
+  total_iters: 5
+  last_epoch: -1
+  verbose: deprecated
+ckpt_path: null
+model:
+  class_path: sciml.VAEModel
+  init_args:
+    vae:
+      class_path: sciml.modules.BasicVAE
+      init_args:
+        encoder_layers:
+        - 60664
+        - 1024
+        - 512
+        latent_dim: 256
+        decoder_layers:
+        - 512
+        - 1024
+        - 60664
+    predict_keys:
+    - x_hat
+    - z
+    kl_weight: 1.0
+    plot_z_embeddings: false
+data:
+  class_path: sciml.data.local.CellxgeneDataModule
+  init_args:
+    batch_size: 128
+    seed: 42
+    split_weights:
+      train: 0.8
+      val: 0.1
+      test: 0.1
+    num_workers: 2
+    directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
+    npz_masks: '3m_human*.npz'
+    metadata_masks: '3m_human_metadata_*.pkl'
+    verbose: True

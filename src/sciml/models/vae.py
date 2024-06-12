@@ -19,7 +19,6 @@ class VAEModel(pl.LightningModule):
         predict_keys = [RK.X_HAT, RK.Z],
         kl_weight=1.0,
         batch_size: int = 128,
-        num_workers: int = 3,
         plot_z_embeddings: bool = False,
     ):
         super().__init__()
@@ -57,13 +56,13 @@ class VAEModel(pl.LightningModule):
 
         loss_outputs = self.loss(batch_dict)
         loss_outputs = utils.tag_loss_outputs(loss_outputs, 'train')
-        
+
         self.log_dict(loss_outputs, on_step=True, on_epoch=True, logger=True, batch_size=self.hparams.batch_size)
 
         return loss_outputs['train_loss']
 
     def validation_step(self, batch_dict, batch_idx):
-        
+
         loss_outputs, forward_outputs = self.loss(batch_dict, return_outputs=True)
         loss_outputs = utils.tag_loss_outputs(loss_outputs, 'val')
         
@@ -102,8 +101,7 @@ class VAEModel(pl.LightningModule):
         self.log_dict(loss_outputs, on_step=True, on_epoch=True, logger=True, batch_size=self.hparams.batch_size)
 
     def predict_step(self, batch_dict, batch_idx):
-        x = batch_dict[RK.X]
-        forward_outputs = self(x, batch_dict.get(RK.METADATA))
+        forward_outputs = self(batch_dict)
         return { 
             key: value for key, value in forward_outputs 
             if key in self.hparams.predict_keys
@@ -114,20 +112,21 @@ class VAEModel(pl.LightningModule):
         adata,
         batch_size
     ):
-        from sciml.data import AnnDataDataset
+        from sciml.data.server import AnnDataDataset
         from torch.utils.data import DataLoader
         
         from lightning.pytorch.trainer import Trainer
         
         dataset = AnnDataDataset(adata)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=self.hparams.num_workers)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2, prefetch_factor=1)
 
         zs = []
         self.eval()
         with torch.no_grad():
             for tensors in dataloader:
                 for tk in tensors.keys():
-                    tensors[tk] = tensors[tk].to('cuda')
+                    if isinstance(tensors[tk], torch.Tensor):
+                        tensors[tk] = tensors[tk].to('cuda')
                     
                 predict_outputs = self.predict_step(tensors, None)
                 zs.append(predict_outputs[RK.Z])

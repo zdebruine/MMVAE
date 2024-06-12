@@ -1,14 +1,15 @@
 from sciml.cli import SCIMLCli
 import scanpy as sc        
 
-from sciml.data import CellxgeneDataManager
 import cellxgene_census
 
 if __name__ == "__main__":
     
-    from sciml.models import VAE
+    from sciml.models import VAEModel
+    from sciml.modules import BasicVAE
     
-    model = VAE.load_from_checkpoint('/mnt/projects/debruinz_project/integration/tensorboard/lightning_logs/version_45/checkpoints/last.ckpt')
+    vae = BasicVAE()
+    model = VAEModel.load_from_checkpoint('/mnt/projects/debruinz_project/integration/tensorboard/lightning_logs/version_94/checkpoints/epoch=0-val_loss=0.95.ckpt', vae=vae)
     
     adata = sc.read_h5ad('/mnt/projects/debruinz_project/integration/adata/test_anndata.h5ad')
     

@@ -3,7 +3,7 @@ seed_everything: true
 trainer:
   accelerator: cuda
   strategy: auto
-  devices: 1
+  devices: auto
   num_nodes: 1
   precision: 16-mixed
   logger:
@@ -123,10 +123,9 @@ model:
     - x_hat
     - z
     kl_weight: 1.0
-    num_workers: 3
     plot_z_embeddings: false
 data:
-  class_path: sciml.CellxgeneDataModule
+  class_path: sciml.data.server.CellxgeneDataModule
   init_args:
     batch_size: 128
     seed: 42

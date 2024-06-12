@@ -16,6 +16,7 @@ class AnnDataDataset(Dataset):
     def __getitem__(self, idx):
         
         sample = self.data[idx]
+        
         batch_dict = { RK.X: sample }
         if self.labels is not None:
             label = self.labels[idx]
