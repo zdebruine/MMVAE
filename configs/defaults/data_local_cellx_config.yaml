@@ -1,2 +1,14 @@
 # lightning.pytorch==2.2.5
 class_path: sciml.data.local.CellxgeneDataModule
+init_args:
+  batch_size: 128
+  seed: 42
+  split_weights:
+    train: 0.8
+    val: 0.1
+    test: 0.1
+  num_workers: 2
+  directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
+  npz_masks: '3m_human*.npz'
+  metadata_masks: '3m_human_metadata_*.pkl'
+  verbose: True
