@@ -5,11 +5,15 @@ class SCIMLCli(LightningCLI):
     
     def __init__(self, **kwargs):
         
+        parser_kwargs = kwargs['parser_kwargs']
+        
         if not 'parser_kwargs' in kwargs:
-            kwargs['parser_kwargs'] = {
-                "default_env": True, 
-                "parser_mode": "omegaconf"
-            }
+            kwargs['parser_kwargs'] = {}
+            
+        kwargs['parser_kwargs'].update({
+            "default_env": True, 
+            "parser_mode": "omegaconf"
+        })
             
         from sciml import VAEModel
         super().__init__(

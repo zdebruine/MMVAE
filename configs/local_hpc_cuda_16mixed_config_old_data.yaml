@@ -14,10 +14,10 @@ trainer:
       version: null
       log_graph: false
       default_hp_metric: true
-      prefix: 'old_data'
+      prefix: 'new_data'
       sub_dir: null
       n_version_placeholders: 4
-      comment: 'old_data'
+      comment: 'new_data'
       purge_step: null
       max_queue: 10
       flush_secs: 120
@@ -134,7 +134,7 @@ data:
       val: 0.1
       test: 0.1
     num_workers: 2
-    directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
+    directory_path: /mnt/projects/debruinz_project/CellCensus_3M/
     npz_masks: '3m_human*.npz'
-    metadata_masks: '3m_human_metadata_*.pkl'
+    metadata_masks: '3m_human_metadata_*.csv'
     verbose: True

@@ -1,2 +1,2 @@
-from .local_cellcensus_datamodule import CellxgeneDataModule
-from . import functional_datapipes
+from ._cellxgene_datamodule import CellxgeneDataModule
+

@@ -1,2 +1,2 @@
 from ._cellxgene_datamodule import CellxgeneDataModule
-from ._anndata_dataset import AnnDataDataset
+from ._anndata_dataset import AnnDataDataset, collate_fn

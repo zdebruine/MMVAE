@@ -22,7 +22,7 @@ class DFBlock(nn.Module):
         return self.layers(x)
         
     
-class DFVAE(VAEModel):
+class DFVAEModel(VAEModel):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

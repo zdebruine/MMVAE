@@ -29,4 +29,4 @@ callbacks:
 logger:
   class_path: lightning.pytorch.loggers.TensorBoardLogger
   init_args:
-    save_dir: REPLACE/WITH/VALID/PATH
+    save_dir: REPLACE_SAVE_DIR

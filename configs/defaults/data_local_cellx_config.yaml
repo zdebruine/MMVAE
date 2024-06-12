@@ -1,0 +1,2 @@
+# lightning.pytorch==2.2.5
+class_path: sciml.data.local.CellxgeneDataModule
