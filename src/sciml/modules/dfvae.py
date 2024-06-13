@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .vae import VAEModel
+from .basic_vae_module import BasicVAE
 
 
 class DFBlock(nn.Module):
@@ -22,12 +22,13 @@ class DFBlock(nn.Module):
         return self.layers(x)
         
     
-class DFVAEModel(VAEModel):
+class DFVAEModel(BasicVAE, nn.Module):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        ld = self.hparams.latent_dim
+        ld = self.latent_dim
+        
         self.dataset_dfs = nn.ModuleDict({
             'block1': DFBlock(ld),
             'block2': DFBlock(ld),

@@ -29,6 +29,7 @@ class CellxgeneDataModule(L.LightningDataModule):
     ):
         super(CellxgeneDataModule, self).__init__()
         self.save_hyperparameters(logger=True)
+        
         self.cellx_manager = CellxgeneManager(
             directory_path,
             npz_masks,
@@ -44,16 +45,16 @@ class CellxgeneDataModule(L.LightningDataModule):
         self.cellx_manager.setup()
         
     def train_dataloader(self):
-        return self.cellx_manager.create_dataloader(self.train, num_workers=self.hparams.num_workers)
+        return self.cellx_manager.create_dataloader(self.cellx_manager.train, num_workers=self.hparams.num_workers)
     
     def val_dataloader(self):
-        return self.cellx_manager.create_dataloader(self.val, num_workers=1)
+        return self.cellx_manager.create_dataloader(self.cellx_manager.val, num_workers=1)
         
     def test_dataloader(self):
-        return self.cellx_manager.create_dataloader(self.test, num_workers=1)
+        return self.cellx_manager.create_dataloader(self.cellx_manager.test, num_workers=1)
         
     def predict_dataloader(self) -> Any:
-        return self.cellx_manager.create_dataloader(self.test)
+        return self.cellx_manager.create_dataloader(self.cellx_manager.test)
     
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         

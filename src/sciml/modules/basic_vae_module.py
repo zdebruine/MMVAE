@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-from sciml.utils.constants import REGISTRY_KEYS as RK
-
 from .mixins.vae import VAEMixIn
 
 

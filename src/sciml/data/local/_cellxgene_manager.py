@@ -26,7 +26,8 @@ class CellxgeneManager:
         self.seed = seed
         self.verbose = verbose
         
-    def setup(self):
+    def setup(self, stage = None):
+        
         self.datapipe = CellxgeneDataPipe(
             directory_path=self.directory_path,
             npz_mask=self.npz_masks,

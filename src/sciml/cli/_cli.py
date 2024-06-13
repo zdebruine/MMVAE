@@ -5,8 +5,6 @@ class SCIMLCli(LightningCLI):
     
     def __init__(self, **kwargs):
         
-        parser_kwargs = kwargs['parser_kwargs']
-        
         if not 'parser_kwargs' in kwargs:
             kwargs['parser_kwargs'] = {}
             

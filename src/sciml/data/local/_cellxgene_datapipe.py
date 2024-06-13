@@ -16,6 +16,7 @@ from torch.utils.data.datapipes.iter import sharding
 class LoadCSRMatrixAndMetadataDataPipe(IterDataPipe):
     
     def __init__(self, source_datapipe, verbose):
+        super().__init__()
         self.source_dp = source_datapipe
         self.verbose = verbose
         
@@ -38,6 +39,7 @@ class LoadCSRMatrixAndMetadataDataPipe(IterDataPipe):
 class ShuffleCSRMatrixAndMetadataDataPipe(IterDataPipe):
     
     def __init__(self, source_datapipe):
+        super().__init__()
         self.source_dp = source_datapipe
         
     def __iter__(self):
@@ -112,7 +114,7 @@ class ChunkloaderDataPipe(IterDataPipe):
         # Sanity check that the metadata files and npz files are correlated
         # and all files are masked correctly
         if (verbose):
-            for i, npz_path, metadata_path in enumerate(Zipper(self.npz_paths_dp, self.metadata_paths_dp)):
+            for i, (npz_path, metadata_path) in enumerate(Zipper(self.npz_paths_dp, self.metadata_paths_dp)):
                 print(f"Chunk {i}:\n\t{npz_path}\n\t{metadata_path}")
                 
         self.verbose = verbose
@@ -127,7 +129,7 @@ class ChunkloaderDataPipe(IterDataPipe):
             .shuffle_matrix_and_metadata()
         )
     
-class CellxgeneDataPipe:
+class CellxgeneDataPipe(IterDataPipe):
     
     def __init__(
         self,
@@ -152,6 +154,7 @@ class CellxgeneDataPipe:
         Important Note: The sharding_filter is applied aftering opening files 
             to ensure no duplication of chunks between worker processes.
         """
+        super().__init__()
         self.datapipe = ChunkloaderDataPipe(directory_path, npz_mask, metadata_mask, verbose=verbose) \
             .sharding_round_robin_dispatch(sharding.SHARDING_PRIORITIES.MULTIPROCESSING) \
             .batch_sparse_csr_matrix(batch_size, return_dense=return_dense) \

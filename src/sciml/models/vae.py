@@ -71,7 +71,10 @@ class VAEModel(pl.LightningModule):
 
     def validation_step(self, batch_dict, batch_idx):
         # Compute loss_outputs returning the forward_outputes if needed for plotting z embeddings
-        loss_outputs, forward_outputs = self.loss(batch_dict, return_outputs=self.plot_z_embeddings)
+        if self.plot_z_embeddings:
+            loss_outputs, forward_outputs = self.loss(batch_dict, return_outputs=self.plot_z_embeddings)
+        else:
+            loss_outputs = self.loss(batch_dict, return_outputs=False)
         # Tag loss output keys with 'val_'
         loss_outputs = utils.tag_loss_outputs(loss_outputs, 'val')
         
