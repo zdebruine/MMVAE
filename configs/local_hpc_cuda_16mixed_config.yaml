@@ -135,6 +135,10 @@ data:
       test: 0.1
     num_workers: 2
     directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
-    npz_masks: '3m_human*.npz'
-    metadata_masks: '3m_human_metadata_*.pkl'
+    train_npz_masks: '3m_human_counts_([0-9]|1[0-3])\.npz'
+    train_metadata_masks: '3m_human_metadata_([0-9]|1[0-3])\.pkl'
+    val_npz_masks: '3m_human_counts_14.npz'
+    val_metadata_masks: '3m_human_metadata_14.pkl'
+    test_npz_masks: '3m_human_counts_15.npz'
+    test_metadata_masks: '3m_human_metadata_15.pkl'
     verbose: True

@@ -4,6 +4,8 @@ import scipy.sparse as sp
 import pandas as pd
 import pickle
 
+from sciml.utils.constants import REGISTRY_KEYS as RK
+
 import torch
 from torchdata.datapipes.iter import FileLister, IterDataPipe, Zipper
 from torch.utils.data import functional_datapipe
@@ -22,18 +24,25 @@ class LoadCSRMatrixAndMetadataDataPipe(IterDataPipe):
         
     def __iter__(self):
         """Split incoming tuple from FileLister and load scipy .npz"""
-        for file_tuples in self.source_dp:
-            (npz_path, npz_file), (metadata_path, metadata_file) = file_tuples
+        for npz_path, metadata_path in self.source_dp:
             if self.verbose:
                 print(f"Loading file path: {npz_path}, {metadata_path}")
-            sparse_matrix = sp.load_npz(npz_file)
-        
-            if '.pkl' in metadata_path:
-                labels = pickle.load(metadata_file)
-            else:
-                labels = None
             
-            yield (sparse_matrix, labels)
+            sparse_matrix = None
+            metadata = None
+            
+            try:
+                with open(npz_path, 'rb') as npz_file:
+                    sparse_matrix = sp.load_npz(npz_file)
+                
+                with open(metadata_path, 'rb') as metadata_file:
+                    if '.pkl' in metadata_path:
+                        metadata = pickle.load(metadata_file)
+            except Exception as e:
+                print(f"Error loading files: {e}")
+                raise
+            
+            yield (sparse_matrix, metadata)
             
 @functional_datapipe("shuffle_matrix_and_metadata")
 class ShuffleCSRMatrixAndMetadataDataPipe(IterDataPipe):
@@ -43,15 +52,13 @@ class ShuffleCSRMatrixAndMetadataDataPipe(IterDataPipe):
         self.source_dp = source_datapipe
         
     def __iter__(self):
-        for inputs in self.source_dp:
-            sparse_matrix, dataframe = inputs
+        for sparse_matrix, dataframe in self.source_dp:
             permutation = np.random.permutation(sparse_matrix.shape[0])
             
             if isinstance(dataframe, pd.DataFrame):
                 dataframe = dataframe.iloc[permutation].reset_index(drop=True)
                 
             sparse_matrix = sparse_matrix[permutation]
-            
             yield (sparse_matrix, dataframe)
 
 @functional_datapipe("batch_sparse_csr_matrix") 
@@ -73,9 +80,9 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
 
     def __iter__(self):
         for sparse_matrix, dataframe in self.source_datapipe:
+            
             drop = 0 if self.drop_last else -self.batch_size
             for i in range(0, sparse_matrix.shape[0] - drop, self.batch_size):
-                
                 data_batch = sparse_matrix[i:i + self.batch_size]
                 tensor = torch.sparse_csr_tensor(data_batch.indptr, data_batch.indices, data_batch.data, data_batch.shape)
                 if isinstance(dataframe, pd.DataFrame):
@@ -85,7 +92,7 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
                 
                 if self.return_dense:
                     tensor = tensor.to_dense()
-                yield (tensor, metadata)
+                yield {RK.X: tensor, RK.METADATA: metadata} 
                 
             
 class ChunkloaderDataPipe(IterDataPipe):
@@ -101,7 +108,7 @@ class ChunkloaderDataPipe(IterDataPipe):
             abspath=True,
             non_deterministic=False
         )
-        
+
         # Create file lister datapipe for all metadata files 
         self.metadata_paths_dp = FileLister(
             root=directory_path, 
@@ -111,24 +118,35 @@ class ChunkloaderDataPipe(IterDataPipe):
             non_deterministic=False
         )
         
+        self.zipped_paths_dp = Zipper(self.npz_paths_dp, self.metadata_paths_dp).sharding_filter()
+        
         # Sanity check that the metadata files and npz files are correlated
         # and all files are masked correctly
-        if (verbose):
-            for i, (npz_path, metadata_path) in enumerate(Zipper(self.npz_paths_dp, self.metadata_paths_dp)):
-                print(f"Chunk {i}:\n\t{npz_path}\n\t{metadata_path}")
+        chunk_paths = []
+        for npz_path, metadata_path in self.zipped_paths_dp:
+            chunk_paths.append(f"\n\t{npz_path}\n\t{metadata_path}")
+        if not chunk_paths:
+            raise RuntimeError("No files found for masks from file lister")
+        
+        if verbose:
+            for path in chunk_paths:
+                print(path)
                 
         self.verbose = verbose
                 
     def __iter__(self):
-        npz_files_dp = self.npz_paths_dp.open_files(mode='rb')
-        metadata_files_dp = self.metadata_paths_dp.open_files(mode='rb')
-        return iter(
-            Zipper(npz_files_dp, metadata_files_dp )
-            .shuffle()
-            .load_matrix_and_metadata(self.verbose)
-            .shuffle_matrix_and_metadata()
-        )
-    
+        try:
+            yield from self.zipped_paths_dp \
+                .shuffle() \
+                .load_matrix_and_metadata(self.verbose) \
+                .shuffle_matrix_and_metadata()
+        except Exception as e:
+            print(f"Error during iteration: {e}")
+            raise
+        finally:
+            # Ensure all resources are properly cleaned up
+            pass
+        
 class CellxgeneDataPipe(IterDataPipe):
     
     def __init__(
@@ -156,7 +174,6 @@ class CellxgeneDataPipe(IterDataPipe):
         """
         super().__init__()
         self.datapipe = ChunkloaderDataPipe(directory_path, npz_mask, metadata_mask, verbose=verbose) \
-            .sharding_round_robin_dispatch(sharding.SHARDING_PRIORITIES.MULTIPROCESSING) \
             .batch_sparse_csr_matrix(batch_size, return_dense=return_dense) \
             .shuffle()
         
