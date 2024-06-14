@@ -10,7 +10,7 @@ trainer:
     class_path: lightning.pytorch.loggers.TensorBoardLogger
     init_args:
       save_dir: /mnt/projects/debruinz_project/integration/tensorboard
-      name: basic_vae
+      name: hparam_testing
       version: null
       log_graph: false
       default_hp_metric: true
@@ -21,7 +21,7 @@ trainer:
       purge_step: null
       max_queue: 10
       flush_secs: 120
-      filename_suffix: 'new-data'
+      filename_suffix: ''
   callbacks:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
@@ -53,8 +53,8 @@ trainer:
       check_on_train_epoch_end: null
       log_rank_zero_only: false
   fast_dev_run: false
-  max_epochs: 10
-  min_epochs: 3
+  max_epochs: 30
+  min_epochs: 20
   max_steps: -1
   min_steps: null
   max_time: null
@@ -85,7 +85,7 @@ trainer:
   reload_dataloaders_every_n_epochs: 0
   default_root_dir: null
 optimizer:
-  lr: 0.001
+  lr: 0.0001
   betas:
   - 0.9
   - 0.999

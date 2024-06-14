@@ -156,6 +156,7 @@ class CellxgeneDataPipe(IterDataPipe):
         metadata_mask: Union[str, list[str]], 
         batch_size: int,
         return_dense=False,
+        seed: int = 42,
         verbose=False, 
     ) -> IterDataPipe: # type: ignore
         """
@@ -176,6 +177,10 @@ class CellxgeneDataPipe(IterDataPipe):
         self.datapipe = ChunkloaderDataPipe(directory_path, npz_mask, metadata_mask, verbose=verbose) \
             .batch_sparse_csr_matrix(batch_size, return_dense=return_dense) \
             .shuffle()
+        self.seed = seed
         
     def __iter__(self):
+        seed = np.random.randint(0, 100)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
         yield from self.datapipe

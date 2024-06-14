@@ -19,9 +19,10 @@ class VAEModel(pl.LightningModule):
         kl_weight=1.0,
         batch_size: int = 128,
         plot_z_embeddings: bool = False,
+        plot_gradients: bool = True,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=['vae'], logger=True)
+        self.save_hyperparameters(ignore=['vae'], logger=False)
         self.vae = vae
         
         # Register kl_weight as buffer
@@ -30,7 +31,6 @@ class VAEModel(pl.LightningModule):
         # container for z embeddings/metadata/global_step
         self.z_val = []
         self.z_val_metadata = []
-        self.validation_epoch_end = -1
     
     @property
     def plot_z_embeddings(self):
@@ -92,8 +92,6 @@ class VAEModel(pl.LightningModule):
     def on_validation_epoch_end(self):
         
         if self.plot_z_embeddings:
-            # Record for global step
-            self.validation_epoch_end += 1
             # Concatenate Z tensors
             embeddings = torch.cat(self.z_val, dim=0)
             # Concatenate metadata
@@ -104,7 +102,7 @@ class VAEModel(pl.LightningModule):
             writer.add_embedding(
                 mat=embeddings, 
                 metadata=metadata.tolist(), 
-                global_step=self.validation_epoch_end, 
+                global_step=self.trainer.global_step, 
                 metadata_header=list(self.trainer.datamodule.hparams.obs_column_names))
             # Empty the Z tensors and metadata containers
             self.z_val = []
@@ -152,3 +150,11 @@ class VAEModel(pl.LightningModule):
                 zs.append(predict_outputs[RK.Z])
         
         return torch.cat(zs).numpy()
+    
+    def on_before_optimizer_step(self, optimizer):
+        # Log gradients
+        if self.hparams.plot_gradients and self.trainer.global_step % 25 == 0:  # don't make the tf file huge
+            for k, v in self.named_parameters():
+                self.logger.experiment.add_histogram(
+                    tag=k, values=v.grad, global_step=self.trainer.global_step
+                )

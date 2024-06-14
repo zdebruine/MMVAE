@@ -42,11 +42,10 @@ class CellxgeneManager:
         self.n_test_workers = n_test_workers
         self.n_predict_workers = n_predict_workers
         
-        print(self.train_npz_masks)
-        
     def setup(self, stage = None):
+        _all = stage == None
         
-        if stage == TrainerFn.FITTING:
+        if _all or stage == TrainerFn.FITTING:
             self.train_dp = CellxgeneDataPipe(
                 directory_path=self.directory_path,
                 npz_mask=self.train_npz_masks,
@@ -56,7 +55,7 @@ class CellxgeneManager:
                 return_dense=self.return_dense
             )
         
-        if stage in (TrainerFn.FITTING, TrainerFn.VALIDATING):
+        if _all or stage in (TrainerFn.FITTING, TrainerFn.VALIDATING):
             self.val_dp = CellxgeneDataPipe(
                 directory_path=self.directory_path,
                 npz_mask=self.val_npz_masks,
@@ -66,7 +65,7 @@ class CellxgeneManager:
                 return_dense=self.return_dense
             )
             
-        if stage in (TrainerFn.TESTING, TrainerFn.PREDICTING):
+        if _all or stage in (TrainerFn.TESTING, TrainerFn.PREDICTING):
             self.test_dp = CellxgeneDataPipe(
                 directory_path=self.directory_path,
                 npz_mask=self.test_npz_masks,

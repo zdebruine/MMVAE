@@ -26,3 +26,6 @@ class SCIMLCli(LightningCLI):
         parser.add_lr_scheduler_args(torch.optim.lr_scheduler.LinearLR)
         
         parser.link_arguments('data.init_args.batch_size', 'model.init_args.batch_size')
+        
+    def before_fit(self):
+        self.trainer.logger.log_hyperparams(self.config)

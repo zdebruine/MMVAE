@@ -1,21 +1,26 @@
 import torch
 import torch.nn as nn
 from .mixins.vae import VAEMixIn
+from .mixins.init import HeWeightInitMixIn
 
-
-class BasicVAE(VAEMixIn, nn.Module):
+class BasicVAE(VAEMixIn, HeWeightInitMixIn, nn.Module):
     
     def __init__(
         self,
         encoder_layers = [60664, 1024, 512], 
         latent_dim = 256, 
         decoder_layers = [512, 1024, 60664],
+        use_he_init = True,
     ):
         super().__init__()
         self.latent_dim = latent_dim
         self.encoder_layers = encoder_layers
         self.decoder_layers = decoder_layers
         self.build()
+        
+        if use_he_init:
+            self.init_weights()
+
         
     def build(self):
         """Initializes attributes encoder, decoder, fc_mean, fc_var"""
@@ -52,3 +57,13 @@ class BasicVAE(VAEMixIn, nn.Module):
     
     build_mean = _build_mean_var
     build_var = _build_mean_var
+    
+class VAE(VAEMixIn, HeWeightInitMixIn, nn.Module):
+    
+    def __init__(self):
+        
+        self.encoder = nn.Sequential(
+            nn.Linear(60664, 1024),
+            nn.Linear(1024, 512),
+            nn.Linear(512, 256),
+        )
