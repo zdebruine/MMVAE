@@ -11,7 +11,7 @@ from ._cellxgene_manager import (
     DEFAULT_WEIGHTS
 )
 
-from sciml.utils.constants import REGISTRY_KEYS as RK
+from sciml.utils.constants import REGISTRY_KEYS as RK, ModelInputs
 
 class CellxgeneDataModule(L.LightningDataModule):
     
@@ -61,9 +61,5 @@ class CellxgeneDataModule(L.LightningDataModule):
                 metadata.append(data)
             metadata = np.stack(metadata, axis=1)
         
-        return {
-            RK.X: batch[0],
-            RK.Y: batch[1],
-            RK.METADATA: metadata,
-        }
+        return batch[0], metadata
     

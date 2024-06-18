@@ -45,7 +45,7 @@ class CellxgeneManager:
     def setup(self, stage = None):
         _all = stage == None
         
-        if _all or stage == TrainerFn.FITTING:
+        if _all or stage in (TrainerFn.FITTING, TrainerFn.PREDICTING):
             self.train_dp = CellxgeneDataPipe(
                 directory_path=self.directory_path,
                 npz_mask=self.train_npz_masks,
@@ -65,7 +65,7 @@ class CellxgeneManager:
                 return_dense=self.return_dense
             )
             
-        if _all or stage in (TrainerFn.TESTING, TrainerFn.PREDICTING):
+        if _all or stage in (TrainerFn.TESTING):
             self.test_dp = CellxgeneDataPipe(
                 directory_path=self.directory_path,
                 npz_mask=self.test_npz_masks,
@@ -130,7 +130,7 @@ class CellxgeneManager:
         else:
             warnings.warn("param num_workers in predict_dataloader overriden by kwargs supplied")
             
-        return self.create_dataloader(self.test_dp, **kwargs)
+        return self.create_dataloader(self.train_dp, **kwargs)
     
     def create_dataloader(self, dp, **kwargs):
         return DataLoader(

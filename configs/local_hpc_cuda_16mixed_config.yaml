@@ -12,8 +12,8 @@ trainer:
       save_dir: /mnt/projects/debruinz_project/integration/tensorboard
       name: hparam_testing
       version: null
-      log_graph: false
-      default_hp_metric: true
+      log_graph: true
+      default_hp_metric: 'val_loss'
       prefix: ''
       sub_dir: null
       n_version_placeholders: 4
@@ -108,17 +108,48 @@ model:
   class_path: sciml.VAEModel
   init_args:
     vae:
-      class_path: sciml.modules.BasicVAE
+      class_path: sciml.modules.VAE
       init_args:
-        encoder_layers:
-        - 60664
-        - 1024
-        - 512
-        latent_dim: 256
-        decoder_layers:
-        - 512
-        - 1024
-        - 60664
+        encoder:
+          class_path: sciml.modules.LightningSequential
+          init_args:
+            layers:
+              - class_path: sciml.modules.LightningLinear
+                init_args:
+                  in_features: 60664
+                  out_features: 1024
+              - class_path: torch.nn.ReLU
+              - class_path: sciml.modules.LightningLinear
+                init_args:
+                  in_features: 1024
+                  out_features: 512
+              - class_path: sciml.modules.LightningLinear
+                init_args:
+                  in_features: 512
+                  out_features: 256
+        decoder:
+          class_path: sciml.modules.LightningSequential
+          init_args:
+            layers:
+              - class_path: sciml.modules.LightningLinear
+                init_args:
+                  in_features: 512
+                  out_features: 1024
+              - class_path: torch.nn.ReLU
+              - class_path: sciml.modules.LightningLinear
+                init_args:
+                  in_features: 1024
+                  out_features: 60664
+        mean:
+          class_path: torch.nn.Linear
+          init_args:
+            in_features: 512
+            out_features: 256
+        var:
+          class_path: torch.nn.Linear
+          init_args:
+            in_features: 512
+            out_features: 256
     predict_keys:
     - x_hat
     - z

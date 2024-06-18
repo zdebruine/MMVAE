@@ -92,7 +92,7 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
                 
                 if self.return_dense:
                     tensor = tensor.to_dense()
-                yield {RK.X: tensor, RK.METADATA: metadata} 
+                yield { RK.X: tensor, RK.METADATA: metadata }
                 
             
 class ChunkloaderDataPipe(IterDataPipe):
@@ -118,7 +118,9 @@ class ChunkloaderDataPipe(IterDataPipe):
             non_deterministic=False
         )
         
-        self.zipped_paths_dp = Zipper(self.npz_paths_dp, self.metadata_paths_dp).sharding_filter()
+        self.zipped_paths_dp = Zipper(self.npz_paths_dp, self.metadata_paths_dp)
+        # Make sure each worker gets individual chunk
+        self.zipped_paths_dp = self.zipped_paths_dp.sharding_filter()
         
         # Sanity check that the metadata files and npz files are correlated
         # and all files are masked correctly
