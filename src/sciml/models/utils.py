@@ -15,3 +15,11 @@ def tag_loss_outputs(loss_outputs: dict[str, torch.Tensor], tag: str, sep="_"):
     }
     del loss_outputs
     return outputs
+
+def tag_mm_loss_outputs(loss_outputs: dict[str, torch.Tensor], tag: str, species: str, sep="_"):
+    outputs = {
+        f"{key}{sep}{tag}{sep}{species}": value
+        for key, value in loss_outputs.items()
+    }
+    del loss_outputs
+    return outputs

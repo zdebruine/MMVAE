@@ -1,10 +1,10 @@
-from sciml.cli import SCIMLCli
+from sciml.cli import MMCli
 
 
 
 
 if __name__ == "__main__":
     
-    cli = SCIMLCli()
+    cli = MMCli()
     
     print(cli.model)

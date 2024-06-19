@@ -24,6 +24,9 @@ class _REGISTRY_KEYS_NT(NamedTuple):
     X_HAT: str = "X_HAT"
     Y: str = "Y"
     METADATA: str = "METADATA"
+    EXPERT: str = "expert"
+    HUMAN: str = "human"
+    MOUSE: str = "mouse"
     
 
 REGISTRY_KEYS = _REGISTRY_KEYS_NT()

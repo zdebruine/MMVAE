@@ -4,6 +4,8 @@ from ._lightning import LightningSequential, LightningLinear
 
 from.dfvae import DFVAE
 
+from .mmvae_module import MMVAE
+from .expert_module import Expert
 
 __all__ = [
     'BasicVAE',
@@ -11,4 +13,6 @@ __all__ = [
     'LightningSequential',
     'LightningLinear',
     'VAE',
+    'MMVAE',
+    'Expert',
 ]

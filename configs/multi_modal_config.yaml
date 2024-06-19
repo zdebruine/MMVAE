@@ -1,0 +1,202 @@
+# lightning.pytorch==2.2.5
+seed_everything: 42
+trainer:
+  accelerator: cuda
+  strategy: auto
+  devices: auto
+  num_nodes: 1
+  precision: 16-mixed
+  logger:
+    class_path: lightning.pytorch.loggers.TensorBoardLogger
+    init_args:
+      save_dir: /mnt/projects/debruinz_project/tensorboard_logs/tony_boos
+      name: New_MMVAE
+      version: "cross_gen_test_3"
+      log_graph: false
+      default_hp_metric: true
+      prefix: null
+      sub_dir: null
+      purge_step: null
+      max_queue: 10
+      flush_secs: 120
+      filename_suffix: ''
+  # callbacks:
+  # - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+  #   init_args:
+  #     dirpath: null
+  #     filename: '{epoch}-{val_loss:.2f}'
+  #     monitor: val_loss
+  #     verbose: false
+  #     save_last: true
+  #     save_top_k: 3
+  #     save_weights_only: false
+  #     mode: min
+  #     auto_insert_metric_name: true
+  #     every_n_train_steps: null
+  #     train_time_interval: null
+  #     every_n_epochs: null
+  #     save_on_train_epoch_end: null
+  #     enable_version_counter: true
+  fast_dev_run: false
+  max_epochs: 30
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: null
+  limit_val_batches: null
+  limit_test_batches: null
+  limit_predict_batches: null
+  overfit_batches: 0.0
+  val_check_interval: null
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 2
+  log_every_n_steps: null
+  enable_checkpointing: true
+  enable_progress_bar: false
+  enable_model_summary: true
+  accumulate_grad_batches: 1
+  gradient_clip_val: null
+  gradient_clip_algorithm: null
+  deterministic: true
+  benchmark: null
+  inference_mode: true
+  use_distributed_sampler: true
+  profiler: null
+  detect_anomaly: false
+  barebones: false
+  plugins: null
+  sync_batchnorm: false
+  reload_dataloaders_every_n_epochs: 0
+  default_root_dir: null
+ckpt_path: null
+model:
+  class_path: sciml.MMVAEModel
+  init_args:
+    mmvae:
+      class_path: sciml.modules.MMVAE
+      init_args:
+        vae:
+          class_path: sciml.modules.BasicVAE
+          init_args:
+            encoder_layers:
+            - 768
+            - 512
+            - 256
+            latent_dim: 256
+            decoder_layers:
+            - 512
+            - 768
+            use_he_init: true
+        human_expert:
+          class_path: sciml.modules.Expert
+          init_args:
+            encoder_layers:
+            - 60664
+            - 1024
+            - 768
+            decoder_layers:
+            - 768
+            - 1024
+            - 60664
+        mouse_expert:
+          class_path: sciml.modules.Expert
+          init_args:
+            encoder_layers:
+            - 52417
+            - 1024
+            - 768
+            decoder_layers:
+            - 768
+            - 1024
+            - 52417
+    predict_keys:
+    - x_hat
+    - z
+    kl_weight: 0.15
+    plot_z_embeddings: false
+data:
+  class_path: sciml.data.local.MMCellxgeneDataModule
+  init_args:
+    human_datamodule:
+      class_path: sciml.data.local.CellxgeneDataModule
+      init_args:
+        return_dense: true
+        batch_size: 128
+        seed: 42
+        num_workers: 2
+        directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
+        train_npz_masks: 
+        - 3m_human_counts_1.npz
+        - 3m_human_counts_2.npz
+        - 3m_human_counts_3.npz
+        - 3m_human_counts_4.npz
+        - 3m_human_counts_5.npz
+        - 3m_human_counts_6.npz
+        - 3m_human_counts_7.npz
+        - 3m_human_counts_8.npz
+        - 3m_human_counts_9.npz
+        - 3m_human_counts_10.npz
+        - 3m_human_counts_11.npz
+        - 3m_human_counts_12.npz
+        - 3m_human_counts_13.npz
+        train_metadata_masks:
+        - 3m_human_metadata_1.pkl
+        - 3m_human_metadata_2.pkl
+        - 3m_human_metadata_3.pkl
+        - 3m_human_metadata_4.pkl
+        - 3m_human_metadata_5.pkl
+        - 3m_human_metadata_6.pkl
+        - 3m_human_metadata_7.pkl
+        - 3m_human_metadata_8.pkl
+        - 3m_human_metadata_9.pkl
+        - 3m_human_metadata_10.pkl
+        - 3m_human_metadata_11.pkl
+        - 3m_human_metadata_12.pkl
+        - 3m_human_metadata_13.pkl
+        val_npz_masks: 3m_human_counts_14.npz
+        val_metadata_masks: 3m_human_metadata_14.pkl
+        test_npz_masks: 3m_human_counts_15.npz
+        test_metadata_masks: 3m_human_metadata_15.pkl
+        verbose: false
+    mouse_datamodule:
+      class_path: sciml.data.local.CellxgeneDataModule
+      init_args:
+        return_dense: true
+        batch_size: 128
+        seed: 42
+        num_workers: 2
+        directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
+        train_npz_masks: 
+        - 3m_mouse_counts_1.npz
+        - 3m_mouse_counts_2.npz
+        - 3m_mouse_counts_3.npz
+        - 3m_mouse_counts_4.npz
+        - 3m_mouse_counts_5.npz
+        - 3m_mouse_counts_6.npz
+        - 3m_mouse_counts_7.npz
+        - 3m_mouse_counts_8.npz
+        - 3m_mouse_counts_9.npz
+        - 3m_mouse_counts_10.npz
+        - 3m_mouse_counts_11.npz
+        - 3m_mouse_counts_12.npz
+        - 3m_mouse_counts_13.npz
+        train_metadata_masks:
+        - 3m_mouse_metadata_1.pkl
+        - 3m_mouse_metadata_2.pkl
+        - 3m_mouse_metadata_3.pkl
+        - 3m_mouse_metadata_4.pkl
+        - 3m_mouse_metadata_5.pkl
+        - 3m_mouse_metadata_6.pkl
+        - 3m_mouse_metadata_7.pkl
+        - 3m_mouse_metadata_8.pkl
+        - 3m_mouse_metadata_9.pkl
+        - 3m_mouse_metadata_10.pkl
+        - 3m_mouse_metadata_11.pkl
+        - 3m_mouse_metadata_12.pkl
+        - 3m_mouse_metadata_13.pkl
+        val_npz_masks: 3m_mouse_counts_14.npz
+        val_metadata_masks: 3m_mouse_metadata_14.pkl
+        test_npz_masks: 3m_mouse_counts_15.npz
+        test_metadata_masks: 3m_mouse_metadata_15.pkl
+        verbose: false

@@ -1,2 +1,3 @@
 from ._cellxgene_datamodule import CellxgeneDataModule
+from ._mm_cellxgene_datamodule import MMCellxgeneDataModule
 
