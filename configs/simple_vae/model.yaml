@@ -1,0 +1,19 @@
+# lightning.pytorch==2.2.5
+class_path: sciml.models.VAEModel
+init_args: 
+  module:
+    class_path: sciml.modules.SimpleVAE
+    init_args:
+      n_in: 60664
+      encoder_layers:
+      - 1024
+      - 512
+      - 256
+      n_latent: 128
+      decoder_layers:
+      - 256
+      - 512
+      - 1024
+      n_out: 60664
+  
+  

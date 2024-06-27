@@ -1,18 +1,4 @@
-from .basic_vae_module import BasicVAE
-from .vae import VAE
-from ._lightning import LightningSequential, LightningLinear
-
-from.dfvae import DFVAE
-
-from .mmvae_module import MMVAE
-from .expert_module import Expert
-
-__all__ = [
-    'BasicVAE',
-    'DFVAE'
-    'LightningSequential',
-    'LightningLinear',
-    'VAE',
-    'MMVAE',
-    'Expert',
-]
+from ._vae import VAE
+from ._simple_vae import SimpleVAE
+from ._mmvae import MMVAE
+from .base import BaseModule, FCBlock, Encoder, Expert

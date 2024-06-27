@@ -18,7 +18,7 @@ class MMLoader:
     def _get_human_batch(self):
         try:
             batch_dict = next(self.human_iter)
-            batch_dict.update({RK.EXPERT: RK.HUMAN})
+            batch_dict.update({RK.EXPERT_ID: RK.HUMAN})
             return batch_dict
         except StopIteration:
             self.human_exhausted = True
@@ -31,7 +31,7 @@ class MMLoader:
     def _get_mouse_batch(self):
         try:
             batch_dict = next(self.mouse_iter)
-            batch_dict.update({RK.EXPERT: RK.MOUSE})
+            batch_dict.update({RK.EXPERT_ID: RK.MOUSE})
             return batch_dict
         except StopIteration:
             self.mouse_exhausted = True

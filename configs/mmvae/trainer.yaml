@@ -1,0 +1,33 @@
+# lightning.pytorch==2.2.5
+max_epochs: 10
+min_epochs: 1
+limit_train_batches: null
+limit_val_batches: null
+limit_test_batches: null
+limit_predict_batches: null
+overfit_batches: 0.0
+val_check_interval: null
+check_val_every_n_epoch: 1
+enable_checkpointing: true
+enable_progress_bar: false
+enable_model_summary: true
+
+# callbacks:
+#   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+#     init_args:
+#       filename: '{epoch}-{val_loss:.2f}'
+#       save_top_k: 3
+#       save_last: true
+#       monitor: loss/validation/human
+#       mode: min
+
+#   - class_path: lightning.pytorch.callbacks.EarlyStopping
+#     init_args:
+#       monitor: loss/validation
+#       patience: 3
+#       mode: min
+      
+logger:
+  class_path: lightning.pytorch.loggers.TensorBoardLogger
+  init_args:
+    log_graph: false

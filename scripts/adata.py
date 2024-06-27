@@ -1,4 +1,9 @@
-from sciml.cli import SCIMLCli
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sciml.src import sciml
+else:
+    import sciml
 import scanpy as sc        
 
 import cellxgene_census
@@ -15,14 +20,8 @@ def save_adata_obj():
 
 if __name__ == "__main__":
     
-    save_adata_obj()
-    exit(1)
-    
-    from sciml.models import VAEModel
-    from sciml.modules import BasicVAE
-    
-    vae = BasicVAE()
-    model = VAEModel.load_from_checkpoint('/mnt/projects/debruinz_project/integration/tensorboard/lightning_logs/version_94/checkpoints/epoch=0-val_loss=0.95.ckpt', vae=vae)
+    # vae = BasicVAE()
+    # model = VAEModel.load_from_checkpoint('/mnt/projects/debruinz_project/integration/tensorboard/lightning_logs/version_94/checkpoints/epoch=0-val_loss=0.95.ckpt', vae=vae)
     
     adata = sc.read_h5ad('/mnt/projects/debruinz_project/integration/adata/data.h5ad')
     
@@ -31,3 +30,5 @@ if __name__ == "__main__":
     adata.obsm["X_emb"] = latents
     
     sc.write('/mnt/projects/debruinz_project/integration/adata/integrated_anndata.h5ad', adata)
+    
+# TODO: FIX FOR MERGED REPO
