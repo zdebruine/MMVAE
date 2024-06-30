@@ -5,7 +5,7 @@ trainer:
   strategy: auto
   devices: auto
   num_nodes: 1
-  precision: null
+  precision: 32
   logger:
     class_path: lightning.pytorch.loggers.TensorBoardLogger
     init_args:
@@ -32,7 +32,7 @@ trainer:
   overfit_batches: 0.0
   val_check_interval: null
   check_val_every_n_epoch: 1
-  num_sanity_val_steps: null
+  num_sanity_val_steps: 0
   log_every_n_steps: null
   enable_checkpointing: true
   enable_progress_bar: false
@@ -137,7 +137,7 @@ data:
         val_metadata_masks: 3m_human_metadata_14.pkl
         test_npz_masks: 3m_human_counts_15.npz
         test_metadata_masks: 3m_human_metadata_15.pkl
-        verbose: false
+        verbose: true
     - class_path: sciml.data.local.SpeciesManager
       init_args:
         name: mouse
@@ -176,6 +176,5 @@ data:
         val_metadata_masks: 3m_mouse_metadata_14.pkl
         test_npz_masks: 3m_mouse_counts_15.npz
         test_metadata_masks: 3m_mouse_metadata_15.pkl
-        verbose: false
-    select_fn: random
-    num_workers: 2
+        verbose: true
+    num_workers: 1

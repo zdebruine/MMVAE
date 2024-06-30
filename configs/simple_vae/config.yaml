@@ -23,7 +23,7 @@ trainer:
     init_args:
       dirpath: null
       filename: '{epoch}-{val_loss:.2f}'
-      monitor: val_loss
+      monitor: loss/validation
       verbose: false
       save_last: true
       save_top_k: 3
@@ -37,7 +37,7 @@ trainer:
       enable_version_counter: true
   - class_path: lightning.pytorch.callbacks.EarlyStopping
     init_args:
-      monitor: val_loss
+      monitor: loss/validation
       min_delta: 0.0
       patience: 3
       verbose: false
@@ -148,9 +148,9 @@ data:
     test_npz_masks: 3m_human_counts_15.npz
     test_metadata_masks: 3m_human_metadata_15.pkl
     num_workers: 2
-    n_val_workers: null
+    n_val_workers: 1
     n_test_workers: null
     n_predict_workers: null
     batch_size: 128
-    return_dense: true
+    return_dense: false
     verbose: false

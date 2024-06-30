@@ -26,6 +26,7 @@ class BaseSpeciesManager:
             batch_size=None,
             shuffle=False,
             collate_fn=lambda x: x,
+            persistent_workers=False,
             **kwargs)
         
 
@@ -107,20 +108,19 @@ class SpeciesManager(BaseSpeciesManager):
         
 class MultiSpeciesManager(BaseSpeciesManager):
     
-    def __init__(self, *species: SpeciesManager, select_fn: Union[Literal['sequential'], Literal['random']]):
+    def __init__(self, *species: SpeciesManager):
         super().__init__()
-        
         self.species = species
-        self.select_fn = select_fn
+        
+    def multi_species_datapipe(self, *species: SpeciesDataPipe, select_fn='random'):
+        return MultiSpeciesDataPipe(*species, selection_fn=select_fn)
     
     def train_datapipe(self):
-        dps = list(species.train_datapipe() for species in self.species)
-        return MultiSpeciesDataPipe(*dps, selection_fn=self.select_fn)
-        
+        return (species.train_datapipe() for species in self.species)
+    
     def val_datapipe(self):
-        dps = list(species.val_datapipe() for species in self.species)
-        return MultiSpeciesDataPipe(*dps, selection_fn=self.select_fn)
+        return (species.val_datapipe() for species in self.species)
     
     def test_datapipe(self):
-        dps = list(species.test_datapipe() for species in self.species)
-        return MultiSpeciesDataPipe(*dps, selection_fn=self.select_fn)
+        return (species.train_datapipe() for species in self.species)
+

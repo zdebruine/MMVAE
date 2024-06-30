@@ -1,11 +1,14 @@
-from typing import Union
-import lightning as L
+from typing import Generator
+from lightning import LightningDataModule
 from lightning.pytorch.trainer.states import TrainerFn
+from torch.utils.data.datapipes.datapipe import IterDataPipe
+from ._cellxgene_datapipe import SpeciesDataPipe
 
 from ._cellxgene_manager import SpeciesManager, MultiSpeciesManager
+from ._multi_modal_loader import MMDataLoader
     
 
-class SingleSpeciesDataModule(SpeciesManager, L.LightningDataModule):
+class SingleSpeciesDataModule(SpeciesManager, LightningDataModule):
     
     def __init__(
         self,
@@ -49,7 +52,7 @@ class SingleSpeciesDataModule(SpeciesManager, L.LightningDataModule):
         dp = self._test_datapipe
         return self.create_dataloader(dp, pin_memory=self.return_dense, num_workers=self.n_test_workers)
     
-class MultiSpeciesDataModule(MultiSpeciesManager,  L.LightningDataModule):
+class MultiSpeciesDataModule(MultiSpeciesManager, LightningDataModule):
     
     def __init__(
         self,
@@ -58,9 +61,8 @@ class MultiSpeciesDataModule(MultiSpeciesManager,  L.LightningDataModule):
         n_val_workers: int = None,
         n_test_workers: int = None,
         n_predict_workers: int = None,
-        **kwargs
     ):  
-        super().__init__(*species, **kwargs)
+        super().__init__(*species)
         self.save_hyperparameters(logger=True)
         
         self.num_workers = num_workers
@@ -77,18 +79,22 @@ class MultiSpeciesDataModule(MultiSpeciesManager,  L.LightningDataModule):
         elif stage in (TrainerFn.PREDICTING, TrainerFn.TESTING):
             self._test_datapipe = self.test_datapipe()
     
+    def create_dataloader(self, *species: SpeciesDataPipe, **kwargs):
+        species_dls = (super(MultiSpeciesManager, self).create_dataloader(dp, **kwargs) for dp in species)
+        return MMDataLoader(*species_dls)
+    
     @property
     def can_pin_memory(self):
         return all(species.return_dense for species in self.species)
     
     def train_dataloader(self):
-        dp = self.train_datapipe()
-        return self.create_dataloader(dp, pin_memory=self.can_pin_memory, num_workers=self.num_workers)
+        dps = list(self.train_datapipe())
+        return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.num_workers)
     
     def val_dataloader(self):
-        dp = self.val_datapipe()
-        return self.create_dataloader(dp, pin_memory=self.can_pin_memory, num_workers=self.n_val_workers)
+        dps = list(self.val_datapipe())
+        return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_val_workers)
     
     def test_dataloader(self):
-        dp = self.test_datapipe()
-        return self.create_dataloader(dp, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers)
+        dps = list(self.test_datapipe())
+        return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers)

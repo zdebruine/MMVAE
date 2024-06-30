@@ -3,7 +3,7 @@ from typing import Callable, Literal, NamedTuple, Optional, Union, Iterable
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Normal, kl_divergence
+from torch.distributions import Normal, kl_divergence, Distribution
 
 from .base import Encoder, FCBlock
 
@@ -98,7 +98,7 @@ class VAE(nn.Module):
         x_hat = self.decode(z)
         return qz, pz, x_hat
     
-    def elbo(self, qz, pz, x: torch.Tensor, x_hat, kl_weight: float = 1.0):
+    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float = 1.0):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -113,6 +113,9 @@ class VAE(nn.Module):
             tuple: KL divergence, reconstruction loss, and total loss.
         """
         z_kl_div = kl_divergence(qz, pz).sum(dim=-1)  # Compute KL divergence
+        
+        if x.layout == torch.sparse_csr:
+            x = x.to_dense()
         recon_loss = F.mse_loss(x_hat, x, reduction='sum')  # Compute reconstruction loss
         
         batch_size = x.shape[0]

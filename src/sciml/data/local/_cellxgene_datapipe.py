@@ -1,5 +1,5 @@
 import random
-from typing import Callable, Literal, Optional, Union
+from typing import Callable, Iterable, Literal, Optional, Union
 import numpy as np
 import scipy.sparse as sp
 import pandas as pd
@@ -27,7 +27,7 @@ class LoadIndexMatchedCSRMatrixAndDataFrameDataPipe(IterDataPipe):
         for npz_path, metadata_path in self.source_dp:
             
             if self.verbose:
-                print(f"Loading file path: {npz_path}, {metadata_path}")
+                print(f"Loading file path: {npz_path}, {metadata_path}", flush=True)
             
             sparse_matrix = None
             metadata = None
@@ -176,7 +176,7 @@ class SpeciesDataPipe(IterDataPipe):
         self._shuffle = shuffle
         self.transform_fn = transform_fn
 
-    # def set_seed(self, seed: Optional[int] = None):
+    # def _set_seed(self, seed: Optional[int] = None):
     #     if seed is None:
     #         seed = random.randint(0, 1000)
     #     torch.manual_seed(seed)
@@ -232,7 +232,7 @@ class RandomSelectDataPipe(IterDataPipe):
 class MultiSpeciesDataPipe(IterDataPipe):
     
     def __init__(self, *species: SpeciesDataPipe, selection_fn: Union[Literal["random"], Literal["sequential"]] = 'random'):
-
+        
         if selection_fn == "sequential":
             self.datapipe = Multiplexer(*species)
         elif selection_fn == "random":

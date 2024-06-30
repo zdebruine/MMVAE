@@ -24,6 +24,7 @@ class MMVAEModel(BaseVAEModel):
     def __init__(self, module: MMVAE, **kwargs):
         super().__init__(module, **kwargs)
         self.automatic_optimization = False  # Disable automatic optimization for manual control
+        print(self.module)
         
     def training_step(self, batch, batch_idx):
         """
@@ -36,26 +37,22 @@ class MMVAEModel(BaseVAEModel):
         Returns:
             None
         """
-        print("STARTING TRAINING STEP", flush=True)
+        expert_id = batch[RK.EXPERT_ID]
         # Retrieve optimizers
         shared_opt, human_opt, mouse_opt = self.optimizers()
-        print("GOT OPTIMIZERS STEP", flush=True)
 
         # Select expert-specific optimizer based on the expert ID in the batch
-        expert_opt = human_opt if batch[RK.EXPERT_ID] == RK.HUMAN else mouse_opt
+        expert_opt = human_opt if expert_id == RK.HUMAN else mouse_opt
         
         # Zero the gradients for the shared and expert-specific optimizers
         shared_opt.zero_grad()
         expert_opt.zero_grad()
-        print("Before forward STEP")
 
         # Perform forward pass and compute the loss
-        model_inputs, model_outputs, loss = self(batch, model_input_kwargs={'target': batch[RK.EXPERT_ID]}) 
-        print("after forward STEP", flush = True)
+        model_inputs, model_outputs, loss = self(batch, module_input_kwargs={'target': expert_id}) 
 
         # Perform manual backpropagation
         self.manual_backward(loss[RK.LOSS])
-        print("after backward STEP", flush=True)
 
         # Clip gradients for stability
         self.clip_gradients(shared_opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
@@ -66,8 +63,7 @@ class MMVAEModel(BaseVAEModel):
         expert_opt.step()
         
         # Log the loss
-        self.auto_log(loss, tags=[str(self.trainer.state.stage), model_inputs[RK.EXPERT]])
-        print("DONE WITH LAP", flush=True)
+        self.auto_log(loss, tags=[self.stage_name, expert_id])
         
     def validation_step(self, batch):
         """
@@ -84,7 +80,7 @@ class MMVAEModel(BaseVAEModel):
         
         # Log the loss if not in sanity checking phase
         if not self.trainer.sanity_checking:
-            self.auto_log(loss, tags=[str(self.trainer.state.stage), model_inputs[RK.EXPERT]])
+            self.auto_log(loss, tags=[self.stage_name, batch[RK.EXPERT_ID]])
         
     # Alias for validation_step method to reuse for testing
     test_step = validation_step

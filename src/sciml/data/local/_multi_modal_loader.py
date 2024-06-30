@@ -2,64 +2,34 @@ import random
 from torch.utils.data import DataLoader
 from sciml.utils.constants import REGISTRY_KEYS as RK
 
-class MMLoader:
 
-    def __init__(self, human_dl: DataLoader, mouse_dl: DataLoader):
-        self.human_loader = human_dl
-        self.mouse_loader = mouse_dl
-        self.reset()
+class MMDataLoader:
 
+    def __init__(self, *dataloaders: DataLoader):
+        self.dataloaders = dataloaders
+        
     def __iter__(self):
+        self.iterators = [iter(dl) for dl in self.dataloaders]
         return self
-
+        
+                
     def __next__(self):
-        return self.fetch()
-
-    def _get_human_batch(self):
+        # Warn user if next called on when no iterators present
+        if not hasattr(self, 'iterators') or not self.iterators:
+            import warnings
+            warnings.warn("__next__ called on MMDataLoader when iterators are empty")
+            raise StopIteration
+        
+        # get random iterator from iterators available
+        iterator = random.choice(self.iterators)
+        
         try:
-            batch_dict = next(self.human_iter)
-            batch_dict.update({RK.EXPERT_ID: RK.HUMAN})
-            return batch_dict
+            # try to get a batch from the iterator
+            return next(iterator)
         except StopIteration:
-            self.human_exhausted = True
-            if self.mouse_exhausted:
+            # if iterator is exhausted remove from iterators 
+            self.iterators.remove(iterator)
+            # if no iterators left through StopIteration
+            if not self.iterators:
                 raise StopIteration
-            else:
-                self.fetch = self._get_mouse_batch
-            return self.fetch()
-
-    def _get_mouse_batch(self):
-        try:
-            batch_dict = next(self.mouse_iter)
-            batch_dict.update({RK.EXPERT_ID: RK.MOUSE})
-            return batch_dict
-        except StopIteration:
-            self.mouse_exhausted = True
-            if self.human_exhausted:
-                raise StopIteration
-            else:
-                self.fetch = self._get_human_batch
-            return self.fetch()
-            
-    def _get_random_batch(self):
-        if random.choice([True, False]):
-            return self._get_human_batch()
-        else:
-            return self._get_mouse_batch()
-
-    def _reset_mouse(self):
-        self.mouse_iter = iter(self.mouse_loader)
-        self.mouse_exhausted = False
-
-    def _reset_human(self):
-        self.human_iter = iter(self.human_loader)
-        self.human_exhausted = False
-
-    def reset(self) -> None:
-        self._reset_human()
-        self._reset_mouse()
-        self.fetch = self._get_random_batch
-
-    def shutdown(self):
-        self.human_loader.shutdown()
-        self.mouse_loader.shutdown()
+        

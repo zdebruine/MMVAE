@@ -29,7 +29,7 @@ class MMVAE(HeWeightInitMixIn, BaseModule):
         self.vae = vae
         self.experts = experts
         
-        self.init_weights()  # Initialize weights using He initialization
+        # self.init_weights()  # Initialize weights using He initialization
     
     def get_module_inputs(self, batch, **kwargs):
         """
@@ -70,9 +70,6 @@ class MMVAE(HeWeightInitMixIn, BaseModule):
             x_hat = expert.decode(shared_x_hat)  # Decode the shared representation using each expert
             expert_x_hats[expert_id] = x_hat
             
-        if target:
-            return qz, pz, expert_x_hats[target]
-        
         return qz, pz, expert_x_hats
     
     def configure_optimizers(self):
@@ -102,9 +99,9 @@ class MMVAE(HeWeightInitMixIn, BaseModule):
         target = RK.MOUSE if source == RK.HUMAN else RK.HUMAN
         
         _, _, target_x_hat = self(x, source, target=target)
-        _, _, source_cross_x_hat = self(target_x_hat, target, target=source)
+        _, _, source_cross_x_hat = self(target_x_hat[target], target, target=source)
         
-        return source_cross_x_hat
+        return source_cross_x_hat[source]
     
     def loss(
         self, 
