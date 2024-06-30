@@ -1,11 +1,11 @@
-class_path: sciml.data.local.MultiSpeciesDataModule
+class_path: sciml.data.local.MMCellxgeneDataModule
 init_args:
-  species:
-  - class_path: sciml.data.local.SpeciesManager
+  human_datamodule:
+    class_path: sciml.data.local.CellxgeneDataModule
     init_args:
-      name: human
       return_dense: true
       batch_size: 128
+      seed: 42
       num_workers: 2
       directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
       train_npz_masks: 
@@ -41,9 +41,9 @@ init_args:
       test_npz_masks: 3m_human_counts_15.npz
       test_metadata_masks: 3m_human_metadata_15.pkl
       verbose: false
-  - class_path: sciml.data.local.SpeciesManager
+  mouse_datamodule:
+    class_path: sciml.data.local.CellxgeneDataModule
     init_args:
-      name: mouse
       return_dense: true
       batch_size: 128
       seed: 42
@@ -82,4 +82,3 @@ init_args:
       test_npz_masks: 3m_mouse_counts_15.npz
       test_metadata_masks: 3m_mouse_metadata_15.pkl
       verbose: false
-  num_workers: 2

@@ -45,7 +45,7 @@ class VAEModel(BaseVAEModel):
         elbo = loss[RK.LOSS]
         
         # Log the loss
-        self.auto_log(loss, tags=[self.stage_log_name()])
+        self.auto_log(loss, tags=[self.stage_name])
         
         return elbo
     

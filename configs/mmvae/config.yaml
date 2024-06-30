@@ -52,7 +52,7 @@ trainer:
   reload_dataloaders_every_n_epochs: 0
 ckpt_path: null
 model:
-  class_path: sciml.MMVAEModel
+  class_path: sciml.models.MMVAEModel
   init_args:
     module:
       class_path: sciml.modules.MMVAE
@@ -79,7 +79,6 @@ model:
               layers:
               - 60664
               - 1024
-              dropout_rate: 0.1
             human_decoder_kwargs:
               layers:
               - 1024
@@ -92,19 +91,21 @@ model:
               layers:
               - 1024
               - 52417
-    kl_weight_init: 1.0
     record_embeddings: false
     record_gradients: false
     configure_optimizer_kwargs: {}
     gradient_record_cap: 20
 data:
-  class_path: sciml.data.local.MMCellxgeneDataModule
+  class_path: sciml.data.local.MultiSpeciesDataModule
   init_args:
-    human_datamodule:
-      class_path: sciml.data.local.CellxgeneDataModule
+    species:
+    - class_path: sciml.data.local.SpeciesManager
       init_args:
+        name: human
+        return_dense: false
+        batch_size: 128
         directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
-        train_npz_masks:
+        train_npz_masks: 
         - 3m_human_counts_1.npz
         - 3m_human_counts_2.npz
         - 3m_human_counts_3.npz
@@ -136,19 +137,14 @@ data:
         val_metadata_masks: 3m_human_metadata_14.pkl
         test_npz_masks: 3m_human_counts_15.npz
         test_metadata_masks: 3m_human_metadata_15.pkl
-        num_workers: 2
-        n_val_workers: null
-        n_test_workers: null
-        n_predict_workers: null
-        batch_size: 128
-        seed: 42
-        return_dense: true
         verbose: false
-    mouse_datamodule:
-      class_path: sciml.data.local.CellxgeneDataModule
+    - class_path: sciml.data.local.SpeciesManager
       init_args:
+        name: mouse
+        return_dense: false
+        batch_size: 128
         directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
-        train_npz_masks:
+        train_npz_masks: 
         - 3m_mouse_counts_1.npz
         - 3m_mouse_counts_2.npz
         - 3m_mouse_counts_3.npz
@@ -180,11 +176,6 @@ data:
         val_metadata_masks: 3m_mouse_metadata_14.pkl
         test_npz_masks: 3m_mouse_counts_15.npz
         test_metadata_masks: 3m_mouse_metadata_15.pkl
-        num_workers: 2
-        n_val_workers: null
-        n_test_workers: null
-        n_predict_workers: null
-        batch_size: 128
-        seed: 42
-        return_dense: true
         verbose: false
+    select_fn: random
+    num_workers: 2

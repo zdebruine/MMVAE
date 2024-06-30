@@ -41,6 +41,7 @@ class BaseVAEModel(pl.LightningModule):
         gradient_record_cap: int = 20,
     ):
         super().__init__()
+        
         self.save_hyperparameters(ignore=['module'], logger=False)
         
         self.module = module

@@ -36,22 +36,27 @@ class MMVAEModel(BaseVAEModel):
         Returns:
             None
         """
+        print("STARTING TRAINING STEP", flush=True)
         # Retrieve optimizers
         shared_opt, human_opt, mouse_opt = self.optimizers()
-        
+        print("GOT OPTIMIZERS STEP", flush=True)
+
         # Select expert-specific optimizer based on the expert ID in the batch
         expert_opt = human_opt if batch[RK.EXPERT_ID] == RK.HUMAN else mouse_opt
-
+        
         # Zero the gradients for the shared and expert-specific optimizers
         shared_opt.zero_grad()
         expert_opt.zero_grad()
-    
+        print("Before forward STEP")
+
         # Perform forward pass and compute the loss
         model_inputs, model_outputs, loss = self(batch, model_input_kwargs={'target': batch[RK.EXPERT_ID]}) 
-        
+        print("after forward STEP", flush = True)
+
         # Perform manual backpropagation
         self.manual_backward(loss[RK.LOSS])
-        
+        print("after backward STEP", flush=True)
+
         # Clip gradients for stability
         self.clip_gradients(shared_opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
         self.clip_gradients(expert_opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
@@ -62,16 +67,7 @@ class MMVAEModel(BaseVAEModel):
         
         # Log the loss
         self.auto_log(loss, tags=[str(self.trainer.state.stage), model_inputs[RK.EXPERT]])
-
-    def on_train_epoch_end(self) -> None:
-        """
-        Actions to perform at the end of each training epoch.
-
-        Returns:
-            None
-        """
-        # Reset the training dataloader
-        self.trainer.train_dataloader.reset()
+        print("DONE WITH LAP", flush=True)
         
     def validation_step(self, batch):
         """
@@ -89,16 +85,6 @@ class MMVAEModel(BaseVAEModel):
         # Log the loss if not in sanity checking phase
         if not self.trainer.sanity_checking:
             self.auto_log(loss, tags=[str(self.trainer.state.stage), model_inputs[RK.EXPERT]])
-    
-    def on_validation_epoch_end(self):
-        """
-        Actions to perform at the end of each validation epoch.
-
-        Returns:
-            None
-        """
-        # Reset the validation dataloader
-        self.trainer.val_dataloaders.reset()
         
     # Alias for validation_step method to reuse for testing
     test_step = validation_step

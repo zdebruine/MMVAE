@@ -53,7 +53,7 @@ class FCBlock(nn.Module):
         self.layers = layers
         
         # Validate and mask the dropout_rate, use_batch_norm, use_layer_norm, and activation_fn
-        dropout_rate = self._validate_and_mask(dropout_rate, float, optional=True)
+        dropout_rate = self._validate_and_mask(dropout_rate, float)
         
         try:
             assert all(dr >= 0 for dr in dropout_rate)
@@ -62,7 +62,7 @@ class FCBlock(nn.Module):
         
         use_batch_norm = self._validate_and_mask(use_batch_norm, bool)
         use_layer_norm = self._validate_and_mask(use_layer_norm, bool)
-        activation_fn = self._validate_and_mask(activation_fn, nn.Module, default=nn.ReLU)
+        activation_fn = self._validate_and_mask(activation_fn, nn.Module, type_comparison_fn=issubclass)
             
         # Construct the fully connected layers
         self.fc_layers = nn.Sequential(
@@ -89,7 +89,7 @@ class FCBlock(nn.Module):
         
         self.__initialized = True
         
-    def _validate_and_mask(self, kwargs, _type, optional=False, default=None):
+    def _validate_and_mask(self, kwargs, cls, type_comparison_fn = isinstance):
         """
         Validate and mask keyword arguments for consistency with the number of layers.
 
@@ -103,7 +103,6 @@ class FCBlock(nn.Module):
             list: A list of validated and masked keyword arguments.
         """
         if not is_iterable(kwargs):
-            kwargs = kwargs if kwargs is not None else (_type() if default is None else default())
             kwargs = [kwargs] * len(self.layers)
             
         try:
@@ -112,7 +111,7 @@ class FCBlock(nn.Module):
             raise ValueError("Iterable kwarg not equal size of layers!")
         
         try:
-            assert all(isinstance(val, _type) for val in kwargs if val is not None or not optional)
+            assert all(type_comparison_fn(val, cls) for val in kwargs if val is not None)
         except AssertionError:
             raise ValueError("All values in kwarg must be of the same type")
             
