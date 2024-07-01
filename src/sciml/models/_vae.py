@@ -43,6 +43,7 @@ class VAEModel(BaseVAEModel):
         Returns:
             torch.Tensor: Evidence Lower Bound (ELBO) loss.
         """
+        
         # Perform forward pass and compute the loss
         _, _, loss = self(batch, compute_loss=True, loss_kwargs={'kl_weight': self.kl_annealing_fn.kl_weight})
         
@@ -51,6 +52,9 @@ class VAEModel(BaseVAEModel):
         
         # Log the loss
         self.auto_log(loss, tags=[self.stage_name, batch[RK.EXPERT_ID]])
+        
+        if self.trainer.training:
+            self.kl_annealing_fn.step()
         
         return elbo
     
