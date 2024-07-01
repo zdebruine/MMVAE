@@ -98,7 +98,7 @@ class VAE(nn.Module):
         x_hat = self.decode(z)
         return qz, pz, x_hat
     
-    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float = 1.0):
+    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float = 1.0, reduction: Union[Literal['mean'], Literal['sum']] = 'mean'):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -112,13 +112,20 @@ class VAE(nn.Module):
         Returns:
             tuple: KL divergence, reconstruction loss, and total loss.
         """
-        z_kl_div = kl_divergence(qz, pz).sum(dim=-1)  # Compute KL divergence
+        z_kl_div = kl_divergence(qz, pz).sum(dim=-1) # Compute KL divergence
+        
+        if reduction == 'mean':
+            z_kl_div = z_kl_div.mean()
+        if reduction == 'sum':
+            z_kl_div = z_kl_div.sum()
+        else:
+            raise ValueError(f"Unknown reduction {reduction}: must be 'mean' or 'sum'")
         
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
-        recon_loss = F.mse_loss(x_hat, x, reduction='sum')  # Compute reconstruction loss
+            
+        recon_loss = F.mse_loss(x_hat, x, reduction=reduction)  # Compute reconstruction loss
         
-        batch_size = x.shape[0]
-        loss = (recon_loss + kl_weight * z_kl_div.sum()) / batch_size  # Compute total loss
+        loss = (recon_loss + kl_weight * z_kl_div)  # Compute total loss
         
-        return z_kl_div.mean(), recon_loss / batch_size, loss
+        return z_kl_div, recon_loss, loss

@@ -32,4 +32,5 @@ class MMDataLoader:
             # if no iterators left through StopIteration
             if not self.iterators:
                 raise StopIteration
+            return self.__next__()
         
