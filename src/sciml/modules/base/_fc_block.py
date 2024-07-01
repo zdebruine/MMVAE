@@ -54,7 +54,7 @@ class FCBlock(nn.Module):
         
         # Validate and mask the dropout_rate, use_batch_norm, use_layer_norm, and activation_fn
         dropout_rate = self._validate_and_mask(dropout_rate, float)
-        
+         
         try:
             assert all(dr >= 0 for dr in dropout_rate)
         except AssertionError:
@@ -108,7 +108,7 @@ class FCBlock(nn.Module):
         try:
             assert len(kwargs) == len(self.layers)
         except AssertionError:
-            raise ValueError("Iterable kwarg not equal size of layers!")
+            raise ValueError(f"Iterable kwarg not equal size of layers! kwargs: {len(kwargs)} layers: {len(self.layers)}")
         
         try:
             assert all(type_comparison_fn(val, cls) for val in kwargs if val is not None)

@@ -41,7 +41,7 @@ class BaseVAEModel(pl.LightningModule):
         configure_optimizer_kwargs: dict[str, Any] = {},
         gradient_record_cap: int = 20,
         kl_annealing_fn: Optional[Union[Literal['linear']]] = 'linear', # add more annealing functions
-        annealing_fn_kwargs: dict[str, Any] = {},
+        kl_annealing_fn_kwargs: dict[str, Any] = {},
     ):
         super().__init__()
         
@@ -54,7 +54,7 @@ class BaseVAEModel(pl.LightningModule):
         self.record_embeddings = record_embeddings
         self.record_gradients = record_gradients
         self.gradient_record_cap = gradient_record_cap
-        self._register_kl_annealing_fn(kl_annealing_fn, **annealing_fn_kwargs)
+        self._register_kl_annealing_fn(kl_annealing_fn, **kl_annealing_fn_kwargs)
         
     def _register_kl_annealing_fn(self, kl_annealing_fn, **kwargs):
         if kl_annealing_fn == 'linear':
@@ -62,6 +62,8 @@ class BaseVAEModel(pl.LightningModule):
         elif kl_annealing_fn == 'none' or not kl_annealing_fn:
             if 'kl_weight' not in kwargs:
                 kwargs = { 'kl_weight': 1.0 }
+                import warnings
+                warnings.warn("No kl_weight set: setting default 1.0")
             self.kl_annealing_fn = KLAnnealingFn(**kwargs)
         else:
             raise ValueError(f"kl_annealing_fn {kl_annealing_fn} is unknown")

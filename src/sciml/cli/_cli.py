@@ -26,7 +26,6 @@ class SCIMLCli(LightningCLI):
             **kwargs)
     
     def add_arguments_to_parser(self, parser):
-        
         # Add arguments for logging and ease of access
         parser.add_argument('--default_root_dir', required=True, help="Default root directory")
         parser.add_argument('--experiment_name', required=True, help="Name of experiment directory")

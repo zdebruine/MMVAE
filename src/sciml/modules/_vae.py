@@ -99,7 +99,7 @@ class VAE(nn.Module):
         x_hat = self.decode(z)
         return qz, pz, x_hat
     
-    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float = 1.0, reduction: Union[Literal['mean'], Literal['sum']] = 'mean'):
+    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float, reduction: Union[Literal['mean'], Literal['sum']] = 'mean'):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -117,7 +117,7 @@ class VAE(nn.Module):
         
         if reduction == 'mean':
             z_kl_div = z_kl_div.mean()
-        if reduction == 'sum':
+        elif reduction == 'sum':
             z_kl_div = z_kl_div.sum()
         else:
             raise ValueError(f"Unknown reduction {reduction}: must be 'mean' or 'sum'")

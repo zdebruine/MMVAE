@@ -77,7 +77,7 @@ class MMVAEModel(BaseVAEModel):
             None
         """
         # Perform forward pass and compute the loss with cross-generation loss
-        model_inputs, _, loss = self(batch, loss_kwargs={'use_cross_gen_loss': True}, loss_kwargs={'kl_weight': self.kl_annealing_fn.kl_weight})
+        model_inputs, _, loss = self(batch, loss_kwargs={'use_cross_gen_loss': True, 'kl_weight': self.kl_annealing_fn.kl_weight})
         
         # Log the loss if not in sanity checking phase
         if not self.trainer.sanity_checking:

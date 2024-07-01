@@ -9,11 +9,18 @@ init_args:
       - 1024
       - 512
       - 256
+      encoder_kwargs:
+        dropout_rate:
+        - 0.1
+        - 0.1
+        - 0.0
+        use_layer_norm: true
       n_latent: 128
       decoder_layers:
       - 256
       - 512
       - 1024
       n_out: 60664
+
   
   

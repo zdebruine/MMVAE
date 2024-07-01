@@ -198,8 +198,13 @@ class SpeciesDataPipe(IterDataPipe):
         
         dp = dp.batch_csr_matrix_and_dataframe(self.batch_size, return_dense=self.return_dense)
         
-        if self._shuffle:
-            dp = dp.shuffle()
+        # thought process on removal
+        # the matrix is already completly shufled before batching
+        # the shuffle dp holds a buffer and shuffles the buffer by pulling in samples to shuffle
+        # this could cause it to hold more npz in memory then desired
+        
+        # if self._shuffle:
+        #     dp = dp.shuffle()
         
         if callable(self.transform_fn):
             dp = dp.transform(self.transform_fn)

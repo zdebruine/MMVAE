@@ -99,13 +99,15 @@ model:
         - 1024
         n_out: 60664
         distribution: normal
-        encoder_kwargs: 
+        encoder_kwargs:
           dropout_rate:
+          - 0.1
           - 0.1
           - 0.0
           - 0.0
-          - 0.0
+          use_layer_norm: true
         decoder_kwargs: {}
+    kl_annealing_fn: linear
     record_embeddings: false
     record_gradients: false
     configure_optimizer_kwargs: {}

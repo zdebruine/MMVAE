@@ -70,7 +70,11 @@ model:
             - 512
             n_out: 1024
             distribution: normal
-            encoder_kwargs: {}
+            encoder_kwargs: 
+              use_batch_norm: 
+              - true
+              - true
+              - false
             decoder_kwargs: {}
         experts:
           class_path: sciml.modules.base.Experts
@@ -79,6 +83,8 @@ model:
               layers:
               - 60664
               - 1024
+              dropout_rate: 0.1
+              use_batch_norm: true
             human_decoder_kwargs:
               layers:
               - 1024
@@ -87,10 +93,13 @@ model:
               layers:
               - 52417
               - 1024
+              dropout_rate: 0.1
+              use_batch_norm: true
             mouse_decoder_kwargs:
               layers:
               - 1024
               - 52417
+    kl_annealing_fn: linear
     record_embeddings: false
     record_gradients: false
     configure_optimizer_kwargs: {}

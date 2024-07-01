@@ -130,7 +130,7 @@ class MMVAE(HeWeightInitMixIn, BaseModule):
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
         # Compute ELBO (Evidence Lower Bound) loss
-        z_kl_div, recon_loss, loss = self.vae.elbo(qz, pz, x, expert_x_hats[expert_id], kl_weight=kl_weight)
+        z_kl_div, recon_loss, loss = self.vae.elbo(qz, pz, x, expert_x_hats[expert_id], kl_weight)
         
         cross_gen_loss = {}
         if use_cross_gen_loss:
