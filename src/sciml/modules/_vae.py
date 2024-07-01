@@ -1,4 +1,4 @@
-from typing import Callable, Literal, NamedTuple, Optional, Union, Iterable
+from typing import Any, Callable, Literal, NamedTuple, Optional, Union, Iterable
 
 import torch
 import torch.nn as nn
@@ -8,6 +8,7 @@ from torch.distributions import Normal, kl_divergence, Distribution
 from .base import Encoder, FCBlock
 
 from sciml.utils.constants import REGISTRY_KEYS as RK
+        
 
 class VAE(nn.Module):
     """

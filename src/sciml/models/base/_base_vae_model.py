@@ -6,6 +6,7 @@ from . import utils
 from sciml.utils.constants import REGISTRY_KEYS as RK
 
 from sciml.modules.base import BaseModule
+from sciml.modules.base import KLAnnealingFn, LinearKLAnnealingFn
 
 class BaseVAEModel(pl.LightningModule):
     """
@@ -39,6 +40,8 @@ class BaseVAEModel(pl.LightningModule):
         save_embeddings_interval: int = 25,
         configure_optimizer_kwargs: dict[str, Any] = {},
         gradient_record_cap: int = 20,
+        kl_annealing_fn: Optional[Union[Literal['linear']]] = 'linear', # add more annealing functions
+        annealing_fn_kwargs: dict[str, Any] = {},
     ):
         super().__init__()
         
@@ -51,7 +54,18 @@ class BaseVAEModel(pl.LightningModule):
         self.record_embeddings = record_embeddings
         self.record_gradients = record_gradients
         self.gradient_record_cap = gradient_record_cap
+        self._register_kl_annealing_fn(kl_annealing_fn, **annealing_fn_kwargs)
         
+    def _register_kl_annealing_fn(self, kl_annealing_fn, **kwargs):
+        if kl_annealing_fn == 'linear':
+            self.kl_annealing_fn = LinearKLAnnealingFn(**kwargs)
+        elif kl_annealing_fn == 'none' or not kl_annealing_fn:
+            if 'kl_weight' not in kwargs:
+                kwargs = { 'kl_weight': 1.0 }
+            self.kl_annealing_fn = KLAnnealingFn(**kwargs)
+        else:
+            raise ValueError(f"kl_annealing_fn {kl_annealing_fn} is unknown")
+    
     @property
     def stage_name(self):
         """

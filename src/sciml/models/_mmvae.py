@@ -47,9 +47,9 @@ class MMVAEModel(BaseVAEModel):
         # Zero the gradients for the shared and expert-specific optimizers
         shared_opt.zero_grad()
         expert_opt.zero_grad()
-
+        
         # Perform forward pass and compute the loss
-        model_inputs, model_outputs, loss = self(batch, module_input_kwargs={'target': expert_id}) 
+        model_inputs, model_outputs, loss = self(batch, module_input_kwargs={'target': expert_id}, loss_kwargs={'kl_weight': self.kl_annealing_fn.kl_weight}) 
 
         # Perform manual backpropagation
         self.manual_backward(loss[RK.LOSS])
@@ -61,6 +61,7 @@ class MMVAEModel(BaseVAEModel):
         # Update the weights
         shared_opt.step()
         expert_opt.step()
+        self.kl_annealing_fn.step()
         
         # Log the loss
         self.auto_log(loss, tags=[self.stage_name, expert_id])
@@ -76,7 +77,7 @@ class MMVAEModel(BaseVAEModel):
             None
         """
         # Perform forward pass and compute the loss with cross-generation loss
-        model_inputs, _, loss = self(batch, loss_kwargs={'use_cross_gen_loss': True})
+        model_inputs, _, loss = self(batch, loss_kwargs={'use_cross_gen_loss': True}, loss_kwargs={'kl_weight': self.kl_annealing_fn.kl_weight})
         
         # Log the loss if not in sanity checking phase
         if not self.trainer.sanity_checking:
