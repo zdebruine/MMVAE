@@ -50,7 +50,8 @@ class SingleSpeciesDataModule(SpeciesManager, LightningDataModule):
     
     def predict_dataloader(self):
         dp = self._test_datapipe
-        return self.create_dataloader(dp, pin_memory=self.return_dense, num_workers=self.n_test_workers)
+        n_wrks = self.n_test_workers if self.n_test_workers else 2
+        return self.create_dataloader(dp, pin_memory=self.return_dense, num_workers=n_wrks)
     
 class MultiSpeciesDataModule(MultiSpeciesManager, LightningDataModule):
     

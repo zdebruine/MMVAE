@@ -26,22 +26,17 @@ class LinearKLAnnealingFn(KLAnnealingFn):
         self._max = max_kl_weight
         self._climax_steps = climax_steps
         self._warmup_steps = warmup_steps
-        self._step = -1
+        
+        self.m = (max_kl_weight - min_kl_weight) / climax_steps
+        self.b = self._min
+        
+        self.x = -warmup_steps
         
     def step(self) -> None:
-        self._step += 1
         
-        if self.kl_weight >= self._max:
+        self.x += 1
+        
+        if self.x < 0:
             return
         
-        if self._step < self._warmup_steps:
-            return
-        
-        _step = self._step - self._warmup_steps
-        
-        kl_weight = min(((self._max - self._min) / (self._climax_steps))*(_step) + self._min, self._max)
-        
-        if kl_weight >= self._max:
-            self.kl_weight = self._max
-        else:
-            self.kl_weight = kl_weight
+        self.kl_weight = min(max(self.m * self.x + self.b, self._min), self._max)

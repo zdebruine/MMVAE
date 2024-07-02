@@ -42,6 +42,7 @@ class BaseVAEModel(pl.LightningModule):
         gradient_record_cap: int = 20,
         kl_annealing_fn: Optional[Union[Literal['linear']]] = 'linear', # add more annealing functions
         kl_annealing_fn_kwargs: dict[str, Any] = {},
+        save_predictions: bool = False,
     ):
         super().__init__()
         
@@ -54,6 +55,7 @@ class BaseVAEModel(pl.LightningModule):
         self.record_embeddings = record_embeddings
         self.record_gradients = record_gradients
         self.gradient_record_cap = gradient_record_cap
+        self.save_predictions = save_predictions
         self._register_kl_annealing_fn(kl_annealing_fn, **kl_annealing_fn_kwargs)
         
     def _register_kl_annealing_fn(self, kl_annealing_fn, **kwargs):

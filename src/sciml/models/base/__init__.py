@@ -1,5 +1,5 @@
 from ._base_vae_model import BaseVAEModel
-import utils
+from . import utils
 
 __all__ = [
     'BaseVAEModel',

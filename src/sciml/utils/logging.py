@@ -2,6 +2,7 @@ import psutil
 import logging
 import os
 
+DEBUG = os.getenv("SCIML_LOGGING_STATUS", "").upper() == 'DEBUG'
 
 def debug():
     # Get memory statistics

@@ -1,6 +1,7 @@
 import torch
 import pandas as pd
 import numpy as np
+import scipy as sp
 import pickle
 from .base._base_vae_model import BaseVAEModel
 from sciml.modules import SimpleVAE
@@ -65,15 +66,31 @@ class VAEModel(BaseVAEModel):
     
     def on_predict_epoch_end(self):
         
-        npz = torch.cat(self.predict_container_z).numpy()
-        metadata = pd.concat(metadata, axis=0)
+        if self.save_predictions:
         
-        np.save(f"{self.logger.log_dir}/z_values.npz", npz)
-        metadata.to_pickle(f"{self.logger.log_dir}/metadata.pkl")
+            npz = torch.cat(self.predict_container_z).cpu().numpy()
+            metadata = pd.concat(self.predict_container_metadata, axis=0)
+            
+            np.savez(f"{self.logger.log_dir}/z_values.npz", npz)
+            metadata.to_pickle(f"{self.logger.log_dir}/metadata.pkl")
         
     def predict_step(self, batch, batch_idx):
         x = batch[RK.X]
         metadata = batch[RK.METADATA]
-        z = self.module.encode(x)
-        self.predict_container_z.append(z)
-        self.predict_container_metadata.append(metadata)
+        dist, z = self.module.encode(x)
+        
+        if self.save_predictions:
+            self.predict_container_z.append(z)
+            self.predict_container_metadata.append(metadata)
+        else:
+            return z, metadata
+        
+    def parse_predictions(self, predictions):
+        
+        z_embds = [p[0] for p in predictions]
+        metadata = [p[1] for p in predictions]
+        
+        z_embds = torch.cat(z_embds).numpy()
+        metadata = pd.concat(metadata)
+        
+        return z_embds, metadata
