@@ -1,15 +1,40 @@
-from typing import Union
-from ._cellxgene_datapipe import CellxgeneDataPipe
+from typing import Literal, Union
+from ._cellxgene_datapipe import SpeciesDataPipe, MultiSpeciesDataPipe
 from torch.utils.data import DataLoader
 import warnings
-from lightning.pytorch.trainer.states import TrainerFn
 
-class CellxgeneManager:
+from sciml.utils.constants import REGISTRY_KEYS as RK
+
+
+class BaseSpeciesManager:
     
-    __setup_initialized: bool = False
+    def train_datapipe(self):
+        raise NotImplementedError()
+    
+    def val_datapipe(self):
+        raise NotImplementedError()
+    
+    def test_datapipe(self):
+        raise NotImplementedError()
+    
+    def predict_datapipe(self):
+        raise NotImplementedError()
+    
+    def create_dataloader(self, dp, **kwargs):
+        return DataLoader(
+            dataset=dp, 
+            batch_size=None,
+            shuffle=False,
+            collate_fn=lambda x: x,
+            persistent_workers=False,
+            **kwargs)
+        
+
+class SpeciesManager(BaseSpeciesManager):
     
     def __init__(
         self,
+        name: str,
         directory_path: str,
         train_npz_masks: Union[str, list[str]],
         train_metadata_masks: Union[str, list[str]],
@@ -17,15 +42,11 @@ class CellxgeneManager:
         val_metadata_masks: Union[str, list[str]],
         test_npz_masks: Union[str, list[str]],
         test_metadata_masks: Union[str, list[str]],
-        num_workers: int = None,
-        n_val_workers: int = None,
-        n_test_workers: int = None,
-        n_predict_workers: int = None,
         batch_size: int = 128,
-        seed: int = 42,
         return_dense: bool = False,
         verbose: bool = False,
     ):
+        super().__init__()
         self.directory_path = directory_path
         self.train_npz_masks = train_npz_masks
         self.train_metadata_masks = train_metadata_masks
@@ -35,110 +56,71 @@ class CellxgeneManager:
         self.test_metadata_masks = test_metadata_masks
         self.batch_size = batch_size
         self.return_dense = return_dense
-        self.seed = seed
         self.verbose = verbose
-        self.num_workers = num_workers
-        self.n_val_workers = n_val_workers
-        self.n_test_workers = n_test_workers
-        self.n_predict_workers = n_predict_workers
+        self.name = name
         
-    def setup(self, stage = None):
-        _all = stage == None
-        
-        if _all or stage in (TrainerFn.FITTING, TrainerFn.PREDICTING):
-            self.train_dp = CellxgeneDataPipe(
-                directory_path=self.directory_path,
-                npz_mask=self.train_npz_masks,
-                metadata_mask=self.train_metadata_masks,
-                batch_size=self.batch_size,
-                verbose=self.verbose,
-                return_dense=self.return_dense
-            )
-        
-        if _all or stage in (TrainerFn.FITTING, TrainerFn.VALIDATING):
-            self.val_dp = CellxgeneDataPipe(
-                directory_path=self.directory_path,
-                npz_mask=self.val_npz_masks,
-                metadata_mask=self.val_metadata_masks,
-                batch_size=self.batch_size,
-                verbose=self.verbose,
-                return_dense=self.return_dense
-            )
-            
-        if _all or stage in (TrainerFn.TESTING):
-            self.test_dp = CellxgeneDataPipe(
-                directory_path=self.directory_path,
-                npz_mask=self.test_npz_masks,
-                metadata_mask=self.test_metadata_masks,
-                batch_size=self.batch_size,
-                verbose=self.verbose,
-                return_dense=self.return_dense
-            )
-            
-        self.__setup_initialized = True
-            
-    def train_dataloader(self, **kwargs):
-        
-        if not self.__setup_initialized:
-            raise RuntimeError("Please call setup before creating dataloaders")
-        
-        if 'num_workers' not in kwargs:
-            kwargs['num_workers'] = self.num_workers
-        
-        return self.create_dataloader(self.train_dp, **kwargs)
-    
-    def val_dataloader(self, **kwargs):
-        
-        if not self.__setup_initialized:
-            raise RuntimeError("Please call setup before creating dataloaders")
-        
-        if 'num_workers' not in kwargs:
-            n_wrks = self.n_val_workers
-            if n_wrks == None:
-                n_wrks = self.num_workers
-            kwargs['num_workers'] = n_wrks
-        else:
-            warnings.warn("param num_workers in val_dataloader overriden by kwargs supplied")
-            
-        return self.create_dataloader(self.val_dp, **kwargs)
-    
-    def test_dataloader(self, **kwargs):
+    def transform_fn(self):
+        def generator(source):
+            tensor, metadata = source
+            return {
+                RK.X: tensor,
+                RK.METADATA: metadata,
+                RK.EXPERT_ID: self.name
+            }
+        return generator
 
-        if not self.__setup_initialized:
-            raise RuntimeError("Please call setup before creating dataloaders")
-        
-        if 'num_workers' not in kwargs:
-            n_wrks = self.n_test_workers
-            if n_wrks == None:
-                n_wrks = self.num_workers
-            kwargs['num_workers'] = n_wrks
-        else:
-            warnings.warn("param num_workers in test_dataloader overriden by kwargs supplied")
-            
-        return self.create_dataloader(self.test_dp, **kwargs)
     
-    def predict_dataloader(self, **kwargs):
-        
-        if not self.__setup_initialized:
-            raise RuntimeError("Please call setup before creating dataloaders")
-        
-        if 'num_workers' not in kwargs:
-            n_wrks = self.n_test_workers
-            if n_wrks == None:
-                n_wrks = self.num_workers
-            kwargs['num_workers'] = n_wrks
-        else:
-            warnings.warn("param num_workers in predict_dataloader overriden by kwargs supplied")
-            
-        return self.create_dataloader(self.train_dp, **kwargs)
+    def train_datapipe(self):
+        return SpeciesDataPipe(
+            directory_path=self.directory_path,
+            npz_masks=self.train_npz_masks,
+            metadata_masks=self.train_metadata_masks,
+            batch_size=self.batch_size,
+            shuffle=True,
+            verbose=self.verbose,
+            return_dense=self.return_dense,
+            transform_fn=self.transform_fn()
+        )
     
-    def create_dataloader(self, dp, **kwargs):
-        return DataLoader(
-            dataset=dp, 
-            batch_size=None,
-            timeout=30,
+    def val_datapipe(self):
+        return SpeciesDataPipe(
+            directory_path=self.directory_path,
+            npz_masks=self.val_npz_masks,
+            metadata_masks=self.val_metadata_masks,
+            batch_size=self.batch_size,
             shuffle=False,
-            collate_fn=lambda x: x,
-            pin_memory=self.return_dense,
-            **kwargs)
+            verbose=self.verbose,
+            return_dense=self.return_dense,
+            transform_fn=self.transform_fn()
+        )
         
+    def test_datapipe(self):
+        return SpeciesDataPipe(
+            directory_path=self.directory_path,
+            npz_masks=self.test_npz_masks,
+            metadata_masks=self.test_metadata_masks,
+            batch_size=self.batch_size,
+            verbose=self.verbose,
+            shuffle=False,
+            return_dense=self.return_dense,
+            transform_fn=self.transform_fn()
+        )
+        
+class MultiSpeciesManager(BaseSpeciesManager):
+    
+    def __init__(self, *species: SpeciesManager):
+        super().__init__()
+        self.species = species
+        
+    def multi_species_datapipe(self, *species: SpeciesDataPipe, select_fn='random'):
+        return MultiSpeciesDataPipe(*species, selection_fn=select_fn)
+    
+    def train_datapipe(self):
+        return (species.train_datapipe() for species in self.species)
+    
+    def val_datapipe(self):
+        return (species.val_datapipe() for species in self.species)
+    
+    def test_datapipe(self):
+        return (species.train_datapipe() for species in self.species)
+

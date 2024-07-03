@@ -31,10 +31,10 @@ if __name__ == "__main__":
     
     import argparse
     parser = argparse.ArgumentParser('UMAP')
-    parser.add_argument('--npz_path', type=str, help="Path to npz file to load")
-    parser.add_argument('--meta_path', type=str, help="Path to metadata")
-    parser.add_argument('--save_path', type=str, help="Path to save plt figure")
+    parser.add_argument('--npz_path', type=str, required=True, help="Path to npz file to load")
+    parser.add_argument('--meta_path', type=str, required=True, help="Path to metadata")
+    parser.add_argument('--save_path', type=str, required=True, help="Path to save plt figure")
     
-    args = parser.parse_args()
+    args = parser.parse_args() 
     
     plot_umap(args)

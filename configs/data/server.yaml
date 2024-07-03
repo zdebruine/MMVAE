@@ -1,0 +1,18 @@
+# lightning.pytorch==2.2.5
+class_path: sciml.data.server.CellxgeneDataModule
+init_args:
+  batch_size: 128
+  seed: 42
+  obs_query_value_filter: is_primary_data == True and assay in ["microwell-seq",
+    "10x 3' v1", "10x 3' v2", "10x 3' v3", "10x 3' transcription profiling", "10x
+    5' transcription profiling", "10x 5' v1", "10x 5' v2"]
+  obs_column_names:
+  - dataset_id
+  - assay
+  - donor_id
+  split_weights:
+    train: 0.8
+    val: 0.1
+    test: 0.1
+  soma_chunk_size: null
+  num_workers: 3

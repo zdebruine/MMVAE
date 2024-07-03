@@ -1,10 +1,11 @@
-import os
-from sciml.models import VAEModel, MMVAEModel
+from .cli import SCIMLCli
 
 import sciml.utils.logging as logging
 
-
-DEBUG = os.getenv("SCIML_DEBUG")
-
-if DEBUG:
+if logging.DEBUG:
     logging.debug()
+
+__all__ = [
+    'SCIMLCli',
+    'logging',
+]

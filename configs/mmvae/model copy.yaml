@@ -1,0 +1,48 @@
+# lightning.pytorch==2.2.5
+class_path: sciml.models.MMVAEModel
+init_args:
+  vae: 
+    class_path: sciml.modules.VAE
+    init_args:
+      n_in: 1024
+      encoder_layers:
+       - 512
+       - 256
+      n_latent: 128
+      decoder_layers:
+       - 256
+       - 512
+      n_out: 1024
+      distribution: normal
+  human_expert: 
+    class_path: sciml.modules.Expert
+    init_args:
+      encoder:
+        class_path: sciml.modules.FCBlock
+        init_args:
+          layers:
+           - 60664
+           - 1024
+
+      decoder:
+        class_path: sciml.modules.FCBlock
+        init_args:
+          # layers:
+          #  - 1024
+          #  - 60664
+  mouse_expert: 
+    class_path: sciml.modules.Expert
+    init_args:
+      encoder:
+        class_path: sciml.modules.FCBlock
+        init_args:
+          # layers:
+          #  - 52417
+          #  - 1024
+      decoder:
+        class_path: sciml.modules.FCBlock
+        init_args:
+          # layers:
+          #  - 1024
+          #  - 52417
+  

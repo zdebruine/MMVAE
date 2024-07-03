@@ -1,34 +1,17 @@
+from collections import OrderedDict
 import torch
 import torch.nn as nn
-from .vae import VAE
+from ._vae import VAE
 import pandas as pd
 
 from ..data import dropfilters
 
-
-class DFBlock(nn.Module):
-    
-    def __init__(self, latent_dim: int, linear: bool = True, batch_norm: bool = False, non_linear = False, repeat=1):
-        super().__init__()
-        layers = []
-        for _ in range(repeat):
-            if linear:
-                layers.append(nn.Linear(latent_dim, latent_dim))
-            if batch_norm:
-                layers.append(nn.BatchNorm1d(latent_dim))
-            if non_linear:
-                layers.append(nn.ReLU())
- 
-        self.layers = nn.Sequential(*layers)
-        
-    def forward(self, x):
-        return self.layers(x)
+from .mixins import VAEMixIn, HeWeightInitMixIn
         
     
-class DFVAE(VAE, nn.Module):
+class DFVAE(VAEMixIn, HeWeightInitMixIn, nn.Module):
     
     def __init__(self, *args, **kwargs):
-        kwargs['use_he_init'] = False
         super().__init__(*args, **kwargs)
         
         ld = self.latent_dim
@@ -36,17 +19,17 @@ class DFVAE(VAE, nn.Module):
         dataset_dfs = None
         with open(dropfilters.UNIQUE_DATASETS_PATH, 'r') as file:
             df = pd.read_csv(file, header=None)
-            dataset_dfs = {row[0].replace('.', '_'): DFBlock(ld) for row in df.itertuples(index=False)}
+            dataset_dfs = {row[0].replace('.', '_'): Block(ld) for row in df.itertuples(index=False)}
             
         assay_dfs = None
         with open(dropfilters.UNIQUE_ASSAYS_PATH, 'r') as file:
             df = pd.read_csv(file, header=None)
-            assay_dfs = {row[0].replace('.', '_'): DFBlock(ld) for row in df.itertuples(index=False)}
+            assay_dfs = {row[0].replace('.', '_'): Block(ld) for row in df.itertuples(index=False)}
         
         donor_dfs = None
         with open(dropfilters.UNIQUE_DONORS_PATH, 'r') as file:
             df = pd.read_csv(file, header=None)
-            donor_dfs = {row[0].replace('.', '_'): DFBlock(ld) for row in df.itertuples(index=False)}
+            donor_dfs = {row[0].replace('.', '_'): Block(ld) for row in df.itertuples(index=False)}
 
         self.dataset_dfs = nn.ModuleDict(dataset_dfs)
         self.assay_dfs = nn.ModuleDict(assay_dfs)
