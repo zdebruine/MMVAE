@@ -2,8 +2,15 @@ import umap
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import torch
+import os
+
 import argparse
-    
+from PIL import Image
+
+from torch.utils.tensorboard import SummaryWriter
+
+
 def plot_umap(
     npz_path, 
     meta_path, 
@@ -35,9 +42,11 @@ def plot_umap(
         **umap_kwargs)
     
     embedding = reducer.fit_transform(X)
-    
+    image_paths = []
     for category in categories:
-        plot_category(embedding, metadata, category, save_path, n_largest)
+        image_path = plot_category(embedding, metadata, category, save_path, n_largest)
+        image_paths.append(image_path)
+    return image_paths
         
 
 def plot_category(embedding, metadata, category, save_path, n_largest):
@@ -61,16 +70,35 @@ def plot_category(embedding, metadata, category, save_path, n_largest):
     legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=cmap(i), markersize=10, label=label)
                       for i, label in enumerate(unique_values)]
     plt.legend(handles=legend_handles, title=category, bbox_to_anchor=(1.05, 1), loc='upper left')
-    
-    plt.savefig(f"{save_path}_{category}.png", bbox_inches='tight')
+    image_path = f"{save_path}_{category}.png"
+    plt.savefig(image_path, bbox_inches='tight')
     plt.close()
+    return image_path
+
+def add_images_to_tensorboard(log_dir, image_paths):
+    
+    writer = SummaryWriter(log_dir=log_dir)
+    
+    for image_path in image_paths:
+        image = Image.open(image_path)
+        image = np.array(image)
+        image = torch.tensor(image).permute(2, 0, 1)
+        tag = os.path.basename(image_path)
+        writer.add_image(tag, image, global_step=0)
 
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='UMAP Projection Plotting')
-    parser.add_argument('--npz_path', type=str, required=True, help="Path to npz file containing the feature matrix")
-    parser.add_argument('--meta_path', type=str, required=True, help="Path to metadata pickle file")
-    parser.add_argument('--save_path', type=str, required=True, help="Path to save the resulting plots")
+    parser.add_argument('--directory', type=str, required=True, help="Directory where results are contained")
+    parser.add_argument('--embedding_name', type=str, default='z_embeddings.npz', help="Name of embedding file")
+    parser.add_argument('--metadata_name', type=str, default='metadata.pkl', help="Name of metadata file")
+    parser.add_argument('--skip_tensorboard', action='store_true')
     args = parser.parse_args() 
     
-    plot_umap(args.npz_path, args.meta_path, args.save_path)
+    npz_path = os.path.join(args.directory, args.embedding_name)
+    meta_path = os.path.join(args.directory, args.metadata_name)
+    
+    image_paths = plot_umap(npz_path, meta_path, args.directory)
+    
+    if not args.skip_tensorboard:
+        add_images_to_tensorboard(args.tensorboard_log_dir, image_paths)

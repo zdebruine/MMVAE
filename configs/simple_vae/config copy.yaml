@@ -79,6 +79,7 @@ trainer:
   plugins: null
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 0
+ckpt_path: null
 model:
   class_path: sciml.models.VAEModel
   init_args:
@@ -109,7 +110,7 @@ model:
     kl_annealing_fn: linear
     kl_annealing_fn_kwargs: 
       min_kl_weight: 0.0000001
-      max_kl_weight: 0.00001
+      max_kl_weight: 0.001
       warmup_steps: 10000
       climax_steps: 20000
     record_embeddings: false

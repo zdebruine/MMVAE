@@ -30,6 +30,9 @@ def generate_predictions(
     if 'ckpt_path' in config:
         del config['ckpt_path']
         
+    if 'trainer' in config and 'logger' in config['trainer'] and 'init_args' in config['trainer']['logger']:
+        config['trainer']['logger']['init_args']['log_graph'] = False
+        
     cli = SCIMLCli(run=False, args=config, save_config_callback=None) # don't save config for predictions run
     if hasattr(cli.model, 'save_predictions'):
         cli.model.save_predictions = False # prevent model from saving predictions to disk
@@ -59,9 +62,10 @@ if __name__ == "__main__":
     
     ckpt_path = os.path.join(args.directory, 'checkpoints', args.ckpt_name)
     config_path = os.path.join(args.directory, 'config.yaml')
+    print(config_path)
     pipeline_directory = args.pipeline_directory if args.pipeline_directory else args.directory
     
-    generate_predictions(pipeline_directory, ckpt_path, config_path)
+    generate_predictions(ckpt_path, config_path, result_directory=pipeline_directory)
     
         
         

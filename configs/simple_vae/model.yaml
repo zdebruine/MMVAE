@@ -1,26 +1,36 @@
-# lightning.pytorch==2.2.5
 class_path: sciml.models.VAEModel
-init_args: 
+init_args:
   module:
     class_path: sciml.modules.SimpleVAE
     init_args:
+      init_weights: true
       n_in: 60664
       encoder_layers:
       - 1024
       - 512
       - 256
-      encoder_kwargs:
-        dropout_rate:
-        - 0.1
-        - 0.1
-        - 0.0
-        use_layer_norm: true
       n_latent: 128
       decoder_layers:
       - 256
       - 512
       - 1024
       n_out: 60664
-
-  
-  
+      distribution: normal
+      encoder_kwargs:
+        dropout_rate:
+        - 0.1
+        - 0.1
+        - 0.1
+        - 0.1
+        use_batch_norm: true
+      decoder_kwargs: {}
+  kl_annealing_fn: linear
+  kl_annealing_fn_kwargs: 
+    min_kl_weight: 0.0000001
+    max_kl_weight: 0.00001
+    warmup_steps: 10000
+    climax_steps: 20000
+  record_embeddings: false
+  record_gradients: false
+  configure_optimizer_kwargs: {}
+  gradient_record_cap: 20

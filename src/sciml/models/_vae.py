@@ -21,6 +21,7 @@ class VAEModel(BaseVAEModel):
         
         self.predict_container_z = []
         self.predict_container_metadata = []
+
     @property
     def example_input_array(self):
         """
