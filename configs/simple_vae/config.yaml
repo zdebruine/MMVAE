@@ -22,7 +22,7 @@ trainer:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
       dirpath: null
-      filename: '{epoch}-{val_loss:.2f}'
+      filename: '{epoch}-{val_loss:.6f}'
       monitor: loss/validation/human
       verbose: false
       save_last: true
@@ -101,15 +101,15 @@ model:
         encoder_kwargs:
           dropout_rate:
           - 0.1
-          - 0.1
           - 0.0
           - 0.0
-          use_layer_norm: true
+          - 0.0
+          use_batch_norm: true
         decoder_kwargs: {}
     kl_annealing_fn: linear
     kl_annealing_fn_kwargs: 
-      min_kl_weight: 0.0000001
-      max_kl_weight: 0.00001
+      min_kl_weight: 0.0001
+      max_kl_weight: 0.1
       warmup_steps: 10000
       climax_steps: 20000
     record_embeddings: false
@@ -153,10 +153,10 @@ data:
     val_metadata_masks: 3m_human_metadata_14.pkl
     test_npz_masks: 3m_human_counts_15.npz
     test_metadata_masks: 3m_human_metadata_15.pkl
-    num_workers: 2
+    num_workers: 4
     n_val_workers: 1
-    n_test_workers: null
-    n_predict_workers: null
+    n_test_workers: 1
+    n_predict_workers: 1
     batch_size: 128
     return_dense: false
     verbose: false

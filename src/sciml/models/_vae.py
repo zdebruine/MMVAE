@@ -7,6 +7,8 @@ from .base._base_vae_model import BaseVAEModel
 from sciml.modules import SimpleVAE
 from sciml.utils.constants import REGISTRY_KEYS as RK
 
+
+
 class VAEModel(BaseVAEModel):
     """
     Variational Autoencoder (VAE) model class.
@@ -18,9 +20,6 @@ class VAEModel(BaseVAEModel):
     
     def __init__(self, module: SimpleVAE, **kwargs):
         super().__init__(module, **kwargs)
-        
-        self.predict_container_z = []
-        self.predict_container_metadata = []
 
     @property
     def example_input_array(self):
@@ -64,34 +63,17 @@ class VAEModel(BaseVAEModel):
     training_step = step
     validation_step = step
     test_step = step
-    
-    def on_predict_epoch_end(self):
-        
-        if self.save_predictions:
-        
-            npz = torch.cat(self.predict_container_z).cpu().numpy()
-            metadata = pd.concat(self.predict_container_metadata, axis=0)
-            
-            np.savez(f"{self.logger.log_dir}/z_values.npz", npz)
-            metadata.to_pickle(f"{self.logger.log_dir}/metadata.pkl")
         
     def predict_step(self, batch, batch_idx):
         x = batch[RK.X]
         metadata = batch[RK.METADATA]
         dist, z = self.module.encode(x)
         
-        if self.save_predictions:
-            self.predict_container_z.append(z)
-            self.predict_container_metadata.append(metadata)
-        else:
-            return z, metadata
+        return z, metadata
         
-    def parse_predictions(self, predictions):
+    def save_predictions(self, predictions):  
         
-        z_embds = [p[0] for p in predictions]
-        metadata = [p[1] for p in predictions]
+        z_embds = torch.cat([embedding for embedding, _ in predictions]).numpy()
+        metadata = pd.concat([metadata for _, metadata in predictions])
         
-        z_embds = torch.cat(z_embds).numpy()
-        metadata = pd.concat(metadata)
-        
-        return z_embds, metadata
+        self.save_latent_predictions(z_embds, metadata)

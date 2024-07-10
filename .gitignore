@@ -162,4 +162,5 @@ cython_debug/
 
 .hide..*/
 .vscode/
-integration/
+.snakemake/
+.config/

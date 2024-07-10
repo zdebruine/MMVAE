@@ -172,22 +172,16 @@ class SpeciesDataPipe(IterDataPipe):
         self.batch_size = batch_size
         self.return_dense = return_dense
         self.verbose = verbose
-        # Prevent overriding IterDataPipe shuffle
         self._shuffle = shuffle
         self.transform_fn = transform_fn
-
-    # def _set_seed(self, seed: Optional[int] = None):
-    #     if seed is None:
-    #         seed = random.randint(0, 1000)
-    #     torch.manual_seed(seed)
-    #     np.random.seed(seed)
-    #     random.seed(seed)
-                
-    def __iter__(self):
-        # self.set_seed()
         
-        dp = self.zipped_paths_dp.sharding_filter()
-        
+ 
+            
+        dp = self.zipped_paths_dp
+        # don't skip workers all load same chunk
+        if len(chunk_paths) > 1:
+            dp = dp.sharding_filter()
+            
         if self._shuffle:
             dp = dp.shuffle()
         
@@ -208,9 +202,25 @@ class SpeciesDataPipe(IterDataPipe):
         
         if callable(self.transform_fn):
             dp = dp.transform(self.transform_fn)
+            
+        if len(chunk_paths) == 1:
+            dp = dp.sharding_filter()
+            
+        self.dp = dp
+
+    # def _set_seed(self, seed: Optional[int] = None):
+    #     if seed is None:
+    #         seed = random.randint(0, 1000)
+    #     torch.manual_seed(seed)
+    #     np.random.seed(seed)
+    #     random.seed(seed)
+    
+                
+    def __iter__(self):
+        # self.set_seed()
         
         try:
-            yield from dp
+            yield from self.dp
         except Exception as e:
             print(f"Error during iteration: {e}")
             raise

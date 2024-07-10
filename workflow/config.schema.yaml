@@ -1,0 +1,36 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+description: Workflow configuration
+properties:
+  root_dir:
+    type: string
+    description: base directory for experiment storage
+  experiment_name: 
+    type: string
+    description: name of experiment to be added to root_dir
+  run_name: 
+    type: string
+    description: name of run to be added to experiment
+  lightning_fit_args: 
+    type: string
+    description: string for extra args to pass to fit in train rule
+  config_name:
+    type: string
+    description: name of .yaml file saved from SaveConfigCallback from Lightning Cli
+  ckpt_path:
+    type: string
+    description: relative path from 'root_dir/experiment_name/run_name' to where the model checkpoint for integration
+  module_path:
+    type: string
+    description: path to sciml module to use
+  env_path:
+    type: string
+    descrption: path to the pyenv to use
+
+required:
+- root_dir
+- experiment_name
+- run_name
+- config_name
+- ckpt_path
+- module_path
+- env_path

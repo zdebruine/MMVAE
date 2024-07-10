@@ -27,7 +27,7 @@ def plot_umap(
     **umap_kwargs,
 ):
     
-    X = np.load(npz_path)['arr_0']
+    X = np.load(npz_path)['embeddings']
     metadata = pd.read_pickle(meta_path)
     
     # Fit and transform the data using UMAP
@@ -70,7 +70,7 @@ def plot_category(embedding, metadata, category, save_path, n_largest):
     legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=cmap(i), markersize=10, label=label)
                       for i, label in enumerate(unique_values)]
     plt.legend(handles=legend_handles, title=category, bbox_to_anchor=(1.05, 1), loc='upper left')
-    image_path = f"{save_path}_{category}.png"
+    image_path = f"{save_path}/integrate.{category}.umap.png"
     plt.savefig(image_path, bbox_inches='tight')
     plt.close()
     return image_path
@@ -85,20 +85,21 @@ def add_images_to_tensorboard(log_dir, image_paths):
         image = torch.tensor(image).permute(2, 0, 1)
         tag = os.path.basename(image_path)
         writer.add_image(tag, image, global_step=0)
+    writer.close()
 
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='UMAP Projection Plotting')
-    parser.add_argument('--directory', type=str, required=True, help="Directory where results are contained")
-    parser.add_argument('--embedding_name', type=str, default='z_embeddings.npz', help="Name of embedding file")
-    parser.add_argument('--metadata_name', type=str, default='metadata.pkl', help="Name of metadata file")
+    parser.add_argument('-d', '--directory', type=str, required=True, help="Directory of run")
+    parser.add_argument('-e', '--embedding_path', type=str, default='embeddings.npz', help="Name of embedding file")
+    parser.add_argument('-m', '--metadata_path', type=str, default='metadata.pkl', help="Name of metadata file")
     parser.add_argument('--skip_tensorboard', action='store_true')
     args = parser.parse_args() 
     
-    npz_path = os.path.join(args.directory, args.embedding_name)
-    meta_path = os.path.join(args.directory, args.metadata_name)
+    npz_path = args.embedding_path
+    meta_path = args.metadata_path
     
     image_paths = plot_umap(npz_path, meta_path, args.directory)
     
     if not args.skip_tensorboard:
-        add_images_to_tensorboard(args.tensorboard_log_dir, image_paths)
+        add_images_to_tensorboard(args.directory, image_paths)

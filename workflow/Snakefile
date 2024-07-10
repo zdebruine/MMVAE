@@ -1,0 +1,59 @@
+from snakemake.utils import validate
+import os
+
+# Load the config file
+configfile: "workflow/config.yaml"
+
+# Validate the config file (uncomment if validation schema is available)
+validate(config, "config.schema.yaml")
+
+ROOT_DIR = config["root_dir"]
+EXPERIMENT_NAME = config["experiment_name"]
+RUN_NAME = config["run_name"]
+
+RUN_DIR = os.path.join(ROOT_DIR, EXPERIMENT_NAME, RUN_NAME)
+
+LIGHTNING_CONFIG_PATH = os.path.join(RUN_DIR, config["config_name"])  # config.yaml
+CKPT_PATH = os.path.join(RUN_DIR, config["ckpt_path"])  # relative to run_dir
+
+INTEGRATION_FILES = [f"{RUN_DIR}/embeddings.npz", f"{RUN_DIR}/metadata.pkl"]
+EVALUATION_FILES = [f"{RUN_DIR}/integrate.{category}.umap.png" for category in ['assay', 'cell_type', 'dataset_id']]
+
+ENV_PATH = config["env_path"]
+MODULE_PATH = config["module_path"]
+
+rule all:
+    input:
+        EVALUATION_FILES
+
+rule train:
+    output:
+        config_file = LIGHTNING_CONFIG_PATH,
+        ckpt_path = CKPT_PATH
+    params:
+        lighting_fit_args = config.get('lightning_fit_args', "")
+    shell:
+        """
+        {ENV_PATH} -m sciml fit {params.lighting_fit_args} --default_root_dir {ROOT_DIR} --experiment_name {EXPERIMENT_NAME} --run_name {RUN_NAME}
+        """
+
+rule integrate:
+    input:
+        config_file = LIGHTNING_CONFIG_PATH,
+        ckpt_path = CKPT_PATH
+    output:
+        INTEGRATION_FILES
+    shell:
+        """
+        {ENV_PATH} -m sciml.pipeline.integrate -c {input.config_file} --ckpt_path {input.ckpt_path}
+        """
+
+rule umap:
+    input:
+        INTEGRATION_FILES
+    output:
+        EVALUATION_FILES
+    shell:
+        """
+        {ENV_PATH} -m sciml.pipeline.generate_umap --directory {RUN_DIR} --embedding_path {input[0]} --metadata_path {input[1]}
+        """

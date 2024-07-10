@@ -1,0 +1,40 @@
+cluster:
+  mkdir -p .snakemake/slurm_logs/{rule} &&
+  sbatch
+    --partition={resources.partition}
+    --qos={resources.qos}
+    --cpus-per-task={resources.cpus_per_task}
+    --mem={resources.mem}
+    --job-name={rule}-{wildcards}-smk
+    --output=.snakemake/slurm_logs/{rule}/{rule}-{wildcards}-%j.out
+    --error=.snakemake/slurm_logs/{rule}/{rule}-{wildcards}-.%j.err
+    --gpus-per-node={resources.gpus_per_node}
+    --account=account
+    --ntasks=1
+    --nodes=1
+    --time={resources.runtime}
+    --export=ALL,PYTHONPATH=/mnt/projects/debruinz_project/denhofja/sciml/src:$PYTHONPATH 
+    --parsable
+default-resources:
+  - partition='all'
+  - qos=sbatch
+  - mem='1GB'
+  - runtime=2880
+jobs: 10
+
+set-resources:
+  train:
+    partition: gpu
+    mem: 90GB
+    gpus_per_node: tesla_v100s:1
+    cpus_per_task: 6
+  integrate:
+    partition: gpu
+    mem: 90GB
+    gpus_per_node: tesla_v100s:1
+    cpus_per_task: 6
+  umap:
+    partition: all
+    mem: 90GB
+    gpus_per_node: ""
+    cpus_per_task: 40
