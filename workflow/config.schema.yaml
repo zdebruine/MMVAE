@@ -19,9 +19,6 @@ properties:
   ckpt_path:
     type: string
     description: relative path from 'root_dir/experiment_name/run_name' to where the model checkpoint for integration
-  module_path:
-    type: string
-    description: path to sciml module to use
   env_path:
     type: string
     descrption: path to the pyenv to use
