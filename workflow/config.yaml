@@ -1,12 +1,17 @@
 # Experiment Parameters
-root_dir: tensorboard
-experiment_name: experiment
-run_name: run
+root_dir: /mnt/projects/debruinz_project/integration/tensorboard
 
 config_name: config.yaml
 
-ckpt_path: checkpoints/last.ckpt
+ckpt_path: checkpoints/best.ckpt
 
+embeddings:
+- z_star_embedding.npz
+- z_embedding.npz
+
+metadata:
+- z_star_metadata.npz
+- z_embedding.npz
 
 # ENVIROMENT SPECIFIC
 module_path: /mnt/projects/debruinz_project/denhofja/sciml/src

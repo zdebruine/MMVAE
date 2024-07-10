@@ -1,5 +1,6 @@
 from typing import Any, Callable, Literal, NamedTuple, Optional, Union, Iterable
 
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -40,6 +41,7 @@ class VAE(nn.Module):
     ):
         super().__init__()
         
+        self.n_latent = n_latent
         # Initialize the encoder
         self.encoder = Encoder(
             n_in=n_in,
@@ -83,8 +85,11 @@ class VAE(nn.Module):
         """
         x_hat = self.decoder(z)
         return x_hat
+    
+    def after_reparameterize(self, z: torch.Tensor, metadata: pd.DataFrame):
+        return z
         
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
         """
         Forward pass through the VAE.
 
@@ -96,10 +101,11 @@ class VAE(nn.Module):
         """
         qz, z = self.encode(x)
         pz = Normal(torch.zeros_like(z), torch.ones_like(z))
+        z = self.after_reparameterize(z, metadata)
         x_hat = self.decode(z)
         return qz, pz, x_hat
     
-    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float, reduction: Union[Literal['mean'], Literal['sum']] = 'mean'):
+    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -113,20 +119,44 @@ class VAE(nn.Module):
         Returns:
             tuple: KL divergence, reconstruction loss, and total loss.
         """
-        z_kl_div = kl_divergence(qz, pz).sum(dim=-1) # Compute KL divergence
-        
-        if reduction == 'mean':
-            z_kl_div = z_kl_div.mean()
-        elif reduction == 'sum':
-            z_kl_div = z_kl_div.sum()
-        else:
-            raise ValueError(f"Unknown reduction {reduction}: must be 'mean' or 'sum'")
+        z_kl_div = kl_divergence(qz, pz).sum(dim=-1).mean()
         
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
             
-        recon_loss = F.mse_loss(x_hat, x, reduction=reduction)  # Compute reconstruction loss
+        recon_loss = F.mse_loss(x_hat, x, reduction='sum') / x.shape[0]
         
         loss = (recon_loss + kl_weight * z_kl_div)  # Compute total loss
         
         return z_kl_div, recon_loss, loss
+
+    def loss(
+        self, 
+        model_inputs,
+        model_outputs,
+        kl_weight: float = 1.0
+    ):
+        """
+        Compute the loss for the VAE.
+
+        Args:
+            model_inputs (tuple): Inputs to the model.
+            model_outputs (tuple): Outputs from the model.
+            kl_weight (float, optional): Weight for the KL divergence term. Defaults to 1.0.
+
+        Returns:
+            dict: Dictionary containing loss components.
+        """
+        args, _ = model_inputs
+        x, *_ = args
+        qz, pz, x_hat = model_outputs
+        
+        # Compute Evidence Lower Bound (ELBO) loss
+        z_kl_div, recon_loss, loss = self.elbo(qz, pz, x, x_hat, kl_weight=kl_weight)
+        
+        return {
+            RK.RECON_LOSS: recon_loss / x.shape[1],
+            RK.KL_LOSS: z_kl_div,
+            RK.LOSS: loss,
+            RK.KL_WEIGHT: kl_weight
+        }

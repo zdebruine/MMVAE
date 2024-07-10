@@ -38,7 +38,7 @@ trainer:
   - class_path: lightning.pytorch.callbacks.EarlyStopping
     init_args:
       monitor: loss/validation/human
-      min_delta: 0.0
+      min_delta: 0.00001
       patience: 3
       verbose: false
       mode: min
@@ -49,7 +49,7 @@ trainer:
       check_on_train_epoch_end: null
       log_rank_zero_only: false
   fast_dev_run: false
-  max_epochs: 10
+  max_epochs: 3
   min_epochs: 1
   max_steps: -1
   min_steps: null
@@ -83,9 +83,12 @@ model:
   class_path: sciml.models.VAEModel
   init_args:
     module:
-      class_path: sciml.modules.SimpleVAE
+      class_path: sciml.modules.CLVAE
       init_args:
-        init_weights: true
+        conditional_layer_config: 
+          assay: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_assays.csv
+          # dataset_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_datasets.csv
+          # donor_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_donors.csv
         n_in: 60664
         encoder_layers:
         - 1024
@@ -103,17 +106,12 @@ model:
           - 0.1
           - 0.1
           - 0.0
+          - 0.0
           use_batch_norm: true
-        decoder_kwargs: 
-          dropout_rate:
-          - 0.0
-          - 0.0
-          - 0.0
-          - 0.0
-          - 0.0
+        decoder_kwargs: {}
     kl_annealing_fn: constant
     kl_annealing_fn_kwargs: 
-      kl_weight: 1.0
+      kl_weight: 0.1
     record_embeddings: false
     record_gradients: false
     configure_optimizer_kwargs: {}

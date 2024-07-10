@@ -63,37 +63,8 @@ class SimpleVAE(VAE, HeWeightInitMixIn, BaseModule):
             torch.optim.Adam: Optimizer for the encoder and decoder parameters.
         """
         return torch.optim.Adam([
-            {'params': self.encoder.parameters(), 'lr': 1e-3},
-            {'params': self.decoder.parameters(), 'lr': 1e-3},
+            {'params': self.encoder.parameters(), 'lr': 1e-3, "weight_decay": 1e-8},
+            {'params': self.decoder.parameters(), 'lr': 1e-3,  "weight_decay": 1e-8},
         ])
     
-    def loss(
-        self, 
-        model_inputs,
-        model_outputs,
-        kl_weight: float = 1.0
-    ):
-        """
-        Compute the loss for the VAE.
 
-        Args:
-            model_inputs (tuple): Inputs to the model.
-            model_outputs (tuple): Outputs from the model.
-            kl_weight (float, optional): Weight for the KL divergence term. Defaults to 1.0.
-
-        Returns:
-            dict: Dictionary containing loss components.
-        """
-        (x,), _ = model_inputs
-        
-        qz, pz, x_hat = model_outputs
-        
-        # Compute Evidence Lower Bound (ELBO) loss
-        z_kl_div, recon_loss, loss = self.elbo(qz, pz, x, x_hat, kl_weight=kl_weight)
-        
-        return {
-            RK.RECON_LOSS: recon_loss.mean(),
-            RK.KL_LOSS: z_kl_div.mean(),
-            RK.LOSS: loss,
-            RK.KL_WEIGHT: kl_weight
-        }

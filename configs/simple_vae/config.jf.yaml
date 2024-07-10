@@ -22,11 +22,11 @@ trainer:
   - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     init_args:
       dirpath: null
-      filename: '{epoch}-{val_loss:.2f}'
+      filename: best
       monitor: loss/validation/human
       verbose: false
       save_last: true
-      save_top_k: 3
+      save_top_k: 1
       save_weights_only: false
       mode: min
       auto_insert_metric_name: true
@@ -79,7 +79,6 @@ trainer:
   plugins: null
   sync_batchnorm: false
   reload_dataloaders_every_n_epochs: 0
-ckpt_path: null
 model:
   class_path: sciml.models.VAEModel
   init_args:
@@ -101,18 +100,21 @@ model:
         distribution: normal
         encoder_kwargs:
           dropout_rate:
-          - 0.1
-          - 0.1
+          - 0.2
+          - 0.0
           - 0.0
           - 0.0
           use_layer_norm: true
-        decoder_kwargs: {}
-    kl_annealing_fn: linear
+        decoder_kwargs: 
+          dropout_rate:
+          - 0.0
+          - 0.0
+          - 0.0
+          - 0.2
+          - 0.0
+    kl_annealing_fn: constant
     kl_annealing_fn_kwargs: 
-      min_kl_weight: 0.0000001
-      max_kl_weight: 0.001
-      warmup_steps: 10000
-      climax_steps: 20000
+      kl_weight: 1.0
     record_embeddings: false
     record_gradients: false
     configure_optimizer_kwargs: {}
@@ -154,10 +156,10 @@ data:
     val_metadata_masks: 3m_human_metadata_14.pkl
     test_npz_masks: 3m_human_counts_15.npz
     test_metadata_masks: 3m_human_metadata_15.pkl
-    num_workers: 2
+    num_workers: 4
     n_val_workers: 1
-    n_test_workers: null
-    n_predict_workers: null
+    n_test_workers: 1
+    n_predict_workers: 1
     batch_size: 128
     return_dense: false
     verbose: false

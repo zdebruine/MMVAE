@@ -1,0 +1,36 @@
+class_path: sciml.models.VAEModel
+init_args:
+  module:
+    class_path: sciml.modules.CLVAE
+    init_args:
+      conditional_layer_config: 
+       assay: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_assays.csv
+      #  dataset_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_datasets.csv
+      #  donor_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_donors.csv
+      n_in: 60664
+      encoder_layers:
+      - 1024
+      - 512
+      - 256
+      n_latent: 128
+      decoder_layers:
+      - 256
+      - 512
+      - 1024
+      n_out: 60664
+      distribution: normal
+      encoder_kwargs:
+        dropout_rate:
+        - 0.1
+        - 0.1
+        - 0.0
+        - 0.0
+        use_batch_norm: true
+      decoder_kwargs: {}
+  kl_annealing_fn: constant
+  kl_annealing_fn_kwargs: 
+    kl_weight: 0.1
+  record_embeddings: false
+  record_gradients: false
+  configure_optimizer_kwargs: {}
+  gradient_record_cap: 20

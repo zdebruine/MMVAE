@@ -16,7 +16,7 @@ cluster:
     --export=ALL,PYTHONPATH=/mnt/projects/debruinz_project/denhofja/sciml/src:$PYTHONPATH 
     --parsable
 default-resources:
-  - partition='all'
+  - partition='cpu'
   - qos=sbatch
   - mem='1GB'
   - runtime=2880

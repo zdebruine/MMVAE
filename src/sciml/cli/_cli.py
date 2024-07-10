@@ -52,4 +52,5 @@ class SCIMLCli(LightningCLI):
                 parser.add_argument(*args, **kwargs)
             
     def before_fit(self):
+        print(self.model)
         self.trainer.logger.log_hyperparams(self.config)

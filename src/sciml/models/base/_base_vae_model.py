@@ -43,7 +43,7 @@ class BaseVAEModel(pl.LightningModule):
         save_embeddings_interval: int = 25,
         configure_optimizer_kwargs: dict[str, Any] = {},
         gradient_record_cap: int = 20,
-        kl_annealing_fn: Optional[Union[Literal['linear']]] = 'linear', # add more annealing functions
+        kl_annealing_fn: Optional[Union[Literal['linear', 'constant']]] = 'constant', # add more annealing functions
         kl_annealing_fn_kwargs: dict[str, Any] = {},
     ):
         super().__init__()
@@ -69,16 +69,16 @@ class BaseVAEModel(pl.LightningModule):
         metadata_name: str = 'metadata.pkl'
     ):
             
-        embeddings_path = os.path.join(self.logger.log_dir, embeddings_name)
-        metadata_path = os.path.join(self.logger.log_dir, metadata_name)
-        
+        embeddings_path = os.path.join(self.logger.log_dir, 'samples', embeddings_name)
+        metadata_path = os.path.join(self.logger.log_dir, 'samples', metadata_name)
+    
         np.savez(embeddings_path, embeddings=embeddings)
         metadata.to_pickle(metadata_path)
             
     def _register_kl_annealing_fn(self, kl_annealing_fn, **kwargs):
         if kl_annealing_fn == 'linear':
             self.kl_annealing_fn = LinearKLAnnealingFn(**kwargs)
-        elif kl_annealing_fn == 'none' or not kl_annealing_fn:
+        elif kl_annealing_fn == 'constant' or not kl_annealing_fn:
             if 'kl_weight' not in kwargs:
                 kwargs = { 'kl_weight': 1.0 }
                 import warnings

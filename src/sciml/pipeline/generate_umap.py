@@ -91,15 +91,20 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='UMAP Projection Plotting')
     parser.add_argument('-d', '--directory', type=str, required=True, help="Directory of run")
-    parser.add_argument('-e', '--embedding_path', type=str, default='embeddings.npz', help="Name of embedding file")
-    parser.add_argument('-m', '--metadata_path', type=str, default='metadata.pkl', help="Name of metadata file")
+    parser.add_argument('-e', '--embedding_paths', type=str, nargs='+', default=[], help="Name of embedding file")
+    parser.add_argument('-m', '--metadata_paths', type=str, nargs='+', default=[], help="Name of metadata file")
     parser.add_argument('--skip_tensorboard', action='store_true')
     args = parser.parse_args() 
     
-    npz_path = args.embedding_path
-    meta_path = args.metadata_path
+    npz_paths = args.embedding_paths
+    meta_paths = args.metadata_paths
     
-    image_paths = plot_umap(npz_path, meta_path, args.directory)
+    if not npz_paths or not meta_paths:
+        raise RuntimeError("Files not found and are empty")
     
-    if not args.skip_tensorboard:
-        add_images_to_tensorboard(args.directory, image_paths)
+    for npz_path, meta_path in zip(npz_paths, meta_paths):
+        
+        image_paths = plot_umap(npz_path, meta_path, args.directory)
+
+        if not args.skip_tensorboard:
+            add_images_to_tensorboard(args.directory, image_paths)

@@ -4,7 +4,7 @@ import numpy as np
 import scipy as sp
 import pickle
 from .base._base_vae_model import BaseVAEModel
-from sciml.modules import SimpleVAE
+from sciml.modules import VAE
 from sciml.utils.constants import REGISTRY_KEYS as RK
 
 
@@ -14,24 +14,12 @@ class VAEModel(BaseVAEModel):
     Variational Autoencoder (VAE) model class.
 
     Args:
-        module (SimpleVAE): SimpleVAE module to be used in the model.
+        module (VAE): VAE module to be used in the model.
         **kwargs: Additional keyword arguments for the base VAE model.
     """
     
-    def __init__(self, module: SimpleVAE, **kwargs):
+    def __init__(self, module: VAE, **kwargs):
         super().__init__(module, **kwargs)
-
-    @property
-    def example_input_array(self):
-        """
-        Provides an example input array for tensorboard log_graph.
-
-        Returns:
-            dict: Example input data.
-        """
-        # Wrapped in a dictionary because tensorboard unpacks when passing to forward pass when it sees a tuple
-        # Made Y and metadata tensors because jit.trace cannot track null values 
-        return { 'batch': { RK.X: torch.rand((self.hparams.batch_size, 60664)) }, 'compute_loss': False }
     
     def step(self, batch, batch_idx):
         """
@@ -67,13 +55,34 @@ class VAEModel(BaseVAEModel):
     def predict_step(self, batch, batch_idx):
         x = batch[RK.X]
         metadata = batch[RK.METADATA]
-        dist, z = self.module.encode(x)
+        _, z = self.module.encode(x)
+        z_star = self.module.after_reparameterize(z, metadata)
         
-        return z, metadata
+        predictions = {
+            RK.Z: z,
+            RK.METADATA: metadata, 
+        }
+        
+        if z_star == z:
+            return predictions
+        
+        predictions.update({ RK.Z_STAR: z_star })
+        return predictions
         
     def save_predictions(self, predictions):  
         
-        z_embds = torch.cat([embedding for embedding, _ in predictions]).numpy()
-        metadata = pd.concat([metadata for _, metadata in predictions])
+        stacked_predictions = {}
+        for key in predictions[0].keys():
+            if isinstance(predictions[0][key], pd.DataFrame):
+                stacked_predictions[key] = pd.concat([prediction[key] for prediction in predictions])
+            else:
+                stacked_predictions[key] = torch.cat([prediction[key].numpy() for prediction in predictions], dim=0)
         
-        self.save_latent_predictions(z_embds, metadata)
+        for key in stacked_predictions:
+            if key == RK.METADATA:
+                continue
+            self.save_latent_predictions(
+                embeddings=stacked_predictions[key], 
+                metadata=stacked_predictions[RK.METADATA], 
+                embeddings_name=f"{key}_embeddings.npz",
+                metadata_name=f"{key}_metadata.pkl")

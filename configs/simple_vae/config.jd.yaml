@@ -103,7 +103,8 @@ model:
           - 0.1
           - 0.1
           - 0.0
-          use_batch_norm: true
+          - 0.0
+          use_layer_norm: true
         decoder_kwargs: 
           dropout_rate:
           - 0.0

@@ -25,6 +25,12 @@ properties:
   env_path:
     type: string
     descrption: path to the pyenv to use
+  embeddings:
+    type: array
+    descrption: list of embeddings paths returned from integrate
+  metadata:
+    type: array
+    descrption: list of metadata paths correlated to embeddings from integrate
 
 required:
 - root_dir

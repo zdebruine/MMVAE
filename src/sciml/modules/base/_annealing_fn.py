@@ -10,6 +10,9 @@ class KLAnnealingFn:
     @kl_weight.setter
     def kl_weight(self, weight):
         self._kl_weight = weight
+    
+    def step(self) -> None:
+        """Override for values that modify the kl_weight per step"""
 
 
 class LinearKLAnnealingFn(KLAnnealingFn):

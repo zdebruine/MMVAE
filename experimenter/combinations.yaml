@@ -1,0 +1,13 @@
+
+experiment_name: df_vae/assay_only
+lightning_fit_args:
+  c.$track: 
+    df_vae_jd: configs/cl_vae/config.jd.yaml
+  trainer.limit_train_batches: 100
+  trainer.limit_val_batches: 100
+  trainer.limit_predict_batches: 100
+  model.init_args.kl_annealing_fn: constant
+  model.init_args.kl_annealing_fn_kwargs.kl_weight.$track: 
+    kl_weight: 0.1
+
+  

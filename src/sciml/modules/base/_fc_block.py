@@ -50,6 +50,8 @@ class FCBlock(nn.Module):
     ):  
         super().__init__()
         
+        if len(layers) == 1:
+            layers = layers * 2
         self.layers = layers
         
         # Validate and mask the dropout_rate, use_batch_norm, use_layer_norm, and activation_fn
