@@ -68,6 +68,10 @@ class VAEModel(BaseVAEModel):
         
         predictions.update({ RK.Z_STAR: z_star })
         return predictions
+    
+    def on_predict_epoch_end(self, predictions):
+        if self.save_predictions_on_epoch_end:
+            self.save_predictions(predictions)
         
     def save_predictions(self, predictions):  
         
