@@ -35,5 +35,4 @@ required:
 - run_name
 - config_name
 - ckpt_path
-- module_path
 - env_path
