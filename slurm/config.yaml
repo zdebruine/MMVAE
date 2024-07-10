@@ -13,7 +13,7 @@ cluster:
     --ntasks=1
     --nodes=1
     --time={resources.runtime}
-    --export=ALL,PYTHONPATH=/mnt/projects/debruinz_project/denhofja/sciml/src:$PYTHONPATH 
+    --export=ALL,PYTHONPATH=/mnt/projects/debruinz_project/integration/stable_sciml/sci-ml/src:$PYTHONPATH 
     --parsable
 default-resources:
   - partition='cpu'

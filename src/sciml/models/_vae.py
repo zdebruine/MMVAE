@@ -63,7 +63,7 @@ class VAEModel(BaseVAEModel):
             RK.METADATA: metadata, 
         }
         
-        if z_star == z:
+        if z_star.equal(z):
             return predictions
         
         predictions.update({ RK.Z_STAR: z_star })

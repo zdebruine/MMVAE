@@ -14,5 +14,4 @@ metadata:
 - z_embedding.npz
 
 # ENVIROMENT SPECIFIC
-module_path: /mnt/projects/debruinz_project/denhofja/sciml/src
 env_path: '/mnt/projects/debruinz_project/pytorch-nightly-env/bin/python3'

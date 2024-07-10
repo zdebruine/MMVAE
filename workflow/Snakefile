@@ -55,7 +55,6 @@ def get_integration_files(wildcards):
 EVALUATION_FILES = [f"{RUN_DIR}/integrate.{category}.umap.png" for category in ['assay', 'cell_type', 'dataset_id']]
 
 ENV_PATH = config["env_path"]
-MODULE_PATH = config["module_path"]
 
 rule all:
     input:
