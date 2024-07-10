@@ -68,7 +68,7 @@ rule train:
         lighting_fit_args = config.get('lightning_fit_args', "")
     shell:
         """
-        {ENV_PATH} -m sciml fit {params.lighting_fit_args} --default_root_dir {ROOT_DIR} --experiment_name {EXPERIMENT_NAME} --run_name {RUN_NAME}
+        {ENV_PATH} -m sciml fit predict {params.lighting_fit_args} --default_root_dir {ROOT_DIR} --experiment_name {EXPERIMENT_NAME} --run_name {RUN_NAME}
         """
 
 rule integrate:
