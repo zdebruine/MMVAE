@@ -70,8 +70,8 @@ class BaseVAEModel(pl.LightningModule):
     ):
         
         
-        embeddings_path = os.path.join(self.logger.log_dir, 'samples', embeddings_name)
-        metadata_path = os.path.join(self.logger.log_dir, 'samples', metadata_name)
+        embeddings_path = os.path.join(self.logger.log_dir, embeddings_name)
+        metadata_path = os.path.join(self.logger.log_dir, metadata_name)
         
         for path in (embeddings_path, metadata_path):
             os.makedirs(os.path.dirname(path), exist_ok=True)

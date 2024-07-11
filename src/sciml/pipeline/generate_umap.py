@@ -70,7 +70,7 @@ def plot_category(embedding, metadata, category, save_path, n_largest, name):
     legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=cmap(i), markersize=10, label=label)
                       for i, label in enumerate(unique_values)]
     plt.legend(handles=legend_handles, title=category, bbox_to_anchor=(1.05, 1), loc='upper left')
-    image_path = f"{save_path}/integrate.{category}.umap.{name}.png"
+    image_path = f"{save_path}/results/integrated.{category}.umap.{name}.png"
     plt.savefig(image_path, bbox_inches='tight')
     plt.close()
     return image_path
