@@ -128,7 +128,7 @@ class VAE(nn.Module):
         
         loss = (recon_loss + kl_weight * z_kl_div.sum())  # Compute total loss
         
-        return z_kl_div.mean(), recon_loss / recon_loss.numel(), loss
+        return z_kl_div.mean(), recon_loss / x.numel(), loss
 
     def loss(
         self, 
