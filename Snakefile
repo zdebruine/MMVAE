@@ -8,7 +8,7 @@ import glob
 configfile: "workflow/config.yaml"
 
 # Validate the config file (uncomment if validation schema is available)
-validate(config, "config.schema.yaml")
+validate(config, "workflow/config.schema.yaml")
 
 ROOT_DIR = config["root_dir"]
 EXPERIMENT_NAME = config["experiment_name"]

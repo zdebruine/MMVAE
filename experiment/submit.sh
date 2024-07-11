@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=snakemake_job
+#SBATCH --job-name=submission
 #SBATCH --output=.snakemake/slurm_logs/submission/job.%j.out
 #SBATCH --error=.snakemake/slurm_logs/submission/job.%j.err
 #SBATCH --time=24:00:00
@@ -7,4 +7,5 @@
 #SBATCH --partition=cpu
 #SBATCH --mem=4G
 
-snakemake --profile slurm --cluster-cancel "scancel" "$@"
+
+snakemake --profile workflow/profile/slurm --cluster-cancel "scancel" "$@"

@@ -1,32 +1,31 @@
 import subprocess
-from typing import Any, Union
+from typing import Any
 import itertools
 import os
 import yaml
-from collections import OrderedDict
 
 def submit_job(args):
-    subprocess.run(["sbatch", "slurm/submit.sh"] + args)
+    subprocess.run(["sbatch", "experiment/submit.sh"] + args)
     
 def generate_combinations(config):
     combinations = []
-    for key, val in config.items():
-        track = False
-        if key.endswith('.$track'):
-            key = key.replace('.$track', '')
-            track = True
-        if len(key) == 1:
-            arg_key = '-' + key
-        else:
-            arg_key = '--' + key
+    for basekey, val in config.items():
+        key = f"{'-' if len(basekey) == 1 else '--'}{basekey}"
         if isinstance(val, list):
-            combinations.append([(arg_key, "", v) for v in val])
+            combinations.append([(key, "", v) for v in val])
         elif isinstance(val, dict):
-            combinations.append([(arg_key, k if track else "", v) for k, v in val.items()])
+            if 'track' in val:
+                for tk, tv in val['track'].items():
+                    if isinstance(tv, list):
+                        combinations.append([(key, f"{tk}_{v}", v) for v in tv])
+                    else:
+                        combinations.append([(key, tk, tv)])
+            else:
+                combinations.append([(key, "", val)])
         else:
-            combinations.append([(arg_key, "", val)])
+            combinations.append([(key, "", val)])
+            
     combinations = list(itertools.product(*combinations))
-    
     return combinations
     
 def submit_main(config: dict[str, Any]):
@@ -39,9 +38,10 @@ def submit_main(config: dict[str, Any]):
     
     jobs = generate_combinations(config['lightning_fit_args'])
     snakemake_args = [f"{key}={value}" for key, value in config.items() if not key in ('lightning_fit_args',)]
+    
     for job in jobs:
         
-        lightning_fit_args = " ".join([f"{argkey} {value}" for argkey, _, value in job])
+        lightning_fit_args = " ".join([f"{key} {value}" for key, _, value in job])
         run_name = "_".join([name for _, name, _, in job if name])
         
         
