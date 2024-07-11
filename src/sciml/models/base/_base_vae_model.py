@@ -65,19 +65,20 @@ class BaseVAEModel(pl.LightningModule):
     
     def save_latent_predictions(
         self, embeddings: np.ndarray, metadata: pd.DataFrame,
-        embeddings_name: str = 'embeddings.npz',
-        metadata_name: str = 'metadata.pkl'
+        embeddings_path: str = 'embeddings.npz',
+        metadata_path: str = 'metadata.pkl',
     ):
-        
-        
-        embeddings_path = os.path.join(self.logger.log_dir, embeddings_name)
-        metadata_path = os.path.join(self.logger.log_dir, metadata_name)
-        
-        for path in (embeddings_path, metadata_path):
-            os.makedirs(os.path.dirname(path), exist_ok=True)
+        for path in (metadata_path, embeddings_path):
+            if not os.path.isabs(path):
+                path = os.path.join(self.logger.log_dir, path)
+            directory = os.path.dirname(path)
+
+            os.makedirs(directory, exist_ok=True)
             
-        np.savez(embeddings_path, embeddings=embeddings)
-        metadata.to_pickle(metadata_path)
+            if path.endswith('.npz'):
+                np.savez(path, embeddings=embeddings)
+            if path.endswith('.pkl'):
+                metadata.to_pickle(path) 
             
     def _register_kl_annealing_fn(self, kl_annealing_fn, **kwargs):
         if kl_annealing_fn == 'linear':

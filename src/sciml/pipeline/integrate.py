@@ -12,7 +12,6 @@ def integrate(
     ckpt_path: str = None,
     predict_kwargs: dict[str, Any] = {}
 ):
-
     predictions = trainer.predict(
         model=model, 
         datamodule=datamodule, 

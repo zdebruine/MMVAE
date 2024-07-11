@@ -44,7 +44,8 @@ def submit_main(config: dict[str, Any]):
         if key in ('lightning_fit_args', 'run_name'):
             continue
         if '.flag' in key:
-            snakemake_args.append(f"--{key.removesuffix('.flag')} {value}")
+            argkey = f"--{key.removesuffix('.flag')}" 
+            snakemake_args.append(f"{argkey} {value}" if value else argkey)
         else:
             snakemake_config_args.append(f"{key}={value}")
             
@@ -59,7 +60,7 @@ def submit_main(config: dict[str, Any]):
         else:
             _run_name = run_name
         
-        args = [*snakemake_args, '--config', f"lightning_fit_args=\"{lightning_fit_args}\"", f"run_name={_run_name}", *snakemake_config_args]
+        args = ['--config', f"lightning_fit_args=\"{lightning_fit_args}\"", f"run_name={_run_name}", *snakemake_config_args, *snakemake_args, ]
 
         submit_job(args)
 

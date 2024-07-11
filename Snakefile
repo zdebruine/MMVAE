@@ -35,28 +35,9 @@ LIGHTNING_CONFIG_PATH = os.path.join(RUN_DIR, config["config_name"])  # config.y
 CKPT_PATH = os.path.join(RUN_DIR, config["ckpt_path"])  # relative to run_dir
 
 EMBEDDINGS_PATTERN = [os.path.join(RUN_DIR, path) for path in config['embeddings']]
-# EMBEDDINGS_PATTERN = os.path.join(RUN_DIR, 'samples/{prefix}_embeddings.npz')
 METADATA_PATTERN = [os.path.join(RUN_DIR, path) for path in config['metadata']]
-# METADATA_PATTERN = os.path.join(RUN_DIR, 'samples/{prefix}_metadata.pkl')
 
-
-
-def get_integration_files(wildcards):
-    embeddings = glob.glob(EMBEDDINGS_PATTERN)
-    metadata = glob.glob(METADATA_PATTERN)
-    
-    # Debug prints
-    print(f"Looking for embeddings with pattern: {EMBEDDINGS_PATTERN}")
-    print(f"Found embeddings: {embeddings}")
-    print(f"Looking for metadata with pattern: {METADATA_PATTERN}")
-    print(f"Found metadata: {metadata}")
-    
-    if not embeddings or not metadata:
-        raise FileNotFoundError("Required integration files not found")
-    
-    return embeddings, metadata
-
-EVALUATION_FILES = [f"{RUN_DIR}/integrate.{category}.umap.{key}.png" for category in ['assay', 'cell_type', 'dataset_id'] for key in ('z', 'z_star')]
+EVALUATION_FILES = [f"{RUN_DIR}/results/integrated.{category}.umap.{os.path.basename(key).removesuffix('_embeddings.npz')}.png" for category in ['assay', 'cell_type', 'dataset_id'] for key in config['embeddings']]
 
 ENV_PATH = config["env_path"]
 
@@ -80,7 +61,6 @@ rule integrate:
         config_file = LIGHTNING_CONFIG_PATH,
         ckpt_path = CKPT_PATH
     output:
-        directory(os.path.join(RUN_DIR, 'samples')),
         embeddings = EMBEDDINGS_PATTERN,
         metadata = METADATA_PATTERN,
         

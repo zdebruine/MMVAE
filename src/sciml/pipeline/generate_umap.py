@@ -26,7 +26,7 @@ def plot_umap(
     categories = ['cell_type', 'dataset_id', 'assay'],
     **umap_kwargs,
 ):
-    name = os.path.basename(npz_path).rstrip('.npz')
+    name = os.path.basename(npz_path).removesuffix('_embeddings.npz')
     X = np.load(npz_path)['embeddings']
     metadata = pd.read_pickle(meta_path)
     

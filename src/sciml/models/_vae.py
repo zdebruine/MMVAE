@@ -87,5 +87,5 @@ class VAEModel(BaseVAEModel):
             self.save_latent_predictions(
                 embeddings=stacked_predictions[key], 
                 metadata=stacked_predictions[f"{key}_{RK.METADATA}"], 
-                embeddings_name=f"/samples/{key}_embeddings.npz",
-                metadata_name=f"/samples/{key}_metadata.pkl")
+                embeddings_path=f"samples/{key}_embeddings.npz",
+                metadata_path=f"samples/{key}_metadata.pkl")
