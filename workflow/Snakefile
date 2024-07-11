@@ -87,7 +87,6 @@ rule integrate:
 
 rule umap:
     input:
-        directory(os.path.join(RUN_DIR, 'samples')),
         embeddings = EMBEDDINGS_PATTERN,
         metadata = METADATA_PATTERN,
     output:
