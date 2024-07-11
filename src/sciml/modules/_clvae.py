@@ -19,7 +19,9 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
         super().__init__(*args, **kwargs)
         
         if not conditional_layer_config:
-            raise RuntimeError("No dropfilters found")
+            import warnings
+            warnings.warn("No dropfilters found")
+            conditional_layer_config = {}
         
         if use_shared_layers:
             self.shared_layers = nn.ModuleDict({

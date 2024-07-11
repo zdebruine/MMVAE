@@ -34,8 +34,11 @@ else:
 LIGHTNING_CONFIG_PATH = os.path.join(RUN_DIR, config["config_name"])  # config.yaml
 CKPT_PATH = os.path.join(RUN_DIR, config["ckpt_path"])  # relative to run_dir
 
-EMBEDDINGS_PATTERN = [os.path.join(RUN_DIR, f"samples/{key}_embeddings.npz") for key in ('z', 'z_star')]
-METADATA_PATTERN = [os.path.join(RUN_DIR, f"samples/{key}_metadata.pkl") for key in ('z', 'z_star')]
+EMBEDDINGS_PATTERN = [os.path.join(RUN_DIR, path) for path in config['embeddings']]
+# EMBEDDINGS_PATTERN = os.path.join(RUN_DIR, 'samples/{prefix}_embeddings.npz')
+METADATA_PATTERN = [os.path.join(RUN_DIR, path) for path in config['metadata']]
+# METADATA_PATTERN = os.path.join(RUN_DIR, 'samples/{prefix}_metadata.pkl')
+
 
 
 def get_integration_files(wildcards):

@@ -37,15 +37,29 @@ def submit_main(config: dict[str, Any]):
     """
     
     jobs = generate_combinations(config['lightning_fit_args'])
-    snakemake_args = [f"{key}={value}" for key, value in config.items() if not key in ('lightning_fit_args',)]
+
+    snakemake_args = []
+    snakemake_config_args = []
+    for key, value in config.items():
+        if key in ('lightning_fit_args', 'run_name'):
+            continue
+        if '.flag' in key:
+            snakemake_args.append(f"--{key.removesuffix('.flag')} {value}")
+        else:
+            snakemake_config_args.append(f"{key}={value}")
+            
+    run_name = config.get('run_name', '')
     
     for job in jobs:
         
         lightning_fit_args = " ".join([f"{key} {value}" for key, _, value in job])
-        run_name = "_".join([name for _, name, _, in job if name])
         
+        if not run_name:
+            _run_name = "_".join([name for _, name, _, in job if name])
+        else:
+            _run_name = run_name
         
-        args = ['--config', f"lightning_fit_args=\"{lightning_fit_args}\"", f"run_name={run_name}", *snakemake_args]
+        args = [*snakemake_args, '--config', f"lightning_fit_args=\"{lightning_fit_args}\"", f"run_name={_run_name}", *snakemake_config_args]
 
         submit_job(args)
 

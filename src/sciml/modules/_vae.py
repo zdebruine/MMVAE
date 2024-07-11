@@ -119,16 +119,16 @@ class VAE(nn.Module):
         Returns:
             tuple: KL divergence, reconstruction loss, and total loss.
         """
-        z_kl_div = kl_divergence(qz, pz).sum(dim=-1).mean()
+        z_kl_div = kl_divergence(qz, pz).sum(dim=-1)
         
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
             
-        recon_loss = F.mse_loss(x_hat, x, reduction='mean')
+        recon_loss = F.mse_loss(x_hat, x, reduction='sum')
         
-        loss = (recon_loss + kl_weight * z_kl_div)  # Compute total loss
+        loss = (recon_loss + kl_weight * z_kl_div.sum())  # Compute total loss
         
-        return z_kl_div, recon_loss, loss
+        return z_kl_div.mean(), recon_loss / recon_loss.numel(), loss
 
     def loss(
         self, 
@@ -155,7 +155,7 @@ class VAE(nn.Module):
         z_kl_div, recon_loss, loss = self.elbo(qz, pz, x, x_hat, kl_weight=kl_weight)
         
         return {
-            RK.RECON_LOSS: recon_loss / x.shape[1],
+            RK.RECON_LOSS: recon_loss,
             RK.KL_LOSS: z_kl_div,
             RK.LOSS: loss,
             RK.KL_WEIGHT: kl_weight

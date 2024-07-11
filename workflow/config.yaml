@@ -1,17 +1,8 @@
 # Experiment Parameters
 root_dir: /mnt/projects/debruinz_project/integration/tensorboard
-
 config_name: config.yaml
-
 ckpt_path: checkpoints/best.ckpt
 
-embeddings:
-- z_star_embedding.npz
-- z_embedding.npz
-
-metadata:
-- z_star_metadata.npz
-- z_embedding.npz
 
 # ENVIROMENT SPECIFIC
 env_path: '/mnt/projects/debruinz_project/pytorch-nightly-env/bin/python3'

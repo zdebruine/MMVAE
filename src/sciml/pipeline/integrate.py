@@ -20,7 +20,6 @@ def integrate(
         ckpt_path=ckpt_path)
     
     try:
-        print(predictions)
         model.save_predictions(predictions, **predict_kwargs)
     except NotImplementedError as e:
         print("Predictions could not be saved from model save_predictions not implemented")

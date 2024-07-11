@@ -79,10 +79,11 @@ class VAEModel(BaseVAEModel):
                 stacked_predictions[key] = pd.concat([prediction[key] for prediction in predictions])
             else:
                 stacked_predictions[key] = torch.cat([prediction[key] for prediction in predictions], dim=0).numpy()
-        
+
         for key in stacked_predictions:
             if RK.METADATA in key:
                 continue
+            
             self.save_latent_predictions(
                 embeddings=stacked_predictions[key], 
                 metadata=stacked_predictions[f"{key}_{RK.METADATA}"], 
