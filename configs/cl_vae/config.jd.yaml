@@ -160,3 +160,4 @@ data:
     batch_size: 128
     return_dense: false
     verbose: false
+predict_after_fit: true

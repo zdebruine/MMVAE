@@ -35,6 +35,7 @@ class SCIMLCli(LightningCLI):
         parser.add_argument('--default_root_dir', required=True, help="Default root directory")
         parser.add_argument('--experiment_name', required=True, help="Name of experiment directory")
         parser.add_argument('--run_name', required=True, help="Name of the experiment run")
+        parser.add_argument('--predict_after_fit', action='store_true', help="Run predict after fit")
         
         if self._run == False:
             parser.add_argument('--ckpt_path', default="")

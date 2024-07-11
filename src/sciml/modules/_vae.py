@@ -87,7 +87,7 @@ class VAE(nn.Module):
         return x_hat
     
     def after_reparameterize(self, z: torch.Tensor, metadata: pd.DataFrame):
-        return z
+        return z, metadata
         
     def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
         """
@@ -101,7 +101,7 @@ class VAE(nn.Module):
         """
         qz, z = self.encode(x)
         pz = Normal(torch.zeros_like(z), torch.ones_like(z))
-        z = self.after_reparameterize(z, metadata)
+        z, metadata = self.after_reparameterize(z, metadata)
         x_hat = self.decode(z)
         return qz, pz, x_hat
     
@@ -124,7 +124,7 @@ class VAE(nn.Module):
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
             
-        recon_loss = F.mse_loss(x_hat, x, reduction='sum') / x.shape[0]
+        recon_loss = F.mse_loss(x_hat, x, reduction='mean')
         
         loss = (recon_loss + kl_weight * z_kl_div)  # Compute total loss
         

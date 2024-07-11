@@ -56,17 +56,19 @@ class VAEModel(BaseVAEModel):
         x = batch[RK.X]
         metadata = batch[RK.METADATA]
         _, z = self.module.encode(x)
-        z_star = self.module.after_reparameterize(z, metadata)
         
         predictions = {
             RK.Z: z,
-            RK.METADATA: metadata, 
+            f"{RK.Z}_{RK.METADATA}": metadata, 
         }
+        
+        z_star, metadata = self.module.after_reparameterize(z, metadata)
         
         if z_star.equal(z):
             return predictions
         
-        predictions.update({ RK.Z_STAR: z_star })
+        predictions.update({ RK.Z_STAR: z_star, f"{RK.Z_STAR}_{RK.METADATA}": metadata })
+        
         return predictions
         
     def save_predictions(self, predictions):  
@@ -76,13 +78,13 @@ class VAEModel(BaseVAEModel):
             if isinstance(predictions[0][key], pd.DataFrame):
                 stacked_predictions[key] = pd.concat([prediction[key] for prediction in predictions])
             else:
-                stacked_predictions[key] = torch.cat([prediction[key].numpy() for prediction in predictions], dim=0)
+                stacked_predictions[key] = torch.cat([prediction[key] for prediction in predictions], dim=0).numpy()
         
         for key in stacked_predictions:
-            if key == RK.METADATA:
+            if RK.METADATA in key:
                 continue
             self.save_latent_predictions(
                 embeddings=stacked_predictions[key], 
-                metadata=stacked_predictions[RK.METADATA], 
+                metadata=stacked_predictions[f"{key}_{RK.METADATA}"], 
                 embeddings_name=f"{key}_embeddings.npz",
                 metadata_name=f"{key}_metadata.pkl")

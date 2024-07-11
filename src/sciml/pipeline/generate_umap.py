@@ -26,7 +26,7 @@ def plot_umap(
     categories = ['cell_type', 'dataset_id', 'assay'],
     **umap_kwargs,
 ):
-    
+    name = os.path.basename(npz_path).rstrip('.npz')
     X = np.load(npz_path)['embeddings']
     metadata = pd.read_pickle(meta_path)
     
@@ -44,12 +44,12 @@ def plot_umap(
     embedding = reducer.fit_transform(X)
     image_paths = []
     for category in categories:
-        image_path = plot_category(embedding, metadata, category, save_path, n_largest)
+        image_path = plot_category(embedding, metadata, category, save_path, n_largest, name)
         image_paths.append(image_path)
     return image_paths
         
 
-def plot_category(embedding, metadata, category, save_path, n_largest):
+def plot_category(embedding, metadata, category, save_path, n_largest, name):
     plt.figure(figsize=(14, 8))
     unique_values = metadata[category].value_counts().nlargest(n_largest).index
     
@@ -70,7 +70,7 @@ def plot_category(embedding, metadata, category, save_path, n_largest):
     legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=cmap(i), markersize=10, label=label)
                       for i, label in enumerate(unique_values)]
     plt.legend(handles=legend_handles, title=category, bbox_to_anchor=(1.05, 1), loc='upper left')
-    image_path = f"{save_path}/integrate.{category}.umap.png"
+    image_path = f"{save_path}/integrate.{category}.umap.{name}.png"
     plt.savefig(image_path, bbox_inches='tight')
     plt.close()
     return image_path

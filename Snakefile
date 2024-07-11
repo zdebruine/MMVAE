@@ -34,8 +34,9 @@ else:
 LIGHTNING_CONFIG_PATH = os.path.join(RUN_DIR, config["config_name"])  # config.yaml
 CKPT_PATH = os.path.join(RUN_DIR, config["ckpt_path"])  # relative to run_dir
 
-EMBEDDINGS_PATTERN = os.path.join(RUN_DIR, "samples/z*_embeddings.npz")
-METADATA_PATTERN = os.path.join(RUN_DIR, "samples/z*_metadata.pkl")
+EMBEDDINGS_PATTERN = [os.path.join(RUN_DIR, f"samples/{key}_embeddings.npz") for key in ('z', 'z_star')]
+METADATA_PATTERN = [os.path.join(RUN_DIR, f"samples/{key}_metadata.pkl") for key in ('z', 'z_star')]
+
 
 def get_integration_files(wildcards):
     embeddings = glob.glob(EMBEDDINGS_PATTERN)
@@ -52,7 +53,7 @@ def get_integration_files(wildcards):
     
     return embeddings, metadata
 
-EVALUATION_FILES = [f"{RUN_DIR}/integrate.{category}.umap.png" for category in ['assay', 'cell_type', 'dataset_id']]
+EVALUATION_FILES = [f"{RUN_DIR}/integrate.{category}.umap.{key}.png" for category in ['assay', 'cell_type', 'dataset_id'] for key in ('z', 'z_star')]
 
 ENV_PATH = config["env_path"]
 

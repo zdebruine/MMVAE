@@ -21,8 +21,8 @@ class _REGISTRY_KEYS_NT(NamedTuple):
     PZ: str = "pz"
     QZM: str = "qzm"
     QZV: str = "qzv"
-    Z: str = "Z"
-    Z_STAR: str = "Z_STAR"
+    Z: str = "z"
+    Z_STAR: str = "z_star"
     X: str = "x"
     X_HAT: str = "X_HAT"
     Y: str = "Y"
@@ -33,6 +33,5 @@ class _REGISTRY_KEYS_NT(NamedTuple):
     ELBO: str = "elbo"
     REGISTRY: str = "registry"
     EXPERT_ID: str = "expert_id"
-    
 
 REGISTRY_KEYS = _REGISTRY_KEYS_NT()

@@ -34,6 +34,7 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
         
         self.init_weights()
         self.use_shared_layers = use_shared_layers
+        self.metadata_last = { cl: None for cl in self.conditional_layers}
     
     def get_df_module_dict(self, cl_path, **kwargs):
         
@@ -51,12 +52,12 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
     def after_reparameterize(self, z: torch.Tensor, metadata: pd.DataFrame):
         for cl in self.conditional_layers:
             mask = self._generate_masks(cl, metadata)
-            z = self._forward_masks(z, self.conditional_layers[cl], mask)
+            z, metadata = self._forward_masks(z, self.conditional_layers[cl], metadata, mask)
             if self.use_shared_layers:
                 z_shr = self.shared_layers[cl](z)
                 z = z_shr - z
-            
-        return z
+            self.metadata_last[cl] = metadata
+        return z, metadata
     
     def _generate_masks(self, filter_key: str, metadata: pd.DataFrame):
         values = metadata[filter_key]
@@ -70,16 +71,22 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
             
         return masks
     
-    def _forward_masks(self, z, cls, masks):
+    def _forward_masks(self, z, cls, metadata, masks):
+        
         cl_sub_batches = []
+        reordered_metadata = []
         for key, mask in masks.items():
             key = key.replace('.', '_')
             if not key in cls:
                 raise RuntimeError(f"{key} not in {cls}")
-            module = cls[key]
-            x = module(z[mask])
-            cl_sub_batches.append(x)
-        return torch.cat(cl_sub_batches, dim=0)
+            
+            cl_sub_batches.append(cls[key](z[mask]))
+            reordered_metadata.append(metadata[mask])
+        
+        z = torch.cat(cl_sub_batches, dim=0)
+        metadata = pd.concat(reordered_metadata).reset_index(drop=True)
+        
+        return z, metadata
     
     def configure_optimizers(self):
         return torch.optim.Adam([
