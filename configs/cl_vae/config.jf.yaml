@@ -83,8 +83,9 @@ model:
   class_path: sciml.models.VAEModel
   init_args:
     module:
-      class_path: sciml.modules.DFVAE
+      class_path: sciml.modules.CLVAE
       init_args:
+        conditional_layer_config: 
         n_in: 60664
         encoder_layers:
         - 1024
