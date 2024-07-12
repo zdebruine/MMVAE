@@ -93,6 +93,6 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
     def configure_optimizers(self):
         return torch.optim.Adam([
             { 'params': self.encoder.parameters(), 'lr': 1e-3},
-            { 'params': self.decoder.parameters(), 'lr': 1e-4},
-            { 'params': self.conditional_layers.parameters(), 'lr': 1e-4},
+            { 'params': self.decoder.parameters(), 'lr': 1e-3},
+            { 'params': self.conditional_layers.parameters(), 'lr': 1e-3},
         ])

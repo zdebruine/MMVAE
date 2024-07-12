@@ -111,7 +111,7 @@ model:
         decoder_kwargs: {}
     kl_annealing_fn: constant
     kl_annealing_fn_kwargs: 
-      kl_weight: 0.1
+      kl_weight: 1.0
     record_embeddings: false
     record_gradients: false
     configure_optimizer_kwargs: {}
