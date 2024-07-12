@@ -19,7 +19,7 @@ def get_tracked_command_line_options(argkey, config):
         key, value = next(iter(config.items()))
         if not isinstance(value, list):
             return [(argkey, key, value)]
-        return [(argkey, f"{key}_{v}", v) for v in value]
+        return [(argkey, f"{key}_{v}" if v else key, v) for v in value]
     else:
         return [(argkey, key, value) for key, value in config.items()]
         
@@ -77,8 +77,9 @@ if __name__ == "__main__":
     jobs = get_lightning_fit_args_combos(config['lightning_fit_args'])
     snakemake_config_args = get_snakemake_config_args(config)
     snakemake_args = get_snakemake_args(config)
-    
+    default_run_name = config.get('run_name', '')
     for job in jobs:
         lightning_fit_args = ' '.join(parse_value(argkey, value) for argkey, _, value in job)
-        args = ['--config', f"lightning_fit_args=\"{lightning_fit_args}\"", f"run_name=a", *snakemake_config_args, *snakemake_args, ]
+        run_name = '_'.join(name for _, name, _ in job if name)
+        args = ['--config', f"lightning_fit_args=\"{lightning_fit_args}\"", f"run_name={default_run_name + '_' if default_run_name else ''}{run_name}", *snakemake_config_args, *snakemake_args, ]
         submit_job(args)
