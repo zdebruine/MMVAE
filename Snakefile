@@ -21,8 +21,7 @@ if config.get('retrying', False):
         raise RuntimeError(f"{RUN_DIR} is not a directory")
 
 SM_CONFIG_FILE = os.path.join(RUN_DIR, "sm_config.yaml")
-if os.path.exists(SM_CONFIG_FILE) and not config.get("retrying", False):
-    raise RuntimeError("Attempting to rerun snakemake on directory that already has config set retrying to True")
+
 if os.path.exists(SM_CONFIG_FILE) and not config.get("override", False):
     warnings.warn(f"Overriding supplied configfile with {SM_CONFIG_FILE}")
     with open(SM_CONFIG_FILE, 'r') as file:
