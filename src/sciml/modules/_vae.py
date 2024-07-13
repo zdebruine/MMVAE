@@ -126,7 +126,7 @@ class VAE(nn.Module):
             
         recon_loss = F.mse_loss(x_hat, x, reduction='sum')
         
-        loss = (recon_loss + kl_weight * z_kl_div.sum())  # Compute total loss
+        loss = (recon_loss + kl_weight * z_kl_div.mean())  # Compute total loss
         
         return z_kl_div.mean(), recon_loss / x.numel(), loss
 
