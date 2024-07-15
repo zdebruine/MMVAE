@@ -103,7 +103,7 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
                     size=data_batch.shape)
                 
                 if isinstance(dataframe, pd.DataFrame):
-                    metadata = dataframe.iloc[i:i + self.batch_size]
+                    metadata = dataframe.iloc[i:i + self.batch_size].reset_index(drop=True)
 
                 if self.return_dense:
                     tensor = tensor.to_dense()
