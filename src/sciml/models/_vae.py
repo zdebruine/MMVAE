@@ -17,7 +17,7 @@ class VAEModel(BaseVAEModel):
         module (VAE): VAE module to be used in the model.
         **kwargs: Additional keyword arguments for the base VAE model.
     """
-    
+
     def __init__(self, module: VAE, **kwargs):
         super().__init__(module, **kwargs)
     
@@ -53,26 +53,9 @@ class VAEModel(BaseVAEModel):
     test_step = step
         
     def predict_step(self, batch, batch_idx):
-        x = batch[RK.X]
-        metadata = batch[RK.METADATA]
-        _, z = self.module.encode(x)
-        
-        predictions = {
-            RK.Z: z,
-            f"{RK.Z}_{RK.METADATA}": metadata, 
-        }
-        
-        z_star, metadata = self.module.after_reparameterize(z, metadata)
-        
-        if z_star.equal(z):
-            return predictions
-        
-        predictions.update({ RK.Z_STAR: z_star, f"{RK.Z_STAR}_{RK.METADATA}": metadata })
-        
-        return predictions
+        return self.module.get_latent_embeddings(batch[RK.X], batch[RK.METADATA])
         
     def save_predictions(self, predictions):  
-        
         stacked_predictions = {}
         for key in predictions[0].keys():
             if isinstance(predictions[0][key], pd.DataFrame):

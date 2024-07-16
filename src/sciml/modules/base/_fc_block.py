@@ -19,6 +19,17 @@ def is_iterable(obj):
         return True
     except TypeError:
         return False
+    
+def str_to_obj(obj):
+    if isinstance(obj, str):
+        obj = obj.lower()
+        if obj in ['true', '1']:
+            return True
+        elif obj in ['false', '0']:
+            return False
+        elif obj in ['none']:
+            return None
+    return obj
 
 class FCBlock(nn.Module):
     """
@@ -104,6 +115,7 @@ class FCBlock(nn.Module):
         Returns:
             list: A list of validated and masked keyword arguments.
         """
+        kwargs = str_to_obj(kwargs)
         if not is_iterable(kwargs):
             kwargs = [kwargs] * len(self.layers)
             
@@ -115,7 +127,7 @@ class FCBlock(nn.Module):
         try:
             assert all(type_comparison_fn(val, cls) for val in kwargs if val is not None)
         except AssertionError:
-            raise ValueError("All values in kwarg must be of the same type")
+            raise ValueError(f"All values in kwarg must be of the same type found: {kwargs} need: {cls}")
             
         return kwargs
         

@@ -48,7 +48,7 @@ class Encoder(nn.Module):
         **fc_block_kwargs
     ):
         super().__init__()
-        
+
         # Fully connected block for encoding the input features
         self.encoder = FCBlock([n_in, *fc_layers, n_hidden], **fc_block_kwargs)
         

@@ -160,3 +160,23 @@ class VAE(nn.Module):
             RK.LOSS: loss,
             RK.KL_WEIGHT: kl_weight
         }
+        
+    def get_latent_embeddings(self, x: torch.Tensor, metadata: pd.DataFrame):
+        
+        _, z = self.encode(x)
+        
+        predictions = {
+            RK.Z: z,
+            f"{RK.Z}_{RK.METADATA}": metadata, 
+        }
+        
+        z_star, metadata = self.after_reparameterize(z, metadata)
+        
+        if z_star.equal(z):
+            return predictions
+        
+        predictions.update({ RK.Z_STAR: z_star, f"{RK.Z_STAR}_{RK.METADATA}": metadata })
+        
+        return predictions
+        
+        
