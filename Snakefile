@@ -55,7 +55,6 @@ rule train:
     shell:
         """
         {ENV_PATH} -m sciml fit {params.lighting_fit_args} --default_root_dir {ROOT_DIR} --experiment_name {EXPERIMENT_NAME} --run_name {RUN_NAME}
-        && cp {CKPT_PATH} {RUN_DIR}/checkpoints/saved_best.ckpt
         """
 
 rule integrate:
