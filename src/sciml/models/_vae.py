@@ -53,7 +53,7 @@ class VAEModel(BaseVAEModel):
     test_step = step
         
     def predict_step(self, batch, batch_idx):
-        return self.module.get_latent_embeddings(batch[RK.X], batch[RK.METADATA])
+        return self.module.get_latent_embeddings(batch[RK.X], batch[RK.METADATA], **self.prediction_kwargs)
         
     def save_predictions(self, predictions):  
         stacked_predictions = {}

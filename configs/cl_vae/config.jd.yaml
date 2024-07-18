@@ -85,7 +85,6 @@ model:
     module:
       class_path: sciml.modules.CLVAE
       init_args:
-        conditional_layer_config: 
           # assay: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_assays.csv
           # dataset_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_datasets.csv
           # donor_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_donors.csv
