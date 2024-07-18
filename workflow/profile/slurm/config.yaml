@@ -15,6 +15,8 @@ cluster:
     --time={resources.runtime}
     --export=ALL,PYTHONPATH=./src:$PYTHONPATH 
     --parsable
+cluster-status: workflow/profile/slurm/status.py
+cluster-cancel: scancel
 default-resources:
   - partition='bigmem'
   - qos=sbatch
