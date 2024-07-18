@@ -7,11 +7,11 @@ import yaml
 def submit_job(args):
     subprocess.run(["sbatch", "experiment/submit.sh"] + args)
     
-def parse(value):
-    if isinstance(value, list):
-        return f"\"{value}\""
-    return value
-
+def parse(v):
+    if isinstance(v, list):
+        return '"' + '[' + ', '.join(f'"{str(elem)}"' if isinstance(elem, str) else str(elem) for elem in v) + ']' + '"'
+    return v
+    
 def parse_value(argkey, value):
     if isinstance(value, dict):
         return ' '.join(f"{argkey}.{k} {parse(v)}" for k, v in value.items())
