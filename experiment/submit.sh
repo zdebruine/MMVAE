@@ -8,4 +8,4 @@
 #SBATCH --mem=4G
 
 
-snakemake --profile workflow/profile/slurm --keep-going "$@" 
+snakemake --profile workflow/profile/slurm --keep-going --keep-incomplete "$@" 
