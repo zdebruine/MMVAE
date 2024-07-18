@@ -23,7 +23,7 @@ def plot_umap(
     n_jobs = 40,
     n_epochs = 200,
     n_largest = 15,
-    categories = ['cell_type', 'dataset_id', 'assay'],
+    categories = ['cell_type', 'dataset_id', 'assay', 'donor_id'],
     **umap_kwargs,
 ):
     name = os.path.basename(npz_path).removesuffix('_embeddings.npz')
