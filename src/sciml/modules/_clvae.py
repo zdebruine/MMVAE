@@ -75,9 +75,9 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam([
-            { 'params': self.encoder.parameters(), 'lr': 1e-3},
-            { 'params': self.decoder.parameters(), 'lr': 1e-3},
-            { 'params': self.conditional_layers.parameters(), 'lr': 1e-3},
+            { 'params': self.encoder.parameters(), 'lr': 1e-3, 'weight_decay': 1e-6 },
+            { 'params': self.decoder.parameters(), 'lr': 1e-3, 'weight_decay': 1e-6 },
+            { 'params': self.conditional_layers.parameters(), 'lr': 1e-3, 'weight_decay': 1e-6 },
         ])
         
     def get_latent_embeddings(self, x: torch.Tensor, metadata: pd.DataFrame, conditions: dict[str, Any] = {}):

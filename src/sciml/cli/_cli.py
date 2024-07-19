@@ -57,7 +57,8 @@ class SCIMLCli(LightningCLI):
         self.trainer.logger.log_hyperparams(self.config)
         
     def after_fit(self):
-        if self.config.get('fit', {}).get('predict_after_fit', False):
+        print("Predicting: ", self.config.get('fit', {}).get('predict_after_fit', False) or self.config.get('predict_after_fit', False))
+        if self.config.get('fit', {}).get('predict_after_fit', False) or self.config.get('predict_after_fit', False):
             predictions = self.trainer.predict(
                 model=self.model,
                 datamodule=self.datamodule,
