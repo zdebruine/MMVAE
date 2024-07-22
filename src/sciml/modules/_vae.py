@@ -104,8 +104,8 @@ class VAE(nn.Module):
         """
         qz, z = self.encode(x)
         pz = Normal(torch.zeros_like(z), torch.ones_like(z))
-        z = self.after_reparameterize(z, metadata)
-        x_hat = self.decode(z)
+        _z = self.after_reparameterize(z, metadata)
+        x_hat = self.decode(_z)
         if self._return_z:
             return qz, z, x_hat
         return qz, pz, x_hat

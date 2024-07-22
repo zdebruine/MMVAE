@@ -6,8 +6,8 @@ cluster:
     --cpus-per-task={resources.cpus_per_task}
     --mem={resources.mem}
     --job-name={rule}-{wildcards}-smk
-    --output=.snakemake/slurm_logs/{rule}/{rule}-{wildcards}-%j.out
-    --error=.snakemake/slurm_logs/{rule}/{rule}-{wildcards}-.%j.err
+    --output=.snakemake/slurm_logs/{rule}/job.%j.out
+    --error=.snakemake/slurm_logs/{rule}/job.%j.err
     --gpus-per-node={resources.gpus_per_node}
     --account=account
     --ntasks=1
@@ -27,16 +27,16 @@ jobs: 10
 set-resources:
   train:
     partition: gpu
-    mem: 90GB
+    mem: 179GB
     gpus_per_node: tesla_v100s:1
-    cpus_per_task: 6
+    cpus_per_task: 12
   integrate:
     partition: gpu
-    mem: 90GB
+    mem: 179GB
     gpus_per_node: tesla_v100s:1
-    cpus_per_task: 6
+    cpus_per_task: 12
   umap:
     partition: all
-    mem: 90GB
+    mem: 179GB
     gpus_per_node: ""
     cpus_per_task: 40

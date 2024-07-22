@@ -42,6 +42,7 @@ def plot_umap(
         **umap_kwargs)
     
     embedding = reducer.fit_transform(X)
+    
     image_paths = []
     for category in categories:
         image_path = plot_category(embedding, metadata, category, save_path, n_largest, name)

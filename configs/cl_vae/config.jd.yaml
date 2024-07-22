@@ -33,13 +33,13 @@ trainer:
       every_n_train_steps: null
       train_time_interval: null
       every_n_epochs: null
-      save_on_train_epoch_end: null
+      save_on_train_epoch_end: false
       enable_version_counter: true
   - class_path: lightning.pytorch.callbacks.EarlyStopping
     init_args:
       monitor: loss/validation/human
-      min_delta: 0.00001
-      patience: 3
+      min_delta: 0.0001
+      patience: 2
       verbose: false
       mode: min
       strict: true
@@ -61,10 +61,10 @@ trainer:
   overfit_batches: 0.0
   val_check_interval: null
   check_val_every_n_epoch: 1
-  num_sanity_val_steps: null
+  num_sanity_val_steps: 0
   log_every_n_steps: null
   enable_checkpointing: true
-  enable_progress_bar: false
+  enable_progress_bar: true
   enable_model_summary: true
   accumulate_grad_batches: 1
   gradient_clip_val: null
@@ -244,11 +244,10 @@ data:
     test_metadata_masks:
     - human_metadata_59.pkl
     - human_metadata_60.pkl
-    num_workers: 4
+    num_workers: 2
     n_val_workers: 1
-    n_test_workers: 1
-    n_predict_workers: 1
+    n_test_workers: 2
+    n_predict_workers: 2
     batch_size: 128
     return_dense: false
     verbose: false
-predict_after_fit: true

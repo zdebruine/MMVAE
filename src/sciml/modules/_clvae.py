@@ -24,10 +24,14 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
         batch_keys: Optional[list[str]] = None,
         *args, **kwargs
     ):
+        if batch_keys and len(batch_keys) != len(cl_unique_conditions_paths):
+            paths = {}
+            for key in batch_keys:
+                paths[key] = cl_unique_conditions_paths[key]
+            cl_unique_conditions_paths = paths
+        
         super().__init__(*args, **kwargs)
         selection_fn = 'random' if not selection_order else 'sequential'
-        if not selection_fn in ('random', 'sequential'):
-            raise ValueError("selection_fn must be 'random' or 'sequential'")
         
         if selection_fn == 'random':
             if selection_order:
