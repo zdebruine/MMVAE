@@ -1,4 +1,5 @@
 import random
+import pandas as pd
 import numpy as np
 import torch
 from typing import Any, Literal, Sequence, Union
@@ -11,7 +12,7 @@ from ._cellxgene_manager import (
     DEFAULT_WEIGHTS
 )
 
-from sciml.utils.constants import REGISTRY_KEYS as RK, ModelInputs
+from sciml.utils.constants import REGISTRY_KEYS as RK
 
 class CellxgeneDataModule(L.LightningDataModule):
     
@@ -52,14 +53,11 @@ class CellxgeneDataModule(L.LightningDataModule):
     
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         
-        metadata = None
-        if self.trainer.predicting or self.trainer.validating:
-            batch_labels = batch[1]
-            metadata = []
-            for i, key in enumerate(self.hparams.obs_column_names, start=1):
-                data = self.cellx_manager.experiment_datapipe.obs_encoders[key].inverse_transform(batch_labels[:, i])
-                metadata.append(data)
-            metadata = np.stack(metadata, axis=1)
+        metadata = self.cellx_manager.metadata_to_df(batch[1])
         
-        return batch[0], metadata
+        return {
+            RK.X: batch[0], 
+            RK.METADATA: metadata,
+            RK.EXPERT_ID: 'human'
+        }
     

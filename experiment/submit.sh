@@ -8,4 +8,4 @@
 #SBATCH --mem=4G
 
 
-snakemake --profile workflow/profile/slurm --keep-incomplete "$@" 
+snakemake --profile workflow/profile/slurm --keep-incomplete --latency-wait 30 "$@" 

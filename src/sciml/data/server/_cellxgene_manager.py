@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import tiledbsoma as soma
 import cellxgene_census as cell_census
 import cellxgene_census.experimental.ml as census_ml
@@ -8,6 +10,7 @@ OBS_COL_NAMES = (
     "dataset_id",
     "assay", 
     "donor_id",
+    "cell_type",
 )
 
 OBS_QUERY_VALUE_FILTER = 'is_primary_data == True and assay in ["microwell-seq", "10x 3\' v1", "10x 3\' v2", "10x 3\' v3", "10x 3\' transcription profiling", "10x 5\' transcription profiling", "10x 5\' v1", "10x 5\' v2"]'
@@ -47,11 +50,14 @@ class CellxgeneManager:
             soma_chunk_size=self.soma_chunk_size,
             use_eager_fetch=False)
         
-        datapipes = self.experiment_datapipe.random_split(
-            seed=self.seed,
-            weights=self.split_weights)
-        
-        self.datapipes = dict((k, v) for k, v in zip(self.split_weights.keys(), datapipes))
+        if not self.split_weights:
+            self.datapipes = { k: self.experiment_datapipe for k in DEFAULT_WEIGHTS.keys()}
+        else:
+            datapipes = self.experiment_datapipe.random_split(
+                seed=self.seed,
+                weights=self.split_weights)
+            
+            self.datapipes = dict((k, v) for k, v in zip(self.split_weights.keys(), datapipes))
     
     def teardown(self):
         if self.census and hasattr(self.census, 'close'):
@@ -69,3 +75,13 @@ class CellxgeneManager:
             # causes OOM error
             # persistent_workers=self.trainer.training and self.hparams.num_workers > 0,
             prefetch_factor=1)
+        
+    def metadata_to_df(self, metadata):
+        obs_encoders = self.experiment_datapipe.obs_encoders
+        return pd.DataFrame(
+            np.stack([
+                obs_encoders[key].inverse_transform(metadata[:, i])
+                for i, key in enumerate(obs_encoders, start=1)
+            ], axis=1),
+            columns=list(obs_encoders.keys())
+        )

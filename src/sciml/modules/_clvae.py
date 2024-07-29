@@ -24,7 +24,7 @@ class CLVAE(VAE, HeWeightInitMixIn, BaseModule):
         batch_keys: Optional[list[str]] = None,
         *args, **kwargs
     ):
-        if batch_keys and len(batch_keys) != len(cl_unique_conditions_paths):
+        if isinstance(batch_keys, list) and len(batch_keys) != len(cl_unique_conditions_paths):
             paths = {}
             for key in batch_keys:
                 paths[key] = cl_unique_conditions_paths[key]
