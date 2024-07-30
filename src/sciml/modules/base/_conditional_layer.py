@@ -1,77 +1,78 @@
-from typing import Literal, Optional, Union
+from typing import Optional
 import torch
 import torch.nn as nn
-import numpy as np
 import pandas as pd
-from pathlib import Path
-import random
 
 from ._fc_block import FCBlock
 
 
 
 class ConditionalLayer(nn.Module):
-    def __init__(self, input_size, batch_key, conditions_path, **kwargs):
+    
+    def __init__(self, batch_key: str, conditions_path: str, **kwargs):
         super(ConditionalLayer, self).__init__()
         
+        self.batch_key = batch_key
         conditions_df = pd.read_csv(conditions_path, header=None)
-
-        self.condition_modules = nn.ModuleDict({
-            str(condition).replace('.', '_'): FCBlock(layers=[input_size], **kwargs) 
+        
+        self.conditions = nn.ModuleDict({
+            self.format_condition_key(condition): FCBlock(**kwargs) 
             for condition in conditions_df[0]
         })
         
-        self.n_conditions = len(conditions_df)
-        self.batch_key = batch_key
-        
-    def mask(self, metadata, device=torch.dtype):
-        binary_masks = {}
-        for condition, group_df in metadata.groupby(self.batch_key):
-            mask = torch.zeros(len(metadata), dtype=int, device=device)
-            mask[group_df.index] = 1
-            binary_masks[condition] = mask
-        return binary_masks
+    def format_condition_key(self, condition: str):
+        return condition.replace('.', '_')
     
     def forward(self, x: torch.Tensor, metadata: pd.DataFrame, condition: Optional[str] = None):
         
         if condition:
             return self.forward_condition(x, condition), metadata
         
-        masks = self.mask(metadata, device=x.device)
-        
-        x_hat_partials = []
-        for condition, mask in masks.items():
-            masked_x = x * mask.unsqueeze(1)
-            x_hat_partial = self.forward_condition(masked_x, condition)
-            x_hat_partials.append(x_hat_partial)
-        return sum(x_hat_partials), metadata
+        x_hat = torch.zeros_like(x)
+        for condition, group_df in metadata.groupby(self.batch_key):
+            mask = torch.zeros(len(metadata), dtype=int, device=x.device)
+            mask[group_df.index] = 1
+            x_hat = x_hat + self.forward_condition(x * mask.unsqueeze(1), condition)
+            
+        return x_hat, metadata
     
     def forward_condition(self, x: torch.Tensor, condition: str):
         condition = condition.replace('.', '_')
-        return self.condition_modules[condition](x)
-
-
-class DynamicConditionalLayer(ConditionalLayer):
+        return self.conditions[condition](x)
     
-    def __init__(self, input_size, batch_key, **block_kwargs):
-        super(ConditionalLayer, self).__init__()
-
-        self.input_size = input_size
-        self.condition_modules = nn.ModuleDict()
-        self.batch_key = batch_key
-        self._block_kwargs = block_kwargs
-        self.new_modules = []
+    
+class ConditionalLayers(nn.Module):
+    
+    def __init__(
+        self,
+        conditional_paths: dict[str, str],
+        selection_order: Optional[list[str]] = None,
+        **kwargs,
+    ):
+        super(ConditionalLayers, self).__init__()
         
-    def get_condition_key(self, condition: str):
-        return condition.replace('.', '_')
-    
-    def forward_condition(self, x: torch.Tensor, condition: str):
-        condition_key = self.get_condition_key(condition)
-        if not condition in self.condition_modules:
-            module = FCBlock(layers=[self.input_size], **self._block_kwargs).to(x.device)
-            self.condition_modules.add_module(condition_key, module)
-            self.new_modules.append(module)
+        self.is_random = bool(selection_order)
+        
+        if self.is_random:
+            selection_order = list(conditional_paths.keys())
+        
+        self.selection_order: torch.Tensor = torch.arange(0, len(selection_order), dtype=torch.int32, requires_grad=False)
+        
+        self.conditionals = nn.ModuleList([
+            ConditionalLayer(batch_key, conditional_paths[batch_key], **kwargs)
+            for batch_key in selection_order
+        ])
+        
+    def forward(self, x: torch.Tensor, metadata: pd.DataFrame, conditions: Optional[dict[str, str]] = None):
+        order = self.selection_order
+        
+        if self.is_random:
+            permutation = torch.randperm(self.selection_order.size(0))
+            order = order[permutation]
             
-        return super().forward_condition(x, condition_key)
+        for idx in order:
+            x, metadata = self.conditionals[idx](x, metadata)
+        
+        return x, metadata
         
         
