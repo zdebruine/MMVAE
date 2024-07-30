@@ -1,0 +1,253 @@
+# lightning.pytorch==2.2.5
+seed_everything: 0
+trainer:
+  accelerator: auto
+  strategy: auto
+  devices: auto
+  num_nodes: 1
+  precision: 32
+  logger:
+    class_path: lightning.pytorch.loggers.TensorBoardLogger
+    init_args:
+      log_graph: false
+      default_hp_metric: true
+      prefix: ''
+      sub_dir: null
+      comment: ''
+      purge_step: null
+      max_queue: 10
+      flush_secs: 120 
+      filename_suffix: ''
+  callbacks:
+  - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+    init_args:
+      dirpath: null
+      filename: best
+      monitor: loss/validation/human
+      verbose: false
+      save_last: true
+      save_top_k: 1
+      save_weights_only: false
+      mode: min
+      auto_insert_metric_name: true
+      every_n_train_steps: null
+      train_time_interval: null
+      every_n_epochs: null
+      save_on_train_epoch_end: false
+      enable_version_counter: true
+  - class_path: lightning.pytorch.callbacks.EarlyStopping
+    init_args:
+      monitor: loss/validation/human
+      min_delta: 0.0001
+      patience: 2
+      verbose: false
+      mode: min
+      strict: true
+      check_finite: true
+      stopping_threshold: null
+      divergence_threshold: null
+      check_on_train_epoch_end: null
+      log_rank_zero_only: false
+  fast_dev_run: false
+  max_epochs: 3
+  min_epochs: 1
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: null
+  limit_val_batches: null
+  limit_test_batches: null
+  limit_predict_batches: null
+  overfit_batches: 0.0
+  val_check_interval: null
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: 0
+  log_every_n_steps: null
+  enable_checkpointing: true
+  enable_progress_bar: true
+  enable_model_summary: true
+  accumulate_grad_batches: 1
+  gradient_clip_val: null
+  gradient_clip_algorithm: null
+  deterministic: null
+  benchmark: null
+  inference_mode: true
+  use_distributed_sampler: true
+  profiler: null
+  detect_anomaly: false
+  barebones: false
+  plugins: null
+  sync_batchnorm: false
+  reload_dataloaders_every_n_epochs: 0
+model:
+  class_path: sciml.models.VAEModel
+  init_args:
+    module:
+      class_path: sciml.modules.CLVAE
+      init_args:
+          # assay: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_assays.csv
+          # dataset_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_datasets.csv
+          # donor_id: /mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_donors.csv
+        n_in: 60664
+        encoder_layers:
+        - 1024
+        - 512
+        - 256
+        n_latent: 128
+        decoder_layers:
+        - 256
+        - 512
+        - 1024
+        n_out: 60664
+        distribution: normal
+        encoder_kwargs:
+          dropout_rate:
+          - 0.1
+          - 0.1
+          - 0.0
+          - 0.0
+          use_batch_norm: true
+        decoder_kwargs: {}
+    kl_annealing_fn: constant
+    kl_annealing_fn_kwargs: 
+      kl_weight: 1.0
+    record_embeddings: false
+    record_gradients: false
+    configure_optimizer_kwargs: {}
+    gradient_record_cap: 20
+data:
+  class_path: sciml.data.local.SingleSpeciesDataModule
+  init_args:
+    name: human
+    directory_path: /mnt/projects/debruinz_project/summer_census_data/full
+    train_npz_masks:
+    - human_counts_1.npz
+    - human_counts_2.npz
+    - human_counts_3.npz
+    - human_counts_4.npz
+    - human_counts_5.npz
+    - human_counts_6.npz
+    - human_counts_7.npz
+    - human_counts_8.npz
+    - human_counts_9.npz
+    - human_counts_10.npz
+    - human_counts_11.npz
+    - human_counts_12.npz
+    - human_counts_13.npz
+    - human_counts_14.npz
+    - human_counts_15.npz
+    - human_counts_16.npz
+    - human_counts_17.npz
+    - human_counts_18.npz
+    - human_counts_19.npz
+    - human_counts_20.npz
+    - human_counts_21.npz
+    - human_counts_22.npz
+    - human_counts_23.npz
+    - human_counts_24.npz
+    - human_counts_25.npz
+    - human_counts_26.npz
+    - human_counts_27.npz
+    - human_counts_28.npz
+    - human_counts_29.npz
+    - human_counts_30.npz
+    - human_counts_31.npz
+    - human_counts_32.npz
+    - human_counts_33.npz
+    - human_counts_34.npz
+    - human_counts_35.npz
+    - human_counts_36.npz
+    - human_counts_37.npz
+    - human_counts_38.npz
+    - human_counts_39.npz
+    - human_counts_40.npz
+    - human_counts_41.npz
+    - human_counts_42.npz
+    - human_counts_43.npz
+    - human_counts_44.npz
+    - human_counts_45.npz
+    - human_counts_46.npz
+    - human_counts_47.npz
+    - human_counts_48.npz
+    - human_counts_49.npz
+    - human_counts_50.npz
+    - human_counts_51.npz
+    - human_counts_52.npz
+    - human_counts_53.npz
+    - human_counts_54.npz
+    - human_counts_55.npz
+    - human_counts_56.npz
+    - human_counts_57.npz
+    train_metadata_masks:
+    - human_metadata_1.pkl
+    - human_metadata_2.pkl
+    - human_metadata_3.pkl
+    - human_metadata_4.pkl
+    - human_metadata_5.pkl
+    - human_metadata_6.pkl
+    - human_metadata_7.pkl
+    - human_metadata_8.pkl
+    - human_metadata_9.pkl
+    - human_metadata_10.pkl
+    - human_metadata_11.pkl
+    - human_metadata_12.pkl
+    - human_metadata_13.pkl
+    - human_metadata_14.pkl
+    - human_metadata_15.pkl
+    - human_metadata_16.pkl
+    - human_metadata_17.pkl
+    - human_metadata_18.pkl
+    - human_metadata_19.pkl
+    - human_metadata_20.pkl
+    - human_metadata_21.pkl
+    - human_metadata_22.pkl
+    - human_metadata_23.pkl
+    - human_metadata_24.pkl
+    - human_metadata_25.pkl
+    - human_metadata_26.pkl
+    - human_metadata_27.pkl
+    - human_metadata_28.pkl
+    - human_metadata_29.pkl
+    - human_metadata_30.pkl
+    - human_metadata_31.pkl
+    - human_metadata_32.pkl
+    - human_metadata_33.pkl
+    - human_metadata_34.pkl
+    - human_metadata_35.pkl
+    - human_metadata_36.pkl
+    - human_metadata_37.pkl
+    - human_metadata_38.pkl
+    - human_metadata_39.pkl
+    - human_metadata_40.pkl
+    - human_metadata_41.pkl
+    - human_metadata_42.pkl
+    - human_metadata_43.pkl
+    - human_metadata_44.pkl
+    - human_metadata_45.pkl
+    - human_metadata_46.pkl
+    - human_metadata_47.pkl
+    - human_metadata_48.pkl
+    - human_metadata_49.pkl
+    - human_metadata_50.pkl
+    - human_metadata_51.pkl
+    - human_metadata_52.pkl
+    - human_metadata_53.pkl
+    - human_metadata_54.pkl
+    - human_metadata_55.pkl
+    - human_metadata_56.pkl
+    - human_metadata_57.pkl
+    val_npz_masks: human_counts_58.npz
+    val_metadata_masks: human_metadata_58.pkl
+    test_npz_masks:
+    - human_counts_59.npz
+    - human_counts_60.npz
+    test_metadata_masks:
+    - human_metadata_59.pkl
+    - human_metadata_60.pkl
+    num_workers: 2
+    n_val_workers: 1
+    n_test_workers: 2
+    n_predict_workers: 2
+    batch_size: 128
+    return_dense: false
+    verbose: false

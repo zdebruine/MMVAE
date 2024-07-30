@@ -1,0 +1,5 @@
+# lightning.pytorch==2.2.5
+class_path: sciml.VAEModel
+init_args:
+  vae: 
+    class_path: sciml.modules.BasicVAE

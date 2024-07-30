@@ -1,0 +1,84 @@
+class_path: sciml.data.local.MMCellxgeneDataModule
+init_args:
+  human_datamodule:
+    class_path: sciml.data.local.CellxgeneDataModule
+    init_args:
+      return_dense: true
+      batch_size: 128
+      seed: 42
+      num_workers: 2
+      directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
+      train_npz_masks: 
+      - 3m_human_counts_1.npz
+      - 3m_human_counts_2.npz
+      - 3m_human_counts_3.npz
+      - 3m_human_counts_4.npz
+      - 3m_human_counts_5.npz
+      - 3m_human_counts_6.npz
+      - 3m_human_counts_7.npz
+      - 3m_human_counts_8.npz
+      - 3m_human_counts_9.npz
+      - 3m_human_counts_10.npz
+      - 3m_human_counts_11.npz
+      - 3m_human_counts_12.npz
+      - 3m_human_counts_13.npz
+      train_metadata_masks:
+      - 3m_human_metadata_1.pkl
+      - 3m_human_metadata_2.pkl
+      - 3m_human_metadata_3.pkl
+      - 3m_human_metadata_4.pkl
+      - 3m_human_metadata_5.pkl
+      - 3m_human_metadata_6.pkl
+      - 3m_human_metadata_7.pkl
+      - 3m_human_metadata_8.pkl
+      - 3m_human_metadata_9.pkl
+      - 3m_human_metadata_10.pkl
+      - 3m_human_metadata_11.pkl
+      - 3m_human_metadata_12.pkl
+      - 3m_human_metadata_13.pkl
+      val_npz_masks: 3m_human_counts_14.npz
+      val_metadata_masks: 3m_human_metadata_14.pkl
+      test_npz_masks: 3m_human_counts_15.npz
+      test_metadata_masks: 3m_human_metadata_15.pkl
+      verbose: false
+  mouse_datamodule:
+    class_path: sciml.data.local.CellxgeneDataModule
+    init_args:
+      return_dense: true
+      batch_size: 128
+      seed: 42
+      num_workers: 2
+      directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
+      train_npz_masks: 
+      - 3m_mouse_counts_1.npz
+      - 3m_mouse_counts_2.npz
+      - 3m_mouse_counts_3.npz
+      - 3m_mouse_counts_4.npz
+      - 3m_mouse_counts_5.npz
+      - 3m_mouse_counts_6.npz
+      - 3m_mouse_counts_7.npz
+      - 3m_mouse_counts_8.npz
+      - 3m_mouse_counts_9.npz
+      - 3m_mouse_counts_10.npz
+      - 3m_mouse_counts_11.npz
+      - 3m_mouse_counts_12.npz
+      - 3m_mouse_counts_13.npz
+      train_metadata_masks:
+      - 3m_mouse_metadata_1.pkl
+      - 3m_mouse_metadata_2.pkl
+      - 3m_mouse_metadata_3.pkl
+      - 3m_mouse_metadata_4.pkl
+      - 3m_mouse_metadata_5.pkl
+      - 3m_mouse_metadata_6.pkl
+      - 3m_mouse_metadata_7.pkl
+      - 3m_mouse_metadata_8.pkl
+      - 3m_mouse_metadata_9.pkl
+      - 3m_mouse_metadata_10.pkl
+      - 3m_mouse_metadata_11.pkl
+      - 3m_mouse_metadata_12.pkl
+      - 3m_mouse_metadata_13.pkl
+      val_npz_masks: 3m_mouse_counts_14.npz
+      val_metadata_masks: 3m_mouse_metadata_14.pkl
+      test_npz_masks: 3m_mouse_counts_15.npz
+      test_metadata_masks: 3m_mouse_metadata_15.pkl
+      verbose: false

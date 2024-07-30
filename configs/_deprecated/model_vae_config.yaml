@@ -1,0 +1,65 @@
+# lightning.pytorch==2.2.5
+class_path: sciml.VAEModel
+init_args:
+  predict_keys:
+  - x_hat
+  - z
+  kl_weight: 1.0
+  plot_z_embeddings: false
+  vae:
+    class_path: sciml.modules.VAE
+    init_args:
+      encoder:
+        class_path: sciml.modules.LightningSequential
+        init_args:
+          layers:
+            - class_path: sciml.modules.LightningLinear
+              init_args:
+                in_features: 60664
+                out_features: 1024
+            - class_path: torch.nn.BatchNorm1d
+              init_args:
+                num_features: 1024
+            - class_path: torch.nn.ReLU
+            - class_path: sciml.modules.LightningLinear
+              init_args:
+                in_features: 1024
+                out_features: 512
+            - class_path: torch.nn.LayerNorm
+              init_args:
+                normalized_shape: 512
+            - class_path: torch.nn.ReLU
+            - class_path: sciml.modules.LightningLinear
+              init_args:
+                in_features: 512
+                out_features: 256
+            - class_path: torch.nn.ReLU
+      decoder:
+        class_path: sciml.modules.LightningSequential
+        init_args:
+          layers:
+            - class_path: sciml.modules.LightningLinear
+              init_args:
+                in_features: 256
+                out_features: 512
+            - class_path: torch.nn.ReLU
+            - class_path: sciml.modules.LightningLinear
+              init_args:
+                in_features: 512
+                out_features: 1024
+            - class_path: torch.nn.ReLU
+            - class_path: sciml.modules.LightningLinear
+              init_args:
+                in_features: 1024
+                out_features: 60664
+            - class_path: torch.nn.ReLU
+      mean:
+        class_path: torch.nn.Linear
+        init_args:
+          in_features: 256
+          out_features: 256
+      var:
+        class_path: torch.nn.Linear
+        init_args:
+          in_features: 256
+          out_features: 256

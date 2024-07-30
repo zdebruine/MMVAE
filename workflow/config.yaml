@@ -1,0 +1,8 @@
+# Experiment Parameters
+root_dir: /mnt/projects/debruinz_project/integration/tensorboard
+config_name: config.yaml
+ckpt_path: checkpoints/best.ckpt
+
+
+# ENVIROMENT SPECIFIC
+env_path: '/mnt/projects/debruinz_project/pytorch-nightly-env/bin/python3'
