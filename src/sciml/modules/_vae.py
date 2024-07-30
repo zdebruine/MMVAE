@@ -38,7 +38,6 @@ class VAE(nn.Module):
         distribution: Union[Literal['ln'], Literal['normal']] = 'normal',
         encoder_kwargs: dict = {},
         decoder_kwargs: dict = {},
-        return_z: bool = False,
     ):
         super().__init__()
         
@@ -60,7 +59,6 @@ class VAE(nn.Module):
             layers=decoder_layers,
             **decoder_kwargs
         )
-        self._return_z = return_z
         
     
     def encode(self, x: torch.Tensor):
@@ -106,9 +104,7 @@ class VAE(nn.Module):
         pz = Normal(torch.zeros_like(z), torch.ones_like(z))
         x = self.after_reparameterize(z, metadata)
         x_hat = self.decode(x)
-        if self._return_z:
-            return qz, z, x_hat
-        return qz, pz, x_hat
+        return qz, pz, z, x_hat
     
     def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float):
         """
