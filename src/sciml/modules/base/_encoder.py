@@ -4,7 +4,7 @@ from torch.distributions import Normal
 
 from typing import Union, Literal, Optional, Callable
 
-from ._fc_block import FCBlock
+from ._fc_block import FCBlock, FCBlockConfig
 
 def _identity(x):
     return x
@@ -37,20 +37,19 @@ class Encoder(nn.Module):
     
     def __init__(
         self,
-        n_in: int,
-        n_hidden: int,
-        n_out: int,
-        fc_layers: list[int] = [],
+        fc_block_config: FCBlockConfig,
         distribution: Union[Literal['ln'], Literal['normal']] = 'normal',
         var_activation: Optional[Callable] = torch.exp,
         return_dist: bool = False,
         var_eps: float = 1e-4, # numerical stability
-        **fc_block_kwargs
     ):
         super().__init__()
 
         # Fully connected block for encoding the input features
-        self.encoder = FCBlock([n_in, *fc_layers, n_hidden], **fc_block_kwargs)
+        self.encoder = FCBlock(fc_block_config)
+        
+        # Get hidden and latent dimenision from layer dim list
+        n_hidden, n_out = fc_block_config.layers[-2], fc_block_config.layers[-1]
         
         # Linear layer to compute the mean of the latent variables
         self.mean_encoder = nn.Linear(n_hidden, n_out)

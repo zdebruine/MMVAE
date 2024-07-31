@@ -1,14 +1,5 @@
 from typing import NamedTuple
-import torch
-import pandas as pd
 
-    
-class ModelOutputs(NamedTuple):
-    qzm: torch.Tensor
-    qzv: torch.Tensor
-    z: torch.Tensor
-    z_star: torch.Tensor
-    x_hat: torch.Tensor
     
 class _REGISTRY_KEYS_NT(NamedTuple):
     LOSS: str = "loss"

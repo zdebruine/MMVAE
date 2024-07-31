@@ -3,7 +3,7 @@ from ._cellxgene_datapipe import SpeciesDataPipe, MultiSpeciesDataPipe
 from torch.utils.data import DataLoader
 import warnings
 
-from sciml.utils.constants import REGISTRY_KEYS as RK
+from sciml.constants import REGISTRY_KEYS as RK
 
 
 class BaseSpeciesManager:
@@ -62,11 +62,7 @@ class SpeciesManager(BaseSpeciesManager):
     def transform_fn(self):
         def generator(source):
             tensor, metadata = source
-            return {
-                RK.X: tensor,
-                RK.METADATA: metadata,
-                RK.EXPERT_ID: self.name
-            }
+            return tensor, metadata, self.name
         return generator
 
     

@@ -1,15 +1,10 @@
-from typing import Union
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import lightning.pytorch as pl
-from .base import utils
-from sciml.utils.constants import REGISTRY_KEYS as RK
-from .base import BaseVAEModel
-from sciml.modules import MMVAE
+from ._base_model import BaseModel
+from sciml.modules import CMMVAE
+from sciml.constants import REGISTRY_KEYS as RK
 
-class MMVAEModel(BaseVAEModel):
+
+
+class CMMVAEModel(BaseModel):
     """
     Multi-Modal Variational Autoencoder (MMVAE) model for handling expert-specific data.
 
@@ -21,10 +16,10 @@ class MMVAEModel(BaseVAEModel):
         automatic_optimization (bool): Flag to control automatic optimization. Set to False for manual optimization.
     """
     
-    def __init__(self, module: MMVAE, **kwargs):
-        super().__init__(module, **kwargs)
+    def __init__(self, cmmvae: CMMVAE, **kwargs):
+        super().__init__(**kwargs)
+        self.cmmvae = cmmvae
         self.automatic_optimization = False  # Disable automatic optimization for manual control
-        print(self.module)
         
     def training_step(self, batch, batch_idx):
         """
@@ -37,7 +32,7 @@ class MMVAEModel(BaseVAEModel):
         Returns:
             None
         """
-        expert_id = batch[RK.EXPERT_ID]
+        x, metadata, expert_id = batch
         # Retrieve optimizers
         shared_opt, human_opt, mouse_opt = self.optimizers()
 
@@ -49,10 +44,12 @@ class MMVAEModel(BaseVAEModel):
         expert_opt.zero_grad()
         
         # Perform forward pass and compute the loss
-        model_inputs, model_outputs, loss = self(batch, module_input_kwargs={'target': expert_id}, loss_kwargs={'kl_weight': self.kl_annealing_fn.kl_weight}) 
+        qz, pz, z, x_hats = self.cmmvae(x, metadata, expert_id)
+        
+        loss_dict = self.cmmvae.loss(x, expert_id, qz, pz, x_hats, self.kl_annealing_fn.kl_weight)
 
         # Perform manual backpropagation
-        self.manual_backward(loss[RK.LOSS])
+        self.manual_backward(loss_dict[RK.LOSS])
 
         # Clip gradients for stability
         self.clip_gradients(shared_opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
@@ -61,10 +58,11 @@ class MMVAEModel(BaseVAEModel):
         # Update the weights
         shared_opt.step()
         expert_opt.step()
+        
         self.kl_annealing_fn.step()
         
         # Log the loss
-        self.auto_log(loss, tags=[self.stage_name, expert_id])
+        self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
         
     def validation_step(self, batch):
         """
@@ -76,12 +74,21 @@ class MMVAEModel(BaseVAEModel):
         Returns:
             None
         """
-        # Perform forward pass and compute the loss with cross-generation loss
-        model_inputs, _, loss = self(batch, loss_kwargs={'use_cross_gen_loss': True, 'kl_weight': self.kl_annealing_fn.kl_weight})
+        x, metadata, expert_id = batch
+        
+        qz, pz, z, x_hats = self.cmmvae(x, metadata, expert_id)
+        
+        loss_dict = self.cmmvae.loss(x, expert_id, qz, pz, x_hats, self.kl_annealing_fn.kl_weight, compute_cross_gen_loss=True)
         
         # Log the loss if not in sanity checking phase
         if not self.trainer.sanity_checking:
-            self.auto_log(loss, tags=[self.stage_name, batch[RK.EXPERT_ID]])
+            self.auto_log(loss_dict, tags=[self.stage_name, batch[RK.EXPERT_ID]])
         
     # Alias for validation_step method to reuse for testing
     test_step = validation_step
+    
+    def predict_step(self, batch, batch_idx):
+        
+        x, metadata, expert_id = batch
+        embeddings = self.cmmvae.get_latent_embeddings()
+        self.save_predictions(embeddings)

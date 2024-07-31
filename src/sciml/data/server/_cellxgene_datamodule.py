@@ -12,7 +12,7 @@ from ._cellxgene_manager import (
     DEFAULT_WEIGHTS
 )
 
-from sciml.utils.constants import REGISTRY_KEYS as RK
+from sciml.constants import REGISTRY_KEYS as RK
 
 class CellxgeneDataModule(L.LightningDataModule):
     
@@ -53,11 +53,9 @@ class CellxgeneDataModule(L.LightningDataModule):
     
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         
-        metadata = self.cellx_manager.metadata_to_df(batch[1])
+        x_batch, labels = batch
         
-        return {
-            RK.X: batch[0], 
-            RK.METADATA: metadata,
-            RK.EXPERT_ID: 'human'
-        }
+        metadata = self.cellx_manager.metadata_to_df(labels)
+        
+        return x_batch, metadata, 'human'
     

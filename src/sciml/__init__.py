@@ -1,6 +1,6 @@
 from .cli import SCIMLCli
 
-import sciml.utils.logging as logging
+import sciml.logging as logging
 
 if logging.DEBUG:
     logging.debug()

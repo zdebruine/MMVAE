@@ -3,20 +3,20 @@ import torch
 import torch.nn as nn
 import pandas as pd
 
-from ._fc_block import FCBlock
+from ._fc_block import FCBlock, FCBlockConfig
 
 
 
 class ConditionalLayer(nn.Module):
     
-    def __init__(self, batch_key: str, conditions_path: str, **kwargs):
+    def __init__(self, batch_key: str, conditions_path: str, fc_block_config: FCBlockConfig):
         super(ConditionalLayer, self).__init__()
         
         self.batch_key = batch_key
         conditions_df = pd.read_csv(conditions_path, header=None)
         
         self.conditions = nn.ModuleDict({
-            self.format_condition_key(condition): FCBlock(**kwargs) 
+            self.format_condition_key(condition): FCBlock(fc_block_config) 
             for condition in conditions_df[0]
         })
         
@@ -46,8 +46,8 @@ class ConditionalLayers(nn.Module):
     def __init__(
         self,
         conditional_paths: dict[str, str],
+        fc_block_config: FCBlockConfig,
         selection_order: Optional[list[str]] = None,
-        **kwargs,
     ):
         super(ConditionalLayers, self).__init__()
         
@@ -59,7 +59,7 @@ class ConditionalLayers(nn.Module):
         self.selection_order: torch.Tensor = torch.arange(0, len(selection_order), dtype=torch.int32, requires_grad=False)
         
         self.conditionals = nn.ModuleList([
-            ConditionalLayer(batch_key, conditional_paths[batch_key], **kwargs)
+            ConditionalLayer(batch_key, conditional_paths[batch_key], fc_block_config)
             for batch_key in selection_order
         ])
         

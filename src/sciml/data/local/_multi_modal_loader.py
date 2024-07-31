@@ -1,6 +1,6 @@
 import random
 from torch.utils.data import DataLoader
-from sciml.utils.constants import REGISTRY_KEYS as RK
+from sciml.constants import REGISTRY_KEYS as RK
 
 
 class MMDataLoader:

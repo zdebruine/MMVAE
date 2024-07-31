@@ -1,129 +1,50 @@
 from dataclasses import dataclass
 from typing import Any, Literal, Optional, Union
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import pandas as pd
 
-from sciml.modules.base._expert import Experts
-
-from ._vae import VAE
-from .base import FCBlock
-from .base._conditional_layer import ConditionalLayers
-
-from sciml.utils.constants import REGISTRY_KEYS as RK
-
-
-class Expert(nn.Module):
-    
-    def __init__(self, encoder_kwargs, decoder_kwargs):
-        
-        self.encoder = FCBlock(**encoder_kwargs)
-        self.decoder = FCBlock(**decoder_kwargs)
-    
-    def encode(self, x: torch.Tensor):
-        return self.encoder(x)
-    
-    def decode(self, x: torch.Tensor):
-        return self.decoder(x)
-
-class CVAE(VAE):
-    
-    def __init__(
-        self,
-        vae_kwargs,
-        conditional_kwargs,
-    ):
-        super().__init__(**vae_kwargs)
-        self.conditionals = ConditionalLayers(**conditional_kwargs)
-    
-    def after_reparameterize(self, z: torch.Tensor, metadata: pd.DataFrame):
-        return self.conditionals(z, metadata)
-    
+from .base import Experts
+from ._clvae import CLVAE
 from ._mmvae import MMVAE
+from sciml.constants import REGISTRY_KEYS as RK
 
-class MMCVAE(MMVAE):
+
+
+class CMMVAE(MMVAE):
     
-    def __init__(
-        self,
-        cvae: CVAE,
-        experts: Experts
-    ):
+    def __init__(self, clvae: CLVAE, experts: Experts):
         super().__init__(
-            vae=cvae,
+            vae=clvae,
             experts=experts
         )
-
-
-class CMMVAE(CVAE):
     
-    def __init__(
-        self,
-        vae_kwargs: dict[str, Any],
-        experts_kwargs: dict[str, dict[str, Any]]
-    ):
-        super().__init__()
-        
-        self.experts = nn.ModuleDict({
-            expert_id: Expert(**expert_config)
-            for expert_id, expert_config in experts_kwargs.items()
-        })
-        
-        self.cvae = VAE(**vae_kwargs)
-        
-    @property
-    def forward_kwargs(self):
-        return 
-        
     def forward(
         self, 
         x: torch.Tensor,
         metadata: pd.DataFrame,
         expert_id: str,
-        compute_loss: bool = True,
-        **loss_kwargs
     ):
         shared_x = self.experts[expert_id].encode(x)
         
-        qz, pz, z, shared_x_hat = self.cvae(shared_x, metadata)
+        qz, pz, z, shared_x_hat = self.vae(shared_x, metadata)
         
         x_hats = {}
         for expert in self.experts:
             x_hats[expert] = self.experts[expert].decode(shared_x_hat)
-            
-        if compute_loss:
-            return self.loss(x, metadata, qz, pz, x_hats, **loss_kwargs)
         
         return qz, pz, z, x_hats
-    
-    def cross_generate(self, x, source):
-        """
-        Perform cross-generation between species.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-            source (str): Source expert ID.
-
-        Returns:
-            torch.Tensor: Reconstructed tensor from the source after cross-generation.
-        """
-        target = RK.MOUSE if source == RK.HUMAN else RK.HUMAN
-        
-        _, _, target_x_hat = self(x, source, target=target)
-        _, _, source_cross_x_hat = self(target_x_hat[target], target, target=source)
-        
-        return source_cross_x_hat[source]
     
     def loss(
         self,
         x: torch.Tensor,
-        metadata: pd.DataFrame,
         expert_id: str,
         qz: torch.distributions.Distribution,
         pz: torch.distributions.Distribution,
         x_hats: dict[str, torch.Tensor],
         kl_weight: float,
-        compute_cross_gen_loss: bool,
+        compute_cross_gen_loss: bool = False,
     ):
 
         if x.layout == torch.sparse_csr:
@@ -149,3 +70,13 @@ class CMMVAE(CVAE):
             RK.KL_WEIGHT: kl_weight
         }
         
+    @torch.no_grad()
+    def get_latent_embeddings(self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str):
+        
+        x = self.experts[expert_id].encode(x)
+        qz, z = self.vae.encode(x)
+        
+        return {
+            RK.Z: z,
+            f"{RK.Z}_{RK.METADATA}": metadata
+        }

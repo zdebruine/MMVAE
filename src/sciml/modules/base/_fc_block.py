@@ -1,7 +1,10 @@
+from dataclasses import dataclass
 import torch
 import torch.nn as nn
 from collections import OrderedDict
 from typing import Iterable, Optional, Union
+
+
 
 def is_iterable(obj):
     """
@@ -18,8 +21,9 @@ def is_iterable(obj):
     except TypeError:
         return False
     return True
+    
 
-class FCBlock(nn.Module):
+class BaseFCBlock(nn.Module):
     """
     Fully Connected Block (FCBlock) for building neural network layers.
 
@@ -108,3 +112,24 @@ class FCBlock(nn.Module):
         """
         return self.fc_layers(x)
     
+    
+@dataclass
+class FCBlockConfig:
+    
+    layers: Iterable[int]
+    dropout_rate: Union[float, Iterable[float]] = 0.0
+    use_batch_norm: Union[bool, Iterable[bool]] = False
+    use_layer_norm: Union[bool, Iterable[bool]] = False
+    activation_fn: Union[Optional[nn.Module], Iterable[Optional[nn.Module]]] = None
+    
+    
+class FCBlock(BaseFCBlock):
+    
+    def __init__(self, config: FCBlockConfig):
+        super(FCBlock, self).__init__(
+            layers=config.layers,
+            dropout_rate=config.dropout_rate,
+            use_batch_norm=config.use_batch_norm,
+            use_layer_norm=config.use_layer_norm,
+            activation_fn=config.activation_fn
+        )

@@ -1,18 +1,19 @@
 from ._encoder import Encoder
-from ._fc_block import FCBlock
+from ._fc_block import BaseFCBlock, FCBlock, FCBlockConfig
 from ._module import BaseModule
-from ._expert import Expert, Experts
+from ._experts import Expert, Experts
 from ._annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
-from ._conditional_layer import ConditionalLayer, DynamicConditionalLayer
+from ._conditionals import ConditionalLayer
 
 __all__ = [
-    'BaseModule',
-    'ConditionalLayer',
-    'DynamicConditionalLayer'
-    'Encoder',
-    "FCBlock",
+    "BaseModule",
+    "BaseFCBlock",
+    "ConditionalLayer",
+    "Encoder",
     "Expert",
     "Experts",
+    "FCBlock",
+    "FCBlockConfig",
     "KLAnnealingFn",
     "LinearKLAnnealingFn"
 ]

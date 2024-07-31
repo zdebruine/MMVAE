@@ -1,3 +1,8 @@
-from .base import BaseVAEModel
-from ._vae import VAEModel
-from ._mmvae import MMVAEModel
+from ._base_model import BaseModel
+from ._cmmvae import CMMVAEModel
+
+
+__all__ = [
+    "BaseModel",
+    "CMMVAEModel",
+]

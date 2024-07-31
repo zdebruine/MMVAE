@@ -1,17 +1,57 @@
 import os
 import numpy as np
 import pandas as pd
-from typing import Iterable, Literal, Optional, Union, Any, Callable
 import torch
 import lightning.pytorch as pl
-from . import utils
+from typing import Iterable, Literal, Optional, Union, Any
 
-from sciml.utils.constants import REGISTRY_KEYS as RK
-
-from sciml.modules.base import BaseModule
+from sciml.constants import REGISTRY_KEYS as RK
+import sciml.modules.init as init
 from sciml.modules.base import KLAnnealingFn, LinearKLAnnealingFn
 
-class BaseVAEModel(pl.LightningModule):
+
+def tag_log_dict(
+    log_dict: dict[str, torch.Tensor], 
+    tags: Iterable[str] = [], 
+    sep: str = "/", 
+    key_pos: Union[Literal['first'], Literal['last']] = 'first',
+) -> dict[str, torch.Tensor]:
+    """
+    Annotates loss output keys with specified tags.
+
+    Args:
+        log_dict (Dict[str, torch.Tensor]): A dictionary containing loss outputs.
+        tags (str): Tags to append or prepend to the keys.
+        sep (str): Separator used to concatenate tags and keys.
+        key_first (bool): If True, places the key before the tags. If False, places the tags before the key.
+
+    Returns:
+        Dict[str, torch.Tensor]: A dictionary with updated keys based on the tags and separator.
+    """
+    
+    tags_str = sep.join(tags)
+
+    def key_generator(key):
+        if key_pos == 'first':
+            return f"{key}{sep}{tags_str}"
+        if key_pos == 'last':
+            return f"{tags_str}{sep}{key}"
+    
+    return {
+        key_generator(key): value
+        for key, value in log_dict.items()
+    }
+    
+class InitWeightsMeta(type):
+    def __call__(cls, *args, **kwargs):
+        # Create the instance (calls __init__)
+        instance = super().__call__(*args, **kwargs)
+        # Call the post_init method if it exists
+        if hasattr(instance, 'init_weights'):
+            instance.init_weights()
+        return instance
+
+class BaseModel(pl.LightningModule, metaclass=InitWeightsMeta):
     """
     Base class for Variational Autoencoder (VAE) models, extending PyTorch Lightning's LightningModule.
 
@@ -24,7 +64,6 @@ class BaseVAEModel(pl.LightningModule):
         batch_size (int, optional): Batch size for logging purposes only. Defaults to 128.
         record_embeddings (bool, optional): Whether to record embeddings (z and z*star). Defaults to False.
         record_gradients (bool, optional): Whether to record gradients of the model. Defaults to False.
-        save_embeddings_interval (int, optional): Interval to save embeddings to avoid clogging TensorBoard. Defaults to 25.
         configure_optimizer_kwargs (dict, optional): Keyword arguments to be passed to configure_optimizers. Defaults to an empty dict.
         gradient_record_cap (int, optional): Cap on the number of gradients to record to prevent clogging TensorBoard. Defaults to 20.
 
@@ -36,34 +75,37 @@ class BaseVAEModel(pl.LightningModule):
 
     def __init__(
         self,
-        module: BaseModule,
         batch_size: int = 128,
-        record_embeddings: bool = False,
         record_gradients: bool = False,
-        save_embeddings_interval: int = 25,
+        save_gradients_interval: int = 25,
         configure_optimizer_kwargs: dict[str, Any] = {},
         gradient_record_cap: int = 20,
         kl_annealing_fn: Optional[Union[Literal['linear', 'constant']]] = 'constant', # add more annealing functions
         kl_annealing_fn_kwargs: dict[str, Any] = {},
-        prediction_kwargs: dict[str, Any] = {},
+        predict_dir: str = 'samples',
+        predict_save_interval: int = 600,
+        initial_save_index: int = -1,
+        use_he_init_weights: bool = True,
     ):
         super().__init__()
         
         self.save_hyperparameters(ignore=['module'], logger=False)
-        
-        self.module = module
+    
         self.batch_size = batch_size
         self._configure_optimizer_kwargs = configure_optimizer_kwargs
-        self.save_embeddings_interval = save_embeddings_interval
-        self.record_embeddings = record_embeddings
+        self.save_gradients_interval = save_gradients_interval
         self.record_gradients = record_gradients
         self.gradient_record_cap = gradient_record_cap
-        self.prediction_kwargs = prediction_kwargs
+        self.predictions = []
+        self.predict_dir = predict_dir
+        self.predict_save_interval = predict_save_interval
+        self._curr_save_idx = initial_save_index
         self._register_kl_annealing_fn(kl_annealing_fn, **kl_annealing_fn_kwargs)
+        self._use_he_init_weights = use_he_init_weights
         
-    def save_predictions(self, predictions, **kwargs):
-        """Callback method to save predictions generated from model"""
-        raise NotImplementedError()
+    def init_weights(self):
+        if self._use_he_init_weights:
+            init.he_init_weights(self)
     
     def save_latent_predictions(
         self, embeddings: np.ndarray, metadata: pd.DataFrame,
@@ -112,12 +154,6 @@ class BaseVAEModel(pl.LightningModule):
             return 'prediction'
         elif self.trainer.testing:
             return 'test'
-    
-    def save_embeddings(self, model_inputs, model_outputs):
-        """
-        Abstract method to save embeddings from the model during the forward pass.
-        """
-        pass
         
     def save_gradient(self, tag, grad):
         """
@@ -143,20 +179,6 @@ class BaseVAEModel(pl.LightningModule):
         for k, v in self.named_parameters():
             if v.requires_grad:
                 self.save_gradient(k, v.grad)
-    
-    @property
-    def record_embeddings(self):
-        """
-        Determine whether to record embeddings during the forward pass.
-
-        Returns:
-            bool: True if embeddings should be recorded, False otherwise.
-        """
-        return self._record_embeddings and not self.trainer.sanity_checking
-        
-    @record_embeddings.setter
-    def record_embeddings(self, value: bool):
-        self._record_embeddings = value
         
     @property
     def record_gradients(self):
@@ -179,65 +201,8 @@ class BaseVAEModel(pl.LightningModule):
         Args:
             optimizer (torch.optim.Optimizer): The optimizer being used.
         """
-        if self.record_gradients and self.trainer.global_step % self.save_embeddings_interval == 0:
-            self.save_embeddings()
-    
-    def forward(
-        self, 
-        batch: Any, 
-        compute_loss: bool = True,
-        record_embeddings: Optional[bool] = None,
-        record_gradients: Optional[bool] = None,
-        module_input_kwargs = {}, 
-        loss_kwargs = {}
-    ):
-        """
-        Forward method for the model.
-
-        This method processes the input batch and passes it through the module,
-        optionally computing loss and recording embeddings or gradients.
-
-        Args:
-            batch (Any): The input batch.
-            compute_loss (bool, optional): Whether to compute and return the loss. Defaults to True.
-            record_embeddings (Optional[bool], optional): Override for recording embeddings. Defaults to None.
-            record_gradients (Optional[bool], optional): Override for recording gradients. Defaults to None.
-            module_input_kwargs (dict, optional): Additional keyword arguments for the module's input. Defaults to an empty dict.
-            loss_kwargs (dict, optional): Additional keyword arguments for the loss computation. Defaults to an empty dict.
-
-        Returns:
-            tuple: The model inputs, model outputs, and loss (if computed).
-        """
-        # Allow for individualized control on forward pass
-        if record_embeddings is not None:  # optional override to save embeddings
-            self.record_embeddings = record_embeddings
-        if record_gradients is not None:  # optional override to record gradients
-            self.record_gradients = record_gradients
-        
-        # Get module inputs for the forward pass in the form of args and kwargs
-        model_inputs = self.module.get_module_inputs(batch, **module_input_kwargs)
-        args, kwargs = model_inputs  # Split model inputs into args and kwargs
-        model_outputs = self.module(*args, **kwargs)  # Pass args and kwargs to the forward method of the module
-        
-        # Record embeddings of the forward pass if necessary
-        if self.record_embeddings:
-            self.save_embeddings(model_inputs, model_outputs)
-        
-        # Compute the loss of the module if necessary
-        loss = None
-        if compute_loss:
-            loss = self.module.loss(model_inputs, model_outputs, **loss_kwargs)
-        
-        return model_inputs, model_outputs, loss
-    
-    def configure_optimizers(self):
-        """
-        Configure optimizers for the model.
-
-        Returns:
-            list: A list of optimizers.
-        """
-        return self.module.configure_optimizers(**self._configure_optimizer_kwargs)
+        if self.record_gradients and self.trainer.global_step % self.save_gradients_interval == 0:
+            self.save_gradients()
         
     def get_adata_latent_representations(
         self,
@@ -299,7 +264,7 @@ class BaseVAEModel(pl.LightningModule):
             return
         
         # Tag log dict to differentiate losses
-        log_dict = utils.tag_log_dict(log_dict, tags, sep, key_pos)
+        log_dict = tag_log_dict(log_dict, tags, sep, key_pos)
         
         self.log_dict(
             log_dict, 
@@ -308,3 +273,47 @@ class BaseVAEModel(pl.LightningModule):
             logger=True, 
             batch_size=self.batch_size
         )
+        
+    def on_predict_epoch_start(self):
+        self.predictions.clear()
+        
+    def on_predict_epoch_end(self):
+        if self.predictions:
+            self._save_paired_predictions(empty=True)
+        self.predictions.clear()
+        self.predictions_saved = True
+        
+    def save_predictions(self, predictions, idx: int):  
+        
+        self.predictions.append(predictions)
+        
+        div, mod = divmod(idx, self.predict_save_interval)
+        if mod == 0:
+            self._save_paired_predictions()
+    
+    def _save_paired_predictions(self):
+        
+        if self.predictions_saved:
+            import warnings
+            warnings.warn("save_predictions is a no-op predictions already saved")
+            return
+        
+        self._curr_save_idx += 1
+        stacked_predictions = {}
+        
+        for key in self.predictions[0].keys():
+            if isinstance(self.predictions[0][key], pd.DataFrame):
+                stacked_predictions[key] = pd.concat([prediction[key] for prediction in self.predictions])
+            else:
+                stacked_predictions[key] = torch.cat([prediction[key] for prediction in self.predictions], dim=0).cpu().numpy()
+
+        for key in stacked_predictions:
+            if RK.METADATA in key:
+                continue
+            
+            self.save_latent_predictions(
+                embeddings=stacked_predictions[key], 
+                metadata=stacked_predictions[f"{key}_{RK.METADATA}"], 
+                embeddings_path=os.path.join(self.predict_dir, f"{key}_embeddings_{self._curr_save_idx}.npz"),
+                metadata_path=os.path.join(self.predict_dir, f"{key}_metadata_{self._curr_save_idx}.pkl"),
+            )

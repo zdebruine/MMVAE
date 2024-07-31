@@ -6,12 +6,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal, kl_divergence, Distribution
 
-from .base import Encoder, FCBlock
+from .base import Encoder, FCBlock, FCBlockConfig
 
-from sciml.utils.constants import REGISTRY_KEYS as RK
+from sciml.constants import REGISTRY_KEYS as RK
         
 
-class VAE(nn.Module):
+class BaseVAE(nn.Module):
     """
     Variational Autoencoder (VAE) class.
 
@@ -28,37 +28,10 @@ class VAE(nn.Module):
         decoder_kwargs (dict, optional): Additional keyword arguments for the decoder. Defaults to an empty dict.
     """
     
-    def __init__(
-        self,
-        n_in: int,
-        encoder_layers: list[int],
-        n_latent: int,
-        decoder_layers: list[int],
-        n_out: int,
-        distribution: Union[Literal['ln'], Literal['normal']] = 'normal',
-        encoder_kwargs: dict = {},
-        decoder_kwargs: dict = {},
-    ):
-        super().__init__()
+    def __init__(self, encoder: Encoder, decoder: nn.Module):
         
-        self.n_latent = n_latent
-        # Initialize the encoder
-        self.encoder = Encoder(
-            n_in=n_in,
-            fc_layers=encoder_layers[:-1],
-            n_hidden=encoder_layers[-1], 
-            n_out=n_latent,
-            distribution=distribution,
-            return_dist=True,
-            **encoder_kwargs,
-        )
-
-        # Initialize the decoder
-        decoder_layers = [n_latent, *decoder_layers, n_out]
-        self.decoder = FCBlock(
-            layers=decoder_layers,
-            **decoder_kwargs
-        )
+        self.encoder = encoder
+        self.decoder = decoder
         
     
     def encode(self, x: torch.Tensor):
@@ -129,55 +102,40 @@ class VAE(nn.Module):
         
         loss = (recon_loss + kl_weight * z_kl_div.mean())  # Compute total loss
         
-        return z_kl_div.mean(), recon_loss / x.numel(), loss
-
-    def loss(
-        self, 
-        model_inputs,
-        model_outputs,
-        kl_weight: float = 1.0
-    ):
-        """
-        Compute the loss for the VAE.
-
-        Args:
-            model_inputs (tuple): Inputs to the model.
-            model_outputs (tuple): Outputs from the model.
-            kl_weight (float, optional): Weight for the KL divergence term. Defaults to 1.0.
-
-        Returns:
-            dict: Dictionary containing loss components.
-        """
-        args, _ = model_inputs
-        x, *_ = args
-        qz, pz, x_hat = model_outputs
-        
-        # Compute Evidence Lower Bound (ELBO) loss
-        z_kl_div, recon_loss, loss = self.elbo(qz, pz, x, x_hat, kl_weight=kl_weight)
-        
         return {
-            RK.RECON_LOSS: recon_loss,
-            RK.KL_LOSS: z_kl_div,
+            RK.RECON_LOSS: recon_loss / x.numel(),
+            RK.KL_LOSS: z_kl_div.mean(),
             RK.LOSS: loss,
             RK.KL_WEIGHT: kl_weight
         }
         
+    @torch.no_grad()
     def get_latent_embeddings(self, x: torch.Tensor, metadata: pd.DataFrame):
-        
+
         _, z = self.encode(x)
         
-        predictions = {
+        return {
             RK.Z: z,
-            f"{RK.Z}_{RK.METADATA}": metadata, 
+            f"{RK.Z}_{RK.METADATA}": metadata
         }
         
-        z_star = self.after_reparameterize(z, metadata)
+class VAE(BaseVAE):
+    
+    def __init__(
+        self,
+        encoder_config: FCBlockConfig,
+        decoder_config: FCBlockConfig,
+        **encoder_kwargs,
+    ):
+        # Initialize the encoder
+        encoder = Encoder(
+            fc_block_config=encoder_config,
+            return_dist=True,
+            **encoder_kwargs
+        )
         
-        if z_star.equal(z):
-            return predictions
+        decoder = FCBlock(decoder_config)
         
-        predictions.update({ RK.Z_STAR: z_star, f"{RK.Z_STAR}_{RK.METADATA}": metadata })
+        super(VAE, self).__init__(encoder, decoder)
         
-        return predictions
-        
-        
+            
