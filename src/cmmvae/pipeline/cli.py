@@ -1,6 +1,6 @@
 
 from lightning.pytorch.cli import LightningCLI, SaveConfigCallback
-from sciml.models import BaseModel
+from cmmvae.models import BaseModel
 
 
 class SCIMLCli(LightningCLI):

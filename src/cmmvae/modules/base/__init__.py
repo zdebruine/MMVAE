@@ -1,9 +1,9 @@
-from sciml.modules.base.components import (
+from cmmvae.modules.base.components import (
     Encoder, BaseFCBlock, FCBlock, FCBlockConfig, 
     Expert, Experts, ConditionalLayer, ConditionalLayers
 )
 
-from sciml.modules.base.annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
+from cmmvae.modules.base.annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
 
 __all__ = [
     "BaseModule",

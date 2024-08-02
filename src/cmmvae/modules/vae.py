@@ -8,7 +8,7 @@ from torch.distributions import Normal, kl_divergence, Distribution
 
 from .base import Encoder, FCBlock, FCBlockConfig
 
-from sciml.constants import REGISTRY_KEYS as RK
+from cmmvae.constants import REGISTRY_KEYS as RK
         
 
 class BaseVAE(nn.Module):

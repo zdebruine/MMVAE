@@ -5,7 +5,7 @@ import scipy.sparse as sp
 import pandas as pd
 import pickle
 
-from sciml.constants import REGISTRY_KEYS as RK
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 import torch
 from torchdata.datapipes.iter import FileLister, IterDataPipe, Zipper, Multiplexer
