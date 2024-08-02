@@ -46,7 +46,7 @@ class SpeciesDataModule(LightningDataModule):
     
     @property
     def can_pin_memory(self):
-        return all(species.return_dnese for species in self.species)
+        return all(species.return_dense for species in self.species)
     
     def train_dataloader(self):
         dps = list(self.train_datapipe())

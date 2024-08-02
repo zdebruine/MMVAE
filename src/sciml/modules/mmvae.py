@@ -1,10 +1,8 @@
 
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from sciml.constants import REGISTRY_KEYS as RK
 
-from ._vae import VAE
+from .vae import VAE
 from .base import Experts
 
 class MMVAE(nn.Module):

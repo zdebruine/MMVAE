@@ -1,5 +1,4 @@
-from typing import Any, Optional
-import torch
+
 from lightning.pytorch.cli import LightningCLI, SaveConfigCallback
 from sciml.models import BaseModel
 
@@ -12,7 +11,7 @@ class SCIMLCli(LightningCLI):
     """
     def __init__(
         self, 
-        extra_parser_kwargs: dict[str, Any] = {},
+        extra_parser_kwargs = {},
         **kwargs
     ):
         self.is_run = bool(kwargs.get('run', True)) 

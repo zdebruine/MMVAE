@@ -47,7 +47,7 @@ EVALUATION_FILES = expand(
     key=MERGE_KEYS,
 )
 
-TRAIN_COMMAND = f"-m sciml fit"
+TRAIN_COMMAND = f"-m sciml.pipeline.cli fit"
 if CONFIG_DIR:
     TRAIN_COMMAND += f" -c {CONFIG_DIR}"
 else:

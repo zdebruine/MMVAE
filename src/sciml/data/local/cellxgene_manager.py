@@ -1,15 +1,6 @@
-from dataclasses import dataclass
-from typing import Optional, Union
 
+from typing import Union
 from .cellxgene_datapipe import SpeciesDataPipe
-    
-    
-    
-@dataclass
-class LocalFileDataset:
-    npz_files: Union[str, list[str]]
-    metadata_files: Union[str, list[str]]
-    directory: Optional[str] = None
 
 
 class SpeciesManager:
@@ -17,27 +8,25 @@ class SpeciesManager:
     def __init__(
         self,
         name: str,
-        train_files: LocalFileDataset,
-        val_files: LocalFileDataset,
-        test_files: LocalFileDataset,
-        directory: Optional[str] = None,
+        directory_path: str,
+        train_npz_masks: Union[str, list[str]],
+        train_metadata_masks: Union[str, list[str]],
+        val_npz_masks: Union[str, list[str]],
+        val_metadata_masks: Union[str, list[str]],
+        test_npz_masks: Union[str, list[str]],
+        test_metadata_masks: Union[str, list[str]],
         batch_size: int = 128,
         return_dense: bool = False,
         verbose: bool = False,
     ):
         super().__init__()
-        assert directory or all(l.directory for l in (train_files, val_files, test_files)), ValueError(
-            """Global directory is not set and at least one file set does not have a directory. Absolute paths not allowed"""
-        )
-        if directory:
-            for file_set in (train_files, val_files, test_files):
-                if not file_set.directory:
-                    file_set.directory = directory
-
-        self.directory = directory
-        self.train_files = train_files
-        self.val_files = val_files
-        self.test_files = test_files
+        self.directory_path = directory_path
+        self.train_npz_masks = train_npz_masks
+        self.train_metadata_masks = train_metadata_masks
+        self.val_npz_masks = val_npz_masks
+        self.val_metadata_masks = val_metadata_masks
+        self.test_npz_masks = test_npz_masks
+        self.test_metadata_masks = test_metadata_masks
         self.batch_size = batch_size
         self.return_dense = return_dense
         self.verbose = verbose
@@ -48,23 +37,47 @@ class SpeciesManager:
             tensor, metadata = source
             return tensor, metadata, self.name
         return generator
-    
-    def configure_datapipe(self, file_set: LocalFileDataset):
+
+    def train_datapipe(self):
         return SpeciesDataPipe(
-            directory_path=file_set.directory,
-            npz_masks=file_set.npz_files,
-            metadata_masks=file_set.metadata_files,
+            directory_path=self.directory_path,
+            npz_masks=self.train_npz_masks,
+            metadata_masks=self.train_metadata_masks,
             batch_size=self.batch_size,
             shuffle=True,
             verbose=self.verbose,
             return_dense=self.return_dense,
             transform_fn=self.transform_fn())
-
-    def train_datapipe(self):
-        return self.configure_datapipe(self.train_files)
-
+    
     def val_datapipe(self):
-        return self.configure_datapipe(self.val_files)
-
+        return SpeciesDataPipe(
+            directory_path=self.directory_path,
+            npz_masks=self.val_npz_masks,
+            metadata_masks=self.val_metadata_masks,
+            batch_size=self.batch_size,
+            shuffle=False,
+            verbose=self.verbose,
+            return_dense=self.return_dense,
+            transform_fn=self.transform_fn())
+        
     def test_datapipe(self):
-        return self.configure_datapipe(self.test_files)
+        return SpeciesDataPipe(
+            directory_path=self.directory_path,
+            npz_masks=self.test_npz_masks,
+            metadata_masks=self.test_metadata_masks,
+            batch_size=self.batch_size,
+            verbose=self.verbose,
+            shuffle=False,
+            return_dense=self.return_dense,
+            transform_fn=self.transform_fn())
+    
+    def predict_datapipe(self):
+        return SpeciesDataPipe(
+            directory_path=self.directory_path,
+            npz_masks=self.test_npz_masks,
+            metadata_masks=self.test_metadata_masks,
+            batch_size=self.batch_size,
+            verbose=self.verbose,
+            shuffle=False,
+            return_dense=self.return_dense,
+            transform_fn=self.transform_fn())

@@ -1,8 +1,7 @@
 from .cellxgene_datamodule import SpeciesDataModule
-from .cellxgene_manager import SpeciesManager, LocalFileDataset
+from .cellxgene_manager import SpeciesManager
 
 __all__ = [
-    "LocalFileDataset",
     "SpeciesManager",
     "SpeciesDataModule",
 ]
