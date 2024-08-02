@@ -1,4 +1,4 @@
-import sciml.logging as logging
+import cmmvae.logging as logging
 
 if logging.DEBUG:
     logging.debug()

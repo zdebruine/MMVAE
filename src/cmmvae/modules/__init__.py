@@ -1,7 +1,7 @@
-from sciml.modules.vae import VAE
-from sciml.modules.mmvae import MMVAE
-from sciml.modules.clvae import CLVAE
-from sciml.modules.cmmvae import CMMVAE
+from cmmvae.modules.vae import VAE
+from cmmvae.modules.mmvae import MMVAE
+from cmmvae.modules.clvae import CLVAE
+from cmmvae.modules.cmmvae import CMMVAE
 
 
 __all__ = [

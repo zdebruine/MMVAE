@@ -6,9 +6,9 @@ import torch.nn as nn
 import lightning.pytorch as pl
 from typing import Iterable, Literal, Optional, Union, Any
 
-from sciml.constants import REGISTRY_KEYS as RK
-import sciml.modules.base.init as init
-from sciml.modules.base import KLAnnealingFn, LinearKLAnnealingFn
+from cmmvae.constants import REGISTRY_KEYS as RK
+import cmmvae.modules.base.init as init
+from cmmvae.modules.base import KLAnnealingFn, LinearKLAnnealingFn
 
 
 def tag_log_dict(
@@ -213,7 +213,7 @@ class BaseModel(pl.LightningModule):
         Returns:
             np.ndarray: Latent representations.
         """
-        from sciml.data.server import AnnDataDataset, collate_fn
+        from cmmvae.data.server import AnnDataDataset, collate_fn
         from torch.utils.data import DataLoader
         from lightning.pytorch.trainer import Trainer
 

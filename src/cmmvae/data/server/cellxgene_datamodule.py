@@ -12,7 +12,7 @@ from .cellxgene_manager import (
     DEFAULT_WEIGHTS
 )
 
-from sciml.constants import REGISTRY_KEYS as RK
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 class CellxgeneDataModule(L.LightningDataModule):
     

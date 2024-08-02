@@ -1,6 +1,6 @@
 
 import torch.nn as nn
-from sciml.constants import REGISTRY_KEYS as RK
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 from .vae import VAE
 from .base import Experts
