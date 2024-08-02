@@ -1,4 +1,4 @@
-class_path: sciml.models.CMMVAEModel
+class_path: cmmvae.models.CMMVAEModel
 init_args:
   kl_annealing_fn: constant
   kl_annealing_fn_kwargs: 
@@ -6,14 +6,14 @@ init_args:
   record_gradients: false
   gradient_record_cap: 20
   module:
-    class_path: sciml.modules.CMMVAE
+    class_path: cmmvae.modules.CMMVAE
     init_args: 
       clvae: 
-        class_path: sciml.modules.CLVAE
+        class_path: cmmvae.modules.CLVAE
         init_args:
           latent_dim: 128
           encoder_config:
-            class_path: sciml.modules.base.FCBlockConfig
+            class_path: cmmvae.modules.base.FCBlockConfig
             init_args:
               layers: [ 512, 256 ]
               dropout_rate: 0.0
@@ -21,7 +21,7 @@ init_args:
               use_layer_norm: False
               activation_fn: torch.nn.ReLU
           decoder_config:
-            class_path: sciml.modules.base.FCBlockConfig
+            class_path: cmmvae.modules.base.FCBlockConfig
             init_args:
               layers: [ 128, 256, 512 ]
               dropout_rate: 0.0
@@ -29,7 +29,7 @@ init_args:
               use_layer_norm: False
               activation_fn: torch.nn.ReLU
           conditional_config:
-            class_path: sciml.modules.base.FCBlockConfig
+            class_path: cmmvae.modules.base.FCBlockConfig
             init_args:
               layers:
               - 128
@@ -38,17 +38,17 @@ init_args:
               use_layer_norm: True
               activation_fn: null
           conditional_paths:
-            assay: "/mnt/projects/debruinz_project/denhofja/sciml/src/sciml/data/conditional_layers/unique_assays.csv"
+            assay: "/mnt/projects/debruinz_project/denhofja/cmmvae/src/cmmvae/data/conditional_layers/unique_assays.csv"
           selection_order: null
       experts:
-        class_path: sciml.modules.base.Experts
+        class_path: cmmvae.modules.base.Experts
         init_args:
           experts: 
-          - class_path: sciml.modules.base.Expert
+          - class_path: cmmvae.modules.base.Expert
             init_args:
               id: human
               encoder_config:
-                class_path: sciml.modules.base.FCBlockConfig
+                class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
                   layers: [ 60664, 1024, 512 ]
                   dropout_rate: [ 0.1, 0.1 ]
@@ -56,18 +56,18 @@ init_args:
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
               decoder_config:
-                class_path: sciml.modules.base.FCBlockConfig
+                class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
                   layers: [ 512, 1024, 60664 ]
                   dropout_rate: 0.0
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-          - class_path: sciml.modules.base.Expert
+          - class_path: cmmvae.modules.base.Expert
             init_args:
               id: mouse
               encoder_config:
-                class_path: sciml.modules.base.FCBlockConfig
+                class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
                   layers: [ 52417, 1024, 512 ]
                   dropout_rate: [ 0.1, 0.1 ]
@@ -75,7 +75,7 @@ init_args:
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
               decoder_config:
-                class_path: sciml.modules.base.FCBlockConfig
+                class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
                   layers: [ 512, 1024, 52417 ]
                   dropout_rate: 0.0

@@ -1,5 +1,5 @@
 # lightning.pytorch==2.2.5
-class_path: sciml.data.server.CellxgeneDataModule
+class_path: cmmvae.data.server.CellxgeneDataModule
 init_args:
   batch_size: 128
   seed: 42

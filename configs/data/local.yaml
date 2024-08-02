@@ -1,7 +1,7 @@
-class_path: sciml.data.local.SpeciesDataModule
+class_path: cmmvae.data.local.SpeciesDataModule
 init_args:
   species:
-  - class_path: sciml.data.local.SpeciesManager
+  - class_path: cmmvae.data.local.SpeciesManager
     init_args:
       name: human
       return_dense: true
@@ -40,7 +40,7 @@ init_args:
       test_npz_masks: 3m_human_counts_15.npz
       test_metadata_masks: 3m_human_metadata_15.pkl
       verbose: false
-  - class_path: sciml.data.local.SpeciesManager
+  - class_path: cmmvae.data.local.SpeciesManager
     init_args:
       name: mouse
       return_dense: true

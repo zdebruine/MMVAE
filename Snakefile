@@ -47,7 +47,7 @@ EVALUATION_FILES = expand(
     key=MERGE_KEYS,
 )
 
-TRAIN_COMMAND = f"-m sciml.pipeline.cli fit"
+TRAIN_COMMAND = f"-m cmmvae.pipeline.cli fit"
 if CONFIG_DIR:
     TRAIN_COMMAND += f" -c {CONFIG_DIR}"
 else:
@@ -88,7 +88,7 @@ rule merge_predictions:
     shell:
         """
         mkdir -p {MERGED_DIR}
-        {params.env_path} -m sciml.pipeline.merge_predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
+        {params.env_path} -m cmmvae.pipeline.merge_predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
         """
 
 rule umap_predictions:
@@ -105,5 +105,5 @@ rule umap_predictions:
         merge_keys=" ".join(MERGE_KEYS),
     shell:
         """
-        {params.env_path} -m sciml.pipeline.generate_umap --directory {params.predict_dir} --save_dir {params.save_dir} --categories {params.categories} --keys {params.merge_keys}
+        {params.env_path} -m cmmvae.pipeline.generate_umap --directory {params.predict_dir} --save_dir {params.save_dir} --categories {params.categories} --keys {params.merge_keys}
         """
