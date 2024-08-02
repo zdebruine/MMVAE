@@ -1,6 +1,6 @@
 import torch
 
-from ._base_model import BaseModel
+from .base_model import BaseModel
 from cmmvae.modules import CMMVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 from lightning.pytorch.callbacks import ModelCheckpoint
