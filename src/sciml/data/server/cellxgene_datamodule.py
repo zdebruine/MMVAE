@@ -5,7 +5,7 @@ import torch
 from typing import Any, Literal, Sequence, Union
 import lightning as L
 
-from ._cellxgene_manager import (
+from .cellxgene_manager import (
     CellxgeneManager, 
     OBS_COL_NAMES, 
     OBS_QUERY_VALUE_FILTER, 

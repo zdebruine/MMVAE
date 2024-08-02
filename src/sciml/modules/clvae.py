@@ -1,17 +1,9 @@
-from dataclasses import dataclass
-from typing import Any, Literal, Optional, Union
+from typing import Optional
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import pandas as pd
 
-from sciml.modules.base._experts import Experts
-
-from ._vae import VAE
-from .base import FCBlock, FCBlockConfig
-from .base._conditionals import ConditionalLayers
-
-from sciml.constants import REGISTRY_KEYS as RK
+from .vae import VAE
+from .base import FCBlockConfig, ConditionalLayers
 
 
 class CLVAE(VAE):

@@ -15,7 +15,7 @@ class _REGISTRY_KEYS_NT(NamedTuple):
     Z: str = "z"
     Z_STAR: str = "z_star"
     X: str = "x"
-    X_HAT: str = "X_HAT"
+    xhat: str = "xhat"
     Y: str = "Y"
     METADATA: str = "metadata"
     EXPERT: str = "expert"

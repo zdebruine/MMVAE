@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 from sciml.constants import REGISTRY_KEYS as RK
 
 
-class MMDataLoader:
+class MultiModalDataLoader:
 
     def __init__(self, *dataloaders: DataLoader):
         self.dataloaders = dataloaders

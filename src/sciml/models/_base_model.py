@@ -2,11 +2,12 @@ import os
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn as nn
 import lightning.pytorch as pl
 from typing import Iterable, Literal, Optional, Union, Any
 
 from sciml.constants import REGISTRY_KEYS as RK
-import sciml.modules.init as init
+import sciml.modules.base.init as init
 from sciml.modules.base import KLAnnealingFn, LinearKLAnnealingFn
 
 
@@ -42,16 +43,8 @@ def tag_log_dict(
         for key, value in log_dict.items()
     }
     
-class InitWeightsMeta(type):
-    def __call__(cls, *args, **kwargs):
-        # Create the instance (calls __init__)
-        instance = super().__call__(*args, **kwargs)
-        # Call the post_init method if it exists
-        if hasattr(instance, 'init_weights'):
-            instance.init_weights()
-        return instance
 
-class BaseModel(pl.LightningModule, metaclass=InitWeightsMeta):
+class BaseModel(pl.LightningModule):
     """
     Base class for Variational Autoencoder (VAE) models, extending PyTorch Lightning's LightningModule.
 
@@ -75,14 +68,14 @@ class BaseModel(pl.LightningModule, metaclass=InitWeightsMeta):
 
     def __init__(
         self,
+        module: nn.Module,
         batch_size: int = 128,
         record_gradients: bool = False,
         save_gradients_interval: int = 25,
-        configure_optimizer_kwargs: dict[str, Any] = {},
         gradient_record_cap: int = 20,
         kl_annealing_fn: Optional[Union[Literal['linear', 'constant']]] = 'constant', # add more annealing functions
         kl_annealing_fn_kwargs: dict[str, Any] = {},
-        predict_dir: str = 'samples',
+        predict_dir: str = "",
         predict_save_interval: int = 600,
         initial_save_index: int = -1,
         use_he_init_weights: bool = True,
@@ -90,9 +83,8 @@ class BaseModel(pl.LightningModule, metaclass=InitWeightsMeta):
         super().__init__()
         
         self.save_hyperparameters(ignore=['module'], logger=False)
-    
+        
         self.batch_size = batch_size
-        self._configure_optimizer_kwargs = configure_optimizer_kwargs
         self.save_gradients_interval = save_gradients_interval
         self.record_gradients = record_gradients
         self.gradient_record_cap = gradient_record_cap
@@ -100,8 +92,10 @@ class BaseModel(pl.LightningModule, metaclass=InitWeightsMeta):
         self.predict_dir = predict_dir
         self.predict_save_interval = predict_save_interval
         self._curr_save_idx = initial_save_index
+        self.module = module
         self._register_kl_annealing_fn(kl_annealing_fn, **kl_annealing_fn_kwargs)
         self._use_he_init_weights = use_he_init_weights
+        self.init_weights()
         
     def init_weights(self):
         if self._use_he_init_weights:
@@ -279,24 +273,18 @@ class BaseModel(pl.LightningModule, metaclass=InitWeightsMeta):
         
     def on_predict_epoch_end(self):
         if self.predictions:
-            self._save_paired_predictions(empty=True)
+            self._save_paired_predictions()
         self.predictions.clear()
-        self.predictions_saved = True
         
     def save_predictions(self, predictions, idx: int):  
         
         self.predictions.append(predictions)
         
-        div, mod = divmod(idx, self.predict_save_interval)
+        div, mod = divmod(idx + 1, self.predict_save_interval)
         if mod == 0:
             self._save_paired_predictions()
     
     def _save_paired_predictions(self):
-        
-        if self.predictions_saved:
-            import warnings
-            warnings.warn("save_predictions is a no-op predictions already saved")
-            return
         
         self._curr_save_idx += 1
         stacked_predictions = {}

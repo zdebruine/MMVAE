@@ -1,38 +1,60 @@
-$schema: https://json-schema.org/draft/2020-12/schema
-description: Workflow configuration
+$schema: "https://json-schema.org/draft/2020-12/schema"
+type: object
 properties:
   root_dir:
     type: string
-    description: base directory for experiment storage
-  experiment_name: 
+    description: The root directory for all experiments.
+  experiment_name:
     type: string
-    description: name of experiment to be added to root_dir
-  run_name: 
+    description: The name of the experiment.
+  run_name:
     type: string
-    description: name of run to be added to experiment
-  lightning_fit_args: 
-    type: string
-    description: string for extra args to pass to fit in train rule
-  config_name:
-    type: string
-    description: name of .yaml file saved from SaveConfigCallback from Lightning Cli
-  ckpt_path:
-    type: string
-    description: relative path from 'root_dir/experiment_name/run_name' to where the model checkpoint for integration
+    description: The name of the specific run within the experiment.
   env_path:
     type: string
-    descrption: path to the pyenv to use
-  embeddings:
+    description: Path to the conda environment or the virtual environment for running the commands.
+  config_name:
+    type: string
+    description: The name of the configuration file.
+    default: config.yaml
+  config_dir:
+    type: string
+    description: Directory where additional configuration files are located.
+  merge_keys:
     type: array
-    descrption: list of embeddings paths returned from integrate
-  metadata:
+    items:
+      type: string
+    description: A list of keys used for merging predictions.
+  categories:
     type: array
-    descrption: list of metadata paths correlated to embeddings from integrate
-
+    items:
+      type: string
+    description: A list of categories used in the analysis.
+  predict_dir:
+    type: string
+    description: Subdirectory where predictions are stored.
+    default: predictions
+  umap_dir:
+    type: string
+    description: Directory for storing UMAP results.
+    default: umap
+  trainer:
+    type: string
+    description: The trainer configuration for the model.
+  model:
+    type: string
+    description: The model configuration.
+  data:
+    type: string
+    description: The data configuration.
+  seed:
+    type: integer
+    description: Random seed for reproducibility.
 required:
-- root_dir
-- experiment_name
-- run_name
-- config_name
-- ckpt_path
-- env_path
+  - root_dir
+  - experiment_name
+  - env_path
+  - merge_keys
+  - trainer
+  - model
+  - data

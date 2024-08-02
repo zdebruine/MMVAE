@@ -29,7 +29,7 @@ class BaseVAE(nn.Module):
     """
     
     def __init__(self, encoder: Encoder, decoder: nn.Module):
-        
+        super().__init__()
         self.encoder = encoder
         self.decoder = decoder
         
@@ -47,7 +47,7 @@ class BaseVAE(nn.Module):
         qz, z = self.encoder(x)
         return qz, z
     
-    def decode(self, z: torch.Tensor):
+    def decode(self, x: torch.Tensor):
         """
         Decode the latent variable.
 
@@ -57,11 +57,11 @@ class BaseVAE(nn.Module):
         Returns:
             torch.Tensor: Reconstructed input tensor.
         """
-        x_hat = self.decoder(z)
-        return x_hat
+        xhat = self.decoder(x)
+        return xhat
     
     def after_reparameterize(self, z: torch.Tensor, metadata: pd.DataFrame):
-        return z, metadata
+        return z
         
     def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
         """
@@ -76,10 +76,10 @@ class BaseVAE(nn.Module):
         qz, z = self.encode(x)
         pz = Normal(torch.zeros_like(z), torch.ones_like(z))
         x = self.after_reparameterize(z, metadata)
-        x_hat = self.decode(x)
-        return qz, pz, z, x_hat
+        xhat = self.decode(x)
+        return qz, pz, z, xhat
     
-    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, x_hat: torch.Tensor, kl_weight: float):
+    def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, xhat: torch.Tensor, kl_weight: float):
         """
         Compute the Evidence Lower Bound (ELBO) loss.
 
@@ -87,7 +87,7 @@ class BaseVAE(nn.Module):
             qz (torch.distributions.Distribution): Approximate posterior distribution.
             pz (torch.distributions.Distribution): Prior distribution.
             x (torch.Tensor): Original input tensor.
-            x_hat (torch.Tensor): Reconstructed input tensor.
+            xhat (torch.Tensor): Reconstructed input tensor.
             kl_weight (float, optional): Weight for the KL divergence term. Defaults to 1.0.
 
         Returns:
@@ -98,7 +98,7 @@ class BaseVAE(nn.Module):
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
             
-        recon_loss = F.mse_loss(x_hat, x, reduction='sum')
+        recon_loss = F.mse_loss(xhat, x, reduction='sum')
         
         loss = (recon_loss + kl_weight * z_kl_div.mean())  # Compute total loss
         
@@ -127,15 +127,12 @@ class VAE(BaseVAE):
         decoder_config: FCBlockConfig,
         **encoder_kwargs,
     ):
-        # Initialize the encoder
-        encoder = Encoder(
-            fc_block_config=encoder_config,
-            return_dist=True,
-            **encoder_kwargs
+        super(VAE, self).__init__(
+            encoder=Encoder(
+                fc_block_config=encoder_config,
+                return_dist=True,
+                **encoder_kwargs), 
+            decoder=FCBlock(decoder_config)
         )
-        
-        decoder = FCBlock(decoder_config)
-        
-        super(VAE, self).__init__(encoder, decoder)
         
             

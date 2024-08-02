@@ -1,15 +1,13 @@
-from collections import namedtuple
+
 import torch
 import torch.nn as nn
-from torch.distributions import Normal, kl_divergence
 import torch.nn.functional as F
 from sciml.constants import REGISTRY_KEYS as RK
 
-from .init import HeWeightInitMixIn
 from ._vae import VAE
-from .base import Experts, BaseModule
+from .base import Experts
 
-class MMVAE(BaseModule):
+class MMVAE(nn.Module):
     """
     Multi-Modal Variational Autoencoder (MMVAE) class.
 
@@ -53,25 +51,7 @@ class MMVAE(BaseModule):
         
         expert_x_hats = {}
         for expert_id, expert in experts.items():
-            x_hat = expert.decode(shared_x_hat)  # Decode the shared representation using each expert
-            expert_x_hats[expert_id] = x_hat
+            xhat = expert.decode(shared_x_hat)  # Decode the shared representation using each expert
+            expert_x_hats[expert_id] = xhat
             
         return qz, pz, expert_x_hats
-    
-    def cross_generate(self, x, source):
-        """
-        Perform cross-generation between species.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-            source (str): Source expert ID.
-
-        Returns:
-            torch.Tensor: Reconstructed tensor from the source after cross-generation.
-        """
-        target = RK.MOUSE if source == RK.HUMAN else RK.HUMAN
-        
-        _, _, target_x_hat = self(x, source, target=target)
-        _, _, source_cross_x_hat = self(target_x_hat[target], target, target=source)
-        
-        return source_cross_x_hat[source]

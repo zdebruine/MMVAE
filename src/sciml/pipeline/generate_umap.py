@@ -1,21 +1,22 @@
+import os
 import umap
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import torch
-import os
-import random
-
-import argparse
+from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
 
-from torch.utils.tensorboard import SummaryWriter
 
+def load_embeddings(npz_path, meta_path):
+    embedding = np.load(npz_path)['embeddings']
+    metadata = pd.read_pickle(meta_path)
+    return embedding, metadata
 
 def plot_umap(
-    npz_path, 
-    meta_path, 
-    save_path, 
+    directory,
+    keys,
+    categories,
     n_neighbors = 30,
     min_dist = 0.3,
     n_components = 2,
@@ -24,38 +25,46 @@ def plot_umap(
     n_jobs = 40,
     n_epochs = 200,
     n_largest = 15,
-    categories = ['cell_type', 'dataset_id', 'assay', 'donor_id'],
-    umap_embeddings: bool = False,
     method: str = None,
+    save_dir: str = None,
     **umap_kwargs,
 ):
-    
-    name = os.path.basename(npz_path).removesuffix('_embeddings.npz')
-    X = np.load(npz_path)['embeddings']
-    metadata = pd.read_pickle(meta_path)
-
-    if umap_embeddings:
-        embedding = X
-    else:
-        # Fit and transform the data using UMAP
-        reducer = umap.UMAP(
-            n_neighbors=n_neighbors, 
-            min_dist=min_dist, 
-            n_components=n_components,
-            metric=metric, 
-            low_memory=low_memory, 
-            n_jobs=n_jobs, 
-            n_epochs=n_epochs, 
-            **umap_kwargs)
+    if not save_dir:
+        save_dir = directory
         
-        embedding = reducer.fit_transform(X)
-        np.savez(os.path.join(save_path, 'umap_embeddings.npz'), embeddings=embedding)
-        metadata.to_pickle(os.path.join(save_path, 'umap_metadata.pkl'))
-    
     image_paths = []
-    for category in categories:
-        image_path = plot_category(embedding, metadata, category, save_path, n_largest, name, method)
-        image_paths.append(image_path)
+    for key in keys:
+        umap_path = os.path.join(directory, f"{key}_umap_embeddings.npz")
+        if os.path.exists(umap_path):
+            npz_path = umap_path
+            meta_path = os.path.join(directory, f"{key}_umap_metadata.pkl")
+            embedding, metadata = load_embeddings(npz_path, meta_path)
+        else:
+            npz_path = os.path.join(directory, f"{key}_embeddings.npz")
+            meta_path = os.path.join(directory, f"{key}_metadata.pkl")
+            X, metadata = load_embeddings(npz_path, meta_path)
+            
+            # Fit and transform the data using UMAP
+            reducer = umap.UMAP(
+                n_neighbors=n_neighbors, 
+                min_dist=min_dist, 
+                n_components=n_components,
+                metric=metric, 
+                low_memory=low_memory, 
+                n_jobs=n_jobs, 
+                n_epochs=n_epochs, 
+                **umap_kwargs)
+            
+            embedding = reducer.fit_transform(X)
+            embedding_path = os.path.join(save_dir, f'{key}_umap_embeddings.npz')
+            metadata_path = os.path.join(save_dir, f'{key}_umap_metadata.pkl')
+            os.makedirs(save_dir, exist_ok = True)
+            np.savez(embedding_path, embeddings=embedding)
+            metadata.to_pickle(metadata_path)
+        
+        for category in categories:
+            image_path = plot_category(embedding, metadata, category, save_dir, n_largest, key, method)
+            image_paths.append(image_path)
     return image_paths
 
 def plot_category(embedding, metadata, category, save_path, n_largest, name, method, alpha=0.5, marker_size=1):
@@ -114,25 +123,17 @@ def add_images_to_tensorboard(log_dir, image_paths):
     writer.close()
 
 if __name__ == "__main__":
-    
+    import argparse
     parser = argparse.ArgumentParser(description='UMAP Projection Plotting')
     parser.add_argument('-d', '--directory', type=str, required=True, help="Directory of run")
-    parser.add_argument('-e', '--embedding_paths', type=str, nargs='+', default=[], help="Name of embedding file")
-    parser.add_argument('-m', '--metadata_paths', type=str, nargs='+', default=[], help="Name of metadata file")
+    parser.add_argument('--categories', nargs='*', required=True, help="Categories to color by")
+    parser.add_argument('--keys', nargs='*', required=True, help="Embeddings keys")
     parser.add_argument('--method', type=str, help="Method name to add to graph title")
+    parser.add_argument('--save_dir', type=str, help="Directory to store pngs")
     parser.add_argument('--skip_tensorboard', action='store_true')
-    parser.add_argument('-u', '--umap_embeddings', action='store_true', help="Path to umap embeddings")
-    args = parser.parse_args() 
-    
-    npz_paths = args.embedding_paths
-    meta_paths = args.metadata_paths
-    
-    if not npz_paths or not meta_paths:
-        raise RuntimeError("Files not found and are empty")
-    
-    for npz_path, meta_path in zip(npz_paths, meta_paths):
+    args = parser.parse_args()
         
-        image_paths = plot_umap(npz_path, meta_path, args.directory, umap_embeddings=args.umap_embeddings, method=args.method)
+    image_paths = plot_umap(directory=args.directory, keys=args.keys, categories=args.categories, method=args.method, save_dir=args.save_dir)
 
-        if not args.skip_tensorboard:
-            add_images_to_tensorboard(args.directory, image_paths)
+    if not args.skip_tensorboard:
+        add_images_to_tensorboard(args.directory, image_paths)

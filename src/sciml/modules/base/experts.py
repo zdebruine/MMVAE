@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import Iterable, Union, Optional, Any
-from ._fc_block import FCBlock, FCBlockConfig
-from sciml.constants import REGISTRY_KEYS as RK
-
+from .fc_block import FCBlock, FCBlockConfig
 
 
 class BaseExpert(nn.Module):
@@ -52,10 +49,5 @@ class Experts(nn.ModuleDict):
         mouse_decoder_kwargs (dict[str, Any]): Keyword arguments for the mouse decoder.
     """
     
-    def __init__(self, *experts: BaseExpert):
-        super().__init__()
-        
-        self.experts = nn.ModuleDict({
-            expert.id: expert
-            for expert in experts
-        })
+    def __init__(self, experts: list[BaseExpert]):
+        super().__init__({ expert.id: expert for expert in experts})

@@ -1,15 +1,17 @@
+from typing import Union, Literal
+
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
 
-from typing import Union, Literal, Optional, Callable
+from .fc_block import FCBlock, FCBlockConfig
 
-from ._fc_block import FCBlock, FCBlockConfig
+
 
 def _identity(x):
     return x
-            
 
+            
 class Encoder(nn.Module):
     """
     Encoder module for a Variational Autoencoder (VAE) with flexible configurations.
@@ -37,9 +39,9 @@ class Encoder(nn.Module):
     
     def __init__(
         self,
+        latent_dim: int,
         fc_block_config: FCBlockConfig,
         distribution: Union[Literal['ln'], Literal['normal']] = 'normal',
-        var_activation: Optional[Callable] = torch.exp,
         return_dist: bool = False,
         var_eps: float = 1e-4, # numerical stability
     ):
@@ -49,20 +51,16 @@ class Encoder(nn.Module):
         self.encoder = FCBlock(fc_block_config)
         
         # Get hidden and latent dimenision from layer dim list
-        n_hidden, n_out = fc_block_config.layers[-2], fc_block_config.layers[-1]
+        n_hidden = fc_block_config.layers[-1]
         
         # Linear layer to compute the mean of the latent variables
-        self.mean_encoder = nn.Linear(n_hidden, n_out)
+        self.mean_encoder = nn.Linear(n_hidden, latent_dim)
         
         # Linear layer to compute the variance of the latent variables
-        self.var_encoder = nn.Linear(n_hidden, n_out)
+        self.var_encoder = nn.Linear(n_hidden, latent_dim)
         
         # Transformation for latent variables (softmax for log-normal distribution, identity otherwise)
         self.z_transformation = nn.Softmax(dim=-1) if distribution == "ln" else _identity
-        
-        # Activation function for the variance
-        self.var_activation = var_activation if callable(var_activation) else _identity
-        
         # Small epsilon value for numerical stability
         self.var_eps = var_eps
         
@@ -86,9 +84,8 @@ class Encoder(nn.Module):
         
         # Compute the mean of the latent variables
         q_m = self.mean_encoder(q)
-        
         # Compute the variance of the latent variables and add epsilon for numerical stability
-        q_v = self.var_activation(self.var_encoder(q)) + self.var_eps
+        q_v = torch.exp(self.var_encoder(q)) + self.var_eps
         
         # Create a normal distribution with the computed mean and variance
         dist = Normal(q_m, q_v.sqrt())
