@@ -62,7 +62,16 @@ setup(
     url="https://github.com/zdebruine/MMVAE",
     author="GVSU Applied Computing Institute",
     packages=find_packages(include=['src/cmmvae', 'src/cmmvae.*']),  # Ensure cmmvae is included
-    install_requires=parse_requirements('requirements.csv'),
+    install_requires=[
+        "cellxgene-census",
+        "jsonargparse",
+        "lightning",
+        "omegaconf",
+        "snakemake",
+        "tensorboard_plugin_profile",
+        "torch-tb-profiler",
+        "torchdata"
+    ],
     extras_require={
         "test": [
             "pytest",
