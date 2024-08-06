@@ -1,5 +1,7 @@
 from setuptools import find_packages, setup
 import csv
+import os
+from setuptools.command.install import install
 
 """
 Script for setting up this Git repository as a Pip package. The 
@@ -26,6 +28,7 @@ package tutorial:
 #   - Upload the resulting .TAR.GZ file to PyPi.
 #     ( twine upload dist/<package>.tar.gz )
 
+
 def parse_requirements(file_name):
     """Parse a requirements file into a list of packages."""
     requirements = []
@@ -41,6 +44,16 @@ def parse_requirements(file_name):
                 requirements.append(f"{package}{version}")
     return requirements
 
+class CustomInstallCommand(install):
+    """Customized setuptools install command - installs with specific index URLs."""
+
+    def run(self):
+        # Run the standard install process
+        install.run(self)
+
+        # Install PyTorch, TorchVision, and TorchAudio from the nightly builds
+        os.system("pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu")
+
 
 setup(
     name="MMVAE",
@@ -48,12 +61,15 @@ setup(
     version="0.1.1.dev2",
     url="https://github.com/zdebruine/MMVAE",
     author="GVSU Applied Computing Institute",
-    packages=find_packages(include=['src', 'src.*']),
+    packages=find_packages(include=['src/cmmvae', 'src/cmmvae.*']),  # Ensure cmmvae is included
     install_requires=parse_requirements('requirements.csv'),
     extras_require={
         "test": [
             "pytest",
             "pytest-cov"
         ]
+    },
+    cmdclass={
+        'install': CustomInstallCommand,
     }
 )
