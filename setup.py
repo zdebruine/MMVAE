@@ -29,29 +29,14 @@ package tutorial:
 #     ( twine upload dist/<package>.tar.gz )
 
 
-def parse_requirements(file_name):
-    """Parse a requirements file into a list of packages."""
-    requirements = []
-    with open(file_name, newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            package = row['package']
-            version = row['version']
-            if version == 'nightly':
-                # Handle special cases like nightly builds
-                requirements.append(f"{package}==nightly")
-            else:
-                requirements.append(f"{package}{version}")
-    return requirements
-
 class CustomInstallCommand(install):
     """Customized setuptools install command - installs with specific index URLs."""
 
     def run(self):
-
+        print("Running pip installation for pytorch nightly...")
         # Install PyTorch, TorchVision, and TorchAudio from the nightly builds
         os.system("pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu")
-
+        print("Running standard install process")
         # Run the standard install process
         install.run(self)
 
@@ -61,7 +46,10 @@ setup(
     version="0.1.1.dev2",
     url="https://github.com/zdebruine/MMVAE",
     author="GVSU Applied Computing Institute",
-    packages=find_packages(include=['src/cmmvae', 'src/cmmvae.*']),  # Ensure cmmvae is included
+    packages=find_packages(include=['cmmvae', 'cmmvae.*']),  # Ensure cmmvae is included
+    cmdclass={
+        'install': CustomInstallCommand,
+    },
     install_requires=[
         "cellxgene-census",
         "jsonargparse",
@@ -76,8 +64,5 @@ setup(
             "pytest",
             "pytest-cov"
         ]
-    },
-    cmdclass={
-        'install': CustomInstallCommand,
     }
 )
