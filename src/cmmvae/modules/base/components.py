@@ -424,8 +424,7 @@ class Encoder(nn.Module):
     
     def encode(self, x: torch.Tensor):
         """Encode input and return output and list of hidden representations"""
-        q, hidden_representations = self.fc(x)
-        return q, hidden_representations
+        return self.fc(x)
     
     def forward(self, x: torch.Tensor):
         """
@@ -440,7 +439,12 @@ class Encoder(nn.Module):
                 Otherwise, returns the mean, variance, and latent variables.
         """
         # Encode the input features
-        q, hidden_representations = self.encode(x)
+        encoded = self.encode(x)
+        if isinstance(encoded, tuple):
+            q, hidden_representations = encoded
+        else:
+            hidden_representations = []
+            q = encoded
         
         # Compute the mean of the latent variables
         q_m = self.mean_encoder(q)
