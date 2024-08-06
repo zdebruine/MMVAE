@@ -22,7 +22,6 @@ def is_iterable(obj):
     except TypeError:
         return False
     return True
-    
 
 
 class BaseFCBlock(nn.Module):
@@ -38,6 +37,8 @@ class BaseFCBlock(nn.Module):
         use_batch_norm (Union[bool, Iterable[bool]], optional): Whether to use batch normalization for each layer. Defaults to False.
         use_layer_norm (Union[bool, Iterable[bool]], optional): Whether to use layer normalization for each layer. Defaults to False.
         activation_fn (Union[Optional[nn.Module], Iterable[Optional[nn.Module]]], optional): Activation function(s) for each layer. Defaults to nn.ReLU.
+        return_hidden (Union[bool, list[bool]]): Whether to aggegrate and return hidden representations. Defaults to False
+        
 
     Attributes:
         fc_layers (nn.Sequential): The sequential container of fully connected layers.
@@ -46,35 +47,55 @@ class BaseFCBlock(nn.Module):
     def __init__(
         self,
         layers: list[int],
-        dropout_rate: list[float] = 0.0,
-        use_batch_norm: list[bool] = False,
-        use_layer_norm: list[bool] = False,
-        activation_fn: Optional[Literal['ReLU']] = None,
+        dropout_rate: Union[float, list[float]] = 0.0,
+        use_batch_norm: Union[bool, list[bool]] = False,
+        use_layer_norm: Union[bool, list[bool]] = False,
+        activation_fn: Union[Optional[nn.Module], list[Optional[nn.Module]]] = None,
+        return_hidden: Union[bool, list[bool]] = False
     ):
         super().__init__()
         # Duplicate layers if only one found for n_in and n_out
         if len(layers) == 1:
             layers = layers * 2 
+            
         # Pair layers into n_in n_out pairs in sequence
-        in_outs = list(zip(layers[0:], layers[1:]))
-        self.fc_layers = nn.Sequential(
-            OrderedDict([(
-                str(i), nn.Sequential(*(
-                    layer for layer in (
-                        nn.Linear(n_in, n_out),
-                        nn.BatchNorm1d(n_out, momentum=0.01, eps=0.001) if use_batch_norm[i] else None,
-                        nn.LayerNorm(n_out, elementwise_affine=False) if use_layer_norm[i] else None,
-                        activation_fn[i]() if activation_fn[i] else None,
-                        nn.Dropout(p=dropout_rate[i]) if dropout_rate[i] > 0 else None,
-                    ) if layer is not None)
-                ))
-                for i, (n_in, n_out) in enumerate(in_outs)
-            ])
-        )
+        layers = list(zip(layers[:-1], layers[1:]))
+        self.n_layers = len(layers)
         
-        self.input_dim = layers[0]
-        self.output_dim = layers[-1]
+        dropout_rate = self.to_list(dropout_rate)
+        use_batch_norm = self.to_list(use_batch_norm)
+        use_layer_norm = self.to_list(use_layer_norm)
+        activation_fn = self.to_list(activation_fn)
+        self.return_hidden = self.to_list(return_hidden)
         
+        fc_layers = [
+            self._make_layer(n_in, n_out, use_batch_norm[i], use_layer_norm[i], activation_fn[i], dropout_rate[i])
+            for i, (n_in, n_out) in enumerate(layers)
+        ]
+        
+        self.fc_layers = nn.Sequential(*fc_layers)
+        
+        self.input_dim = layers[0][0]
+        self.output_dim = layers[-1][-1]
+        
+    @property
+    def can_bypass(self):
+        return not any(self.return_hidden)
+        
+    def _make_layer(self, n_in, n_out, use_batch_norm, use_layer_norm, activation_fn, dropout_rate):
+        layers = [nn.Linear(n_in, n_out)]
+        
+        if use_batch_norm:
+            layers.append(nn.BatchNorm1d(n_out, momentum=0.01, eps=0.001))
+        if use_layer_norm:
+            layers.append(nn.LayerNorm(n_out, elementwise_affine=False))
+        if activation_fn is not None:
+            layers.append(activation_fn())
+        if dropout_rate > 0:
+            layers.append(nn.Dropout(p=dropout_rate))
+        
+        return nn.Sequential(*layers)
+
     def forward(self, x: torch.Tensor):
         """
         Forward pass through the fully connected block.
@@ -85,8 +106,23 @@ class BaseFCBlock(nn.Module):
         Returns:
             torch.Tensor: Output tensor.
         """
-        return self.fc_layers(x)
-    
+        if self.can_bypass:
+            return self.fc_layers(x)
+        hidden_representations = []
+        for i, layer in enumerate(self.fc_layers):
+            for name, sublayer in layer.named_children():
+                x = sublayer(x)
+                if name == '2' and self.return_hidden[i]:
+                    hidden_representations.append(x)
+        return x, hidden_representations
+            
+    def to_list(self, value):
+        if isinstance(value, (tuple, list)):
+            assert len(value) == self.n_layers, f"{len(value)} != {self.n_layers}"
+            return value
+        else:
+            return [value] * self.n_layers
+        
 
 class FCBlockConfig:
     
@@ -96,7 +132,8 @@ class FCBlockConfig:
         dropout_rate: Union[float, list[float]] = 0.0,
         use_batch_norm: Union[bool, list[bool]] = False,
         use_layer_norm: Union[bool, list[bool]] = False,
-        activation_fn: Union[Optional[Type[nn.Module]], list[Optional[Type[nn.Module]]]] = None
+        activation_fn: Union[Optional[Type[nn.Module]], list[Optional[Type[nn.Module]]]] = None,
+        return_hidden: Union[bool, list[bool]] = False
     ):
         super().__init__()
         self._validate_and_set_layers(layers)
@@ -104,6 +141,7 @@ class FCBlockConfig:
         self._validate_and_set_option('use_batch_norm', use_batch_norm, bool)
         self._validate_and_set_option('use_layer_norm', use_layer_norm, bool, )
         self._validate_and_set_option('activation_fn', activation_fn, nn.Module, comparison_fn=issubclass, optional=True)
+        self._validate_and_set_option('return_hidden', return_hidden, bool)
     
     def _validate_and_set_layers(self, layers):
         # Assert layers is a list
@@ -136,7 +174,10 @@ class FCBlockConfig:
                 raise ValueError(f"All elements in '{name}' must be a {str(req_type)}")
             value = obj
         elif obj == None or comparison_fn(obj, req_type):
-            value = [obj] * self.n_layers
+            if optional and obj == None:
+                value = None
+            else:
+                value = [obj] * self.n_layers
         else:
             raise ValueError(f"{name} ({obj}) is not a {str(req_type)} or iterable of {req_type}")
         
@@ -150,7 +191,8 @@ class FCBlock(BaseFCBlock):
             dropout_rate=config.dropout_rate,
             use_batch_norm=config.use_batch_norm,
             use_layer_norm=config.use_layer_norm,
-            activation_fn=config.activation_fn
+            activation_fn=config.activation_fn,
+            return_hidden=config.return_hidden,
         )
 
 
@@ -225,9 +267,6 @@ class ConditionalLayers(nn.Module):
         
         return x
     
-
-
-
 def _identity(x):
     return x
 
@@ -266,10 +305,8 @@ class Encoder(nn.Module):
         var_eps: float = 1e-4, # numerical stability
     ):
         super().__init__()
+        self.fc = FCBlock(fc_block_config)
 
-        # Fully connected block for encoding the input features
-        self.encoder = FCBlock(fc_block_config)
-        
         # Get hidden and latent dimenision from layer dim list
         n_hidden = fc_block_config.layers[-1]
         
@@ -287,6 +324,14 @@ class Encoder(nn.Module):
         # Whether to return the distribution object
         self.return_dist = return_dist
     
+    @property
+    def n_layers(self):
+        return self.fc.n_layers
+    
+    def encode(self, x: torch.Tensor):
+        q, hidden_representations = self.fc(x)
+        return q, hidden_representations
+    
     def forward(self, x: torch.Tensor):
         """
         Forward pass through the encoder.
@@ -300,7 +345,7 @@ class Encoder(nn.Module):
                 Otherwise, returns the mean, variance, and latent variables.
         """
         # Encode the input features
-        q = self.encoder(x)
+        q, hidden_representations = self.encode(x)
         
         # Compute the mean of the latent variables
         q_m = self.mean_encoder(q)
@@ -314,10 +359,9 @@ class Encoder(nn.Module):
         latent = self.z_transformation(dist.rsample())
         
         if self.return_dist:
-            return dist, latent
+            return dist, latent, hidden_representations
         
-        return q_m, q_v, latent
-
+        return q_m, q_v, latent, hidden_representations
 
 
 
@@ -360,5 +404,6 @@ class Experts(nn.ModuleDict):
     
     def __init__(self, experts: list[BaseExpert]):
         super().__init__({ expert.id: expert for expert in experts})
+        self.labels = { key: i for i, key in enumerate(self.keys())}
         
 

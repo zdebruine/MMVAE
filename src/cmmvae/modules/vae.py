@@ -44,8 +44,8 @@ class BaseVAE(nn.Module):
         Returns:
             tuple: The approximate posterior distribution and sampled latent variable.
         """
-        qz, z = self.encoder(x)
-        return qz, z
+        qz, z, hidden_representations = self.encoder(x)
+        return qz, z, hidden_representations
     
     def decode(self, x: torch.Tensor):
         """
@@ -73,11 +73,11 @@ class BaseVAE(nn.Module):
         Returns:
             tuple: The approximate posterior distribution, prior distribution, and reconstructed input tensor.
         """
-        qz, z = self.encode(x)
+        qz, z, hidden_representations = self.encode(x)
         pz = Normal(torch.zeros_like(z), torch.ones_like(z))
         x = self.after_reparameterize(z, metadata)
         xhat = self.decode(x)
-        return qz, pz, z, xhat
+        return qz, pz, z, xhat, hidden_representations
     
     def elbo(self, qz: Distribution, pz: Distribution, x: torch.Tensor, xhat: torch.Tensor, kl_weight: float):
         """
@@ -93,6 +93,7 @@ class BaseVAE(nn.Module):
         Returns:
             tuple: KL divergence, reconstruction loss, and total loss.
         """
+
         z_kl_div = kl_divergence(qz, pz).sum(dim=-1)
         
         if x.layout == torch.sparse_csr:

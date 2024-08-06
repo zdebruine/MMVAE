@@ -1,24 +1,31 @@
+from typing import Optional, Union
 import warnings
 import pandas as pd
 import torch
-import torch.nn.functional as F
+import torch.nn as nn
 
-from .base import Experts
+from .base import Experts, FCBlock, FCBlockConfig
 from .clvae import CLVAE
 from .mmvae import MMVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
-
 
 
 class CMMVAE(MMVAE):
     
     vae: CLVAE
     
-    def __init__(self, clvae: CLVAE, experts: Experts):
+    def __init__(
+        self, 
+        clvae: CLVAE, 
+        experts: Experts,
+        adversarials: Union[Optional[FCBlockConfig], list[Optional[FCBlockConfig]]] = None,
+    ):
         super().__init__(
             vae=clvae,
             experts=experts
         )
+        
+        self.adversarials = nn.ModuleList([FCBlock(config) for config in adversarials if config])
     
     def forward(
         self, 
@@ -29,7 +36,7 @@ class CMMVAE(MMVAE):
     ):
         shared_x = self.experts[expert_id].encode(x)
         
-        qz, pz, z, shared_xhat = self.vae(shared_x, metadata)
+        qz, pz, z, shared_xhat, hidden_representations = self.vae(shared_x, metadata)
         
         xhats = {}
         cg_xhats = {}
@@ -45,35 +52,12 @@ class CMMVAE(MMVAE):
                 if xhat_expert_id == expert_id:
                     continue
                 shared_x = self.experts[xhat_expert_id].encode(xhats[xhat_expert_id])
-                _, _, _, shared_xhat = self.vae(shared_x, metadata)
+                _, _, _, shared_xhat, _ = self.vae(shared_x, metadata)
                 cg_xhats[xhat_expert_id] = self.experts[expert_id].decode(shared_xhat)
         else:
             xhats[expert_id] = self.experts[expert_id].decode(shared_xhat)
             
-        return qz, pz, z, xhats, cg_xhats
-    
-    def loss(
-        self,
-        x: torch.Tensor,
-        expert_id: str,
-        qz: torch.distributions.Distribution,
-        pz: torch.distributions.Distribution,
-        xhats: dict[str, torch.Tensor],
-        cg_xhats: dict[str, torch.Tensor],
-        kl_weight: float,
-    ):
-
-        if x.layout == torch.sparse_csr:
-            x = x.to_dense()
-            
-        loss_dict = self.vae.elbo(qz, pz, x, xhats[expert_id], kl_weight)
-        
-        cg_losses = {
-            f"cross_generation/{cg_expert_id}2{expert_id}": F.mse_loss(cg_xhats[cg_expert_id], x, reduction='mean')
-            for cg_expert_id in cg_xhats 
-        }
-        
-        return { **cg_losses, **loss_dict }
+        return qz, pz, z, xhats, cg_xhats, hidden_representations
         
     @torch.no_grad()
     def get_latent_embeddings(self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str):

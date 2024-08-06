@@ -17,11 +17,13 @@ class CLVAE(VAE):
         selection_order: Optional[list[str]] = None,
         **encoder_kwargs
     ):
+        
         super().__init__(
             encoder_config=encoder_config,
             decoder_config=decoder_config,
             **encoder_kwargs,
         )
+        
         if conditional_config:
             self.conditionals = ConditionalLayers(
                 conditional_paths=conditional_paths,
