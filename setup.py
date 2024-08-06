@@ -48,12 +48,12 @@ class CustomInstallCommand(install):
     """Customized setuptools install command - installs with specific index URLs."""
 
     def run(self):
-        # Run the standard install process
-        install.run(self)
 
         # Install PyTorch, TorchVision, and TorchAudio from the nightly builds
         os.system("pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu")
 
+        # Run the standard install process
+        install.run(self)
 
 setup(
     name="MMVAE",
@@ -70,7 +70,6 @@ setup(
         "snakemake",
         "tensorboard_plugin_profile",
         "torch-tb-profiler",
-        "torchdata"
     ],
     extras_require={
         "test": [

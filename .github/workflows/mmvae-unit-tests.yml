@@ -1,10 +1,3 @@
-
-# 
-# NOTE: Unable to install CUDA Toolkit because GitHub-hosted 
-#       runners are limitted to 500 MB of storage.
-# SEE:  Jimver/cuda-toolkit; https://github.com/marketplace/actions/cuda-toolkit
-# SEE:  https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions
-# 
 name: MMVAE Unit Tests
 run-name: Running tests on modules in the MMVAE package
 on: [ push ]
@@ -17,7 +10,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.9.18"
+      - name: Set up Python environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
       - name: Install project+test dependencies
-        run: pip install -e .[test] --extra-index-url https://download.pytorch.org/whl/nightly/cu121
+        run: pip install -e .[test]
       - name: Run unit tests with coverage
-        run: pytest --cov="src/cmmvae"
+        env:
+          PYTHONPATH: .
+        run: pytest --cov=cmmvae tests/
