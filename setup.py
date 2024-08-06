@@ -1,5 +1,5 @@
 from setuptools import find_packages, setup
-
+import csv
 
 """
 Script for setting up this Git repository as a Pip package. The 
@@ -26,24 +26,30 @@ package tutorial:
 #   - Upload the resulting .TAR.GZ file to PyPi.
 #     ( twine upload dist/<package>.tar.gz )
 
+def parse_requirements(file_name):
+    """Parse a requirements file into a list of packages."""
+    requirements = []
+    with open(file_name, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            package = row['package']
+            version = row['version']
+            if version == 'nightly':
+                # Handle special cases like nightly builds
+                requirements.append(f"{package}==nightly")
+            else:
+                requirements.append(f"{package}{version}")
+    return requirements
+
+
 setup(
     name="MMVAE",
     description="A research project on diagonal mixture-of-experts variational autoencoding (MMVAE).",
     version="0.1.1.dev2",
     url="https://github.com/zdebruine/MMVAE",
     author="GVSU Applied Computing Institute",
-    packages=find_packages(),
-    install_requires=[
-        "numpy",
-        "scipy",
-        "tensorboard",
-        # "torch==2.3.0dev20240101+cu121",
-        # "torchdata==0.7.1",
-        "torch",
-        "torchdata",
-        "torchvision",
-        "pandas"
-    ],
+    packages=find_packages(include=['src', 'src.*']),
+    install_requires=parse_requirements('requirements.csv'),
     extras_require={
         "test": [
             "pytest",
