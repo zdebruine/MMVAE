@@ -15,7 +15,7 @@ jobs:
           python -m venv venv
           source venv/bin/activate
       - name: Install project+test dependencies
-        run: pip install -e .[test]
+        run: pip3 install -e .[test]
       - name: Run unit tests with coverage
         env:
           PYTHONPATH: .

@@ -1,8 +1,9 @@
 # Experiment Parameters
-root_dir: /mnt/projects/debruinz_project/integration/tensorboard
-config_name: config.yaml
+root_dir: lightning_logs
 
-experiment_name: summer_merge_testing/long_runs
+config_name: config.yaml
+experiment_name: experiment
+run_name: default_run
 
 predict_dir: samples
 
@@ -21,4 +22,4 @@ merge_keys:
 
 
 # ENVIROMENT SPECIFIC
-env_path: '/mnt/projects/debruinz_project/pytorch-nightly-env/bin/python3'
+env_path: /mnt/projects/debruinz_project/pytorch-nightly-env/bin/python3

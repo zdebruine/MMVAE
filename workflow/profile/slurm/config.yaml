@@ -13,7 +13,7 @@ cluster:
     --ntasks=1
     --nodes=1
     --time={resources.runtime}
-    --export=ALL,PYTHONPATH=./src:$PYTHONPATH 
+    --export=ALL,PYTHONPATH=./:$PYTHONPATH 
     --parsable
 cluster-status: workflow/profile/slurm/status.py
 cluster-cancel: scancel
