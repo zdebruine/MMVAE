@@ -22,12 +22,13 @@ jobs:
       - name: Generate Documentation
         run: |
           ./scripts/auto-doc.sh
-      - name: Commit and Push changes
+      - name: Commit and Push changes to docs branch
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
+          git checkout -B docs  # Switch to a 'docs' branch
           git add docs/
           git commit -m "Auto Update documentation"
-          git push
+          git push -f origin docs  # Force push to 'docs' branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
