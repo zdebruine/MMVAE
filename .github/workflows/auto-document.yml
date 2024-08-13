@@ -45,8 +45,10 @@ jobs:
 
       - name: Prepare deployment directory
         run: |
-          mkdir -p docs/${{ github.ref_name }}
-          cp -r docs/* docs/${{ github.ref_name }}/
+          mkdir -p temp-docs/${{ github.ref_name }}
+          cp -r docs/* temp-docs/${{ github.ref_name }}/
+          rm -r docs
+          mv temp-docs docs
       
       - name: Upload artifact to Pages
         uses: actions/upload-pages-artifact@v3
