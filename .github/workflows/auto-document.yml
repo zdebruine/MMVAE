@@ -2,7 +2,6 @@
 name: Build and Deploy to GitHub Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
     branches:
       - main
@@ -10,17 +9,14 @@ on:
       - feature/*
       - summer_merge
 
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
 jobs:
-  # Job to build the static HTML documentation with pdoc
   build:
     runs-on: ubuntu-latest
     steps:
@@ -41,7 +37,7 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Install project+doc dependencies
-        run: 
+        run: |
           pip install -e .[doc]
       
       - name: Generate HTML documentation with pdoc
@@ -51,30 +47,34 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+
   deploy:
-      needs: build
-      runs-on: ubuntu-latest
-      environment:
-        name: github-pages
-        url: ${{ steps.deployment.outputs.page_url }}
-      steps:
-        - name: Setup Pages
-          uses: actions/configure-pages@v5
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-        - name: Deploy to GitHub Pages
-          id: deployment
-          uses: actions/deploy-pages@v4
-          with:
-            branch: gh-pages
-            folder: docs
+      - name: Deploy to GitHub Pages (main branch)
+        if: github.ref_name == 'main'
+        id: deployment_main
+        uses: actions/deploy-pages@v4
+        with:
+          branch: gh-pages
+          folder: docs
 
-        - name: Deploy to branch-specific folder
-          if: github.ref_name != 'main'
-          run: |
-            BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/})
-            mv docs "docs-${BRANCH_NAME}"
-            mv "docs-${BRANCH_NAME}" "${BRANCH_NAME}"
-          uses: actions/deploy-pages@v4
-          with:
-            branch: gh-pages
-            folder: ${{ github.ref_name }}
+      - name: Deploy to branch-specific folder
+        if: github.ref_name != 'main'
+        run: |
+          BRANCH_NAME=${{ github.ref_name }}
+          mv docs "docs-${BRANCH_NAME}"
+
+      - name: Deploy to GitHub Pages (non-main branches)
+        if: github.ref_name != 'main'
+        uses: actions/deploy-pages@v4
+        with:
+          branch: gh-pages
+          folder: docs-${{ github.ref_name }}
