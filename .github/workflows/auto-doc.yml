@@ -8,30 +8,29 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Python 3.9.18
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.9.18"
-    - name: Set up Python environment
-      run: |
-        python -m venv venv
-        source venv/bin/activate
-    - name: Install project+test dependencies
-      run: pip3 install -e .[doc]
-      
-    - name: Generate Documentation
-      run: |
-        ./scripts/auto-doc.sh
+      - uses: actions/checkout@v4
+      - name: Install Python 3.9.18
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9.18"
+      - name: Set up Python environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+      - name: Install project+test dependencies
+        run: pip3 install -e .[doc]
+        
+      - name: Generate Documentation
+        run: |
+          ./scripts/auto-doc.sh
 
-    - name: Commit and Push changes
-      run: |
-        git config --local user.email "actions@github.com"
-        git config --local user.name "GitHub Actions"
-        git add docs/
-        git commit -m "Auto Update documentation"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          git add docs/
+          git commit -m "Auto Update documentation"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
