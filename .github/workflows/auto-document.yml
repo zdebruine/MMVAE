@@ -42,6 +42,11 @@ jobs:
       
       - name: Generate HTML documentation with pdoc
         run: ./scripts/auto-doc.sh
+
+      - name: Prepare deployment directory
+        run: |
+          mkdir -p docs/${{ github.ref_name }}
+          cp -r docs/* docs/${{ github.ref_name }}/
       
       - name: Upload artifact to Pages
         uses: actions/upload-pages-artifact@v3
