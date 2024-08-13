@@ -47,6 +47,7 @@ jobs:
         with:
           path: docs
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -54,7 +55,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
