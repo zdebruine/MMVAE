@@ -1,5 +1,5 @@
 name: Deploy Documentation
-run_name: Deploy to github-pages
+run-name: Deploy to github-pages
 on:
   push:
     branches:
