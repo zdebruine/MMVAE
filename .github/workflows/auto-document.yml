@@ -1,34 +1,48 @@
-name: Generate Documentation
-run-name: Auto generating documentation
-on: [ push ]
+name: Deploy Documentation
+run_name: Deploy to github-pages
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Python 3.9.18
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.9.18"
-      - name: Cache pip packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      - name: Install project+doc dependencies
-        run: pip install -e .[doc]
-      - name: Generate Documentation
-        run: |
-          ./scripts/auto-doc.sh
-      - name: Commit and Push changes to docs branch
-        run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
-          git checkout -B docs  # Switch to a 'docs' branch
-          git add docs/
-          git commit -m "Auto Update documentation"
-          git push -f origin docs  # Force push to 'docs' branch
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9.18' 
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .[doc]
+
+    - name: Generate Documentation
+      run: |
+        ./scripts/auto-doc.sh
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_branch: gh-pages
+
+    - name: Clean up generated docs
+      run: rm -rf docs
