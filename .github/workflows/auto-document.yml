@@ -4,7 +4,7 @@ name: Build and Deploy to GitHub Pages
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: ["main", "summer_merge"]
+    branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -36,10 +36,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install project+test dependencies
-        run: pip install -e .[doc]
+      - name: Install project+doc dependencies
+        run: 
+          pip install -e .[doc]
       
-      - name: Generate HTML documentation
+      - name: Generate HTML documentation with pdoc
         run: ./scripts/auto-doc.sh
       
       - name: Upload artifact to Pages
@@ -62,3 +63,6 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          branch: ${{ github.ref_name }}
+          folder: /

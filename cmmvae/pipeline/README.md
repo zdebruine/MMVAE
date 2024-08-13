@@ -112,7 +112,7 @@ To configure the workflow execution, you can modify the configuration file locat
 
 ### Log Management
 
-By default, Snakemake will create a `.snakemake` directory in the directory where it is run. Inside the main directory, you will find a `.slurm_logs` folder with subdirectories for each rule that is executed. These subdirectories contain the `err` and `out` files for each job, named according to the job and the jobId.
+By default, Snakemake will create a `.snakemake` directory in the directory where it is run, here you can find snakemake logs. **:When using Slurm profile:**: Inside the main directory, you will find a `.cmmvae` folder with subdirectories for each rule that is executed. These subdirectories contain the `err` and `out` files for each job, named according to the job and the jobId.
 
 ### Resource Allocation
 
