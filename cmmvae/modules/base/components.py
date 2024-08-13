@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional, Type, TypeVar, Union
+from typing import Any, List, Literal, Optional, Type, TypeVar, Union
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -23,75 +23,164 @@ def is_iterable(obj):
         return False
     return True
 
+_BLOCK_CONFIG = {
+    'dropout_rate': (float,),
+    'use_batch_norm': (bool,),
+    'use_layer_norm': (bool,),
+    'activation_fn': (nn.Module, {'comparison_fn': issubclass, 'optional': True}),
+    'return_hidden': (bool,)
+}
 
-class BaseFCBlock(nn.Module):
+class FCBlockConfig:
     """
-    Fully Connected Block (FCBlock) for building neural network layers.
+    Configuration for Fully Connected Block :class:`FCBlock`.
 
-    This class constructs a series of fully connected layers with optional dropout, batch normalization,
-    layer normalization, and activation functions.
-
-    Args:
-        layers (List[int]): A sequence of integers specifying the number of units in each layer.
-        dropout_rate (Union[float, List[float]], optional): Dropout rate(s) for each layer. Defaults to 0.0.
-        use_batch_norm (Union[bool, List[bool]], optional): Whether to use batch normalization for each layer. Defaults to False.
-        use_layer_norm (Union[bool, List[bool]], optional): Whether to use layer normalization for each layer. Defaults to False.
-        activation_fn (Union[Optional[Type[nn.Module]], List[Optional[Type[nn.Module]]]], optional): Activation function(s) for each layer. Defaults to nn.ReLU.
-        return_hidden (Union[bool, List[bool]], optional): Whether to aggregate and return hidden representations. Defaults to False.
-
+    This class provides a structured way to configure the options for building a fully connected block.
+    
     Attributes:
-        fc_layers (nn.Sequential): The sequential container of fully connected layers.
-        n_layers (int): Number of layers in the network.
-        input_dim (int): Dimension of the input features.
-        output_dim (int): Dimension of the output features.
+        n_layers (int): Number of layers in the configuration.
+        layers (List[int]): List of layer sizes.
+        dropout_rate (List[float]): List of dropout rates.
+        use_batch_norm (List[bool]): List indicating whether to use batch normalization for each layer.
+        use_layer_norm (List[bool]): List indicating whether to use layer normalization for each layer.
+        activation_fn (List[Optional[Type[nn.Module]]]): List of activation functions.
+        return_hidden (List[bool]): List indicating whether to return hidden layers.
     """
-
+    
+    layers: List[int]
+    dropout_rate:  List[float]
+    use_batch_norm: List[bool]
+    use_layer_norm: List[bool]
+    activation_fn: List[Optional[Type[nn.Module]]]
+    return_hidden: List[bool]
+    
     def __init__(
         self,
         layers: List[int],
         dropout_rate: Union[float, List[float]] = 0.0,
         use_batch_norm: Union[bool, List[bool]] = False,
         use_layer_norm: Union[bool, List[bool]] = False,
-        activation_fn: Union[Optional[Type[nn.Module]], List[Optional[Type[nn.Module]]]] = nn.ReLU,
+        activation_fn: Union[Optional[Type[nn.Module]], List[Optional[Type[nn.Module]]]] = None,
         return_hidden: Union[bool, List[bool]] = False
     ):
-        super().__init__()
+        r"""
+        
+        .. note::
+            The FCBlock zips the layers into n_in, n_out pairings ([10, 20, 30] -> [(10, 20), (20, 30)]). If 
+            a single layer size is provided, it's size is duplicated to form one pairing ([10] -> [(10, 10)]).
+            
+            Each attribute can be provided as a list for each layer pair 
+            or a single value that is duplicated for all layers.
 
-        # Duplicate layers if only one found for n_in and n_out
+        Args:
+            layers (List[int]): A sequence of integers specifying the number of units in each layer.
+            dropout_rate (Union[float, List[float]], optional): Dropout rate(s) for each layer. Defaults to 0.0.
+            use_batch_norm (Union[bool, List[bool]], optional): Whether to use batch normalization for each layer. Defaults to False.
+            use_layer_norm (Union[bool, List[bool]], optional): Whether to use layer normalization for each layer. Defaults to False.
+            activation_fn (Union[Optional[Type[nn.Module]], List[Optional[Type[nn.Module]]]], optional): Activation function(s) for each layer. Defaults to None.
+            return_hidden (Union[bool, List[bool]], optional): Whether to aggregate and return hidden representations. Defaults to False.
+        """
+        super().__init__()
+        
+        # Assert layers is a list
+        assert isinstance(layers, list), f"layers must be a list found type: {type(layers)}"
+        # Assert all values are integer objects greater than 0
+        assert all(isinstance(layer, int) and layer > 0 for layer in layers), "layers must be positive integers"
         if len(layers) == 1:
             layers = layers * 2
+        self.layers = layers
+        
+        local_kwargs = locals()
+        for name in _BLOCK_CONFIG:
+            obj = local_kwargs[name]
+            if not is_iterable(local_kwargs[name]):
+                obj = [obj] * self.n_layers
+            setattr(self, name, obj)
+        
+        self.validate()
+    
+    @property
+    def n_layers(self):
+        if not hasattr(self, 'layers'):
+            raise RuntimeError("n_layers called before layers initialized")
+        n_layers = len(self.layers)
+        # Since layers will be paired into n_in and n_out
+        # the number of layers will be equal to 1 for both
+        # length of 1 and 2, otherwise the number of layers
+        # will then be one less len(layers) because pairing
+        # starting from the first two elements
+        if n_layers > 1:
+            n_layers -= 1
+        return n_layers
+    
+    def _validate_option(self, name, req_type, comparison_fn=isinstance, optional=False):
+        obj = getattr(self, name)
+        if not optional and obj is None:
+            raise ValueError(f"{name} is not optional but value is None")
+        types = (req_type, type(None)) if optional else (req_type,)
+        
+        if len(obj) != self.n_layers:
+            raise ValueError(f"Length of '{name}' must match the length of 'layers': {len(obj)} != {self.n_layers}")
+        try:
+            assert all(val is not None and comparison_fn(val, types) for val in obj if not (optional and val is None))
+        except (AssertionError, TypeError):
+            raise ValueError(f"All elements in '{name}' must be a {str(req_type)}")
+        
+    def validate(self):
+        """Run validation over current configuration"""
+        for name, (req_type, *kwargs) in _BLOCK_CONFIG.items():
+            kwargs = kwargs[0] if kwargs else {}
+            self._validate_option(name, req_type, **kwargs)
 
-        # Pair layers into n_in, n_out pairs in sequence
-        layers = list(zip(layers[:-1], layers[1:]))
-        self.n_layers = len(layers)
 
-        # Ensure input arguments are lists with correct length
-        dropout_rate = self.to_list(dropout_rate)
-        use_batch_norm = self.to_list(use_batch_norm)
-        use_layer_norm = self.to_list(use_layer_norm)
-        activation_fn = self.to_list(activation_fn)
-        self.return_hidden = self.to_list(return_hidden)
+class FCBlock(nn.Module):
+    """
+    Fully Connected Block for building neural network layers.
 
+    This class constructs a series of fully connected layers with optional dropout, batch normalization,
+    layer normalization, and activation functions.
+
+    Attributes:
+        config (`FCBlockConfig`): Configuration class for FCBlock
+        fc_layers (nn.Sequential): The sequential container of fully connected layers.
+        input_dim (int): Dimension of the input features.
+        output_dim (int): Dimension of the output features.
+        can_bypass (bool): Whether we can rely on Sequential forward if not returning hidden states.
+    """
+    def __init__(self, config: FCBlockConfig):
+        """Initilize Fully Connected Block from configuration."""
+        super().__init__()
+        
+        # Validate config is compatible with FCBlockConfig
+        self.config = config
+        self.config.validate()
+            
         # Create fully connected layers
-        fc_layers = [
-            self._make_layer(n_in, n_out, use_batch_norm[i], use_layer_norm[i], activation_fn[i], dropout_rate[i])
-            for i, (n_in, n_out) in enumerate(layers)
-        ]
-
-        self.fc_layers = nn.Sequential(*fc_layers)
-
-        self.input_dim = layers[0][0]
-        self.output_dim = layers[-1][1]
-
+        self.fc_layers = nn.Sequential(*[
+            self._make_layer(
+                n_in=n_in,
+                n_out=n_out, 
+                use_batch_norm=config.use_batch_norm[i], 
+                use_layer_norm=config.use_layer_norm[i], 
+                activation_fn=config.activation_fn[i], 
+                dropout_rate=config.dropout_rate[i])
+            for i, (n_in, n_out) in enumerate(zip(self.config.layers[:-1], self.config.layers[1:]))
+        ])
+    
+    @property
+    def input_dim(self) -> int:
+        """The input dimension of the :class:`FCBlock`"""
+        return self.config.layers[0]
+    
+    @property
+    def output_dim(self) -> int:
+        """The output dimension of the :class:`FCBlock`"""
+        return self.config.layers[-1]
+    
     @property
     def can_bypass(self) -> bool:
-        """
-        Check if the model can bypass the hidden layer return logic.
-
-        Returns:
-            bool: True if no hidden layers are returned, False otherwise.
-        """
-        return not any(self.return_hidden)
+        """Whether module can bypass returning hidden states"""
+        return not any(self.config.return_hidden)
 
     def _make_layer(self, n_in: int, n_out: int, use_batch_norm: bool, use_layer_norm: bool, activation_fn: Optional[Type[nn.Module]], dropout_rate: float) -> nn.Sequential:
         """
@@ -138,156 +227,28 @@ class BaseFCBlock(nn.Module):
         for i, layer in enumerate(self.fc_layers):
             for name, sublayer in layer.named_children():
                 x = sublayer(x)
-                if name == '2' and self.return_hidden[i]:
+                if name == '2' and self.config.return_hidden[i]:
                     hidden_representations.append(x)
         return x, hidden_representations
-
-    def to_list(self, value: Union[T, List[T]]) -> List[T]:
-        """
-        Ensure that a value is a list with the correct number of elements.
-
-        Args:
-            value (Union[T, List[T]]): The value or list to ensure correct length.
-
-        Returns:
-            List[T]: A list with the correct number of elements.
-        """
-        if isinstance(value, (tuple, list)):
-            assert len(value) == self.n_layers, f"Length of {type(value)} does not match number of layers: {len(value)} != {self.n_layers}"
-            return value
-        else:
-            return [value] * self.n_layers
-
-
-class FCBlockConfig:
-    """
-    Configuration for Fully Connected Block (FCBlock).
-
-    This class provides a structured way to configure the options for building a fully connected block.
-
-    Args:
-        layers (List[int]): A sequence of integers specifying the number of units in each layer.
-        dropout_rate (Union[float, List[float]], optional): Dropout rate(s) for each layer. Defaults to 0.0.
-        use_batch_norm (Union[bool, List[bool]], optional): Whether to use batch normalization for each layer. Defaults to False.
-        use_layer_norm (Union[bool, List[bool]], optional): Whether to use layer normalization for each layer. Defaults to False.
-        activation_fn (Union[Optional[Type[nn.Module]], List[Optional[Type[nn.Module]]]], optional): Activation function(s) for each layer. Defaults to nn.ReLU.
-        return_hidden (Union[bool, List[bool]], optional): Whether to aggregate and return hidden representations. Defaults to False.
-
-    Attributes:
-        n_layers (int): Number of layers in the configuration.
-        layers (List[int]): List of layer sizes.
-        dropout_rate (List[float]): List of dropout rates.
-        use_batch_norm (List[bool]): List indicating whether to use batch normalization for each layer.
-        use_layer_norm (List[bool]): List indicating whether to use layer normalization for each layer.
-        activation_fn (List[Optional[Type[nn.Module]]]): List of activation functions.
-        return_hidden (List[bool]): List indicating whether to return hidden layers.
-    """
-
-    def __init__(
-        self,
-        layers: List[int],
-        dropout_rate: Union[float, List[float]] = 0.0,
-        use_batch_norm: Union[bool, List[bool]] = False,
-        use_layer_norm: Union[bool, List[bool]] = False,
-        activation_fn: Union[Optional[Type[nn.Module]], List[Optional[Type[nn.Module]]]] = nn.ReLU,
-        return_hidden: Union[bool, List[bool]] = False
-    ):
-        super().__init__()
-
-        self._validate_and_set_layers(layers)
-        self._validate_and_set_option('dropout_rate', dropout_rate, float)
-        self._validate_and_set_option('use_batch_norm', use_batch_norm, bool)
-        self._validate_and_set_option('use_layer_norm', use_layer_norm, bool)
-        self._validate_and_set_option('activation_fn', activation_fn, nn.Module, comparison_fn=issubclass, optional=True)
-        self._validate_and_set_option('return_hidden', return_hidden, bool)
-
-    def _validate_and_set_layers(self, layers: List[int]):
-        """
-        Validate and set the layers configuration.
-
-        Args:
-            layers (List[int]): List of layer sizes.
-
-        Raises:
-            ValueError: If the layers are not a valid list of positive integers.
-        """
-        # Assert layers is a list
-        assert isinstance(layers, list), f"layers must be a list found type: {type(layers)}"
-        # Assert all values are integer objects greater than 0
-        assert all(isinstance(layer, int) and layer > 0 for layer in layers), "layers must be positive integers"
-        n_layers = len(layers)
-        # Since layers will be paired into n_in and n_out
-        # the number of layers will be equal to 1 for both
-        # length of 1 and 2, otherwise the number of layers
-        # will then be one less len(layers) because pairing
-        # starting from the first two elements
-        if n_layers > 1:
-            n_layers -= 1
-        self.n_layers = n_layers
-        self.layers = layers
-                
-    def _validate_and_set_option(self, name: str, obj: Union[T, List[T]], req_type: Type, comparison_fn=isinstance, optional=False):
-        """
-        Validate and set an option configuration.
-
-        Args:
-            name (str): The name of the option.
-            obj (Union[T, List[T]]): The option value or list of values.
-            req_type (Type): Required type for validation.
-            comparison_fn (Callable): Function to compare types (default is isinstance).
-            optional (bool): Whether the option is optional.
-
-        Raises:
-            ValueError: If the option is not valid or the wrong type.
-        """
-        types = (req_type, type(None)) if optional else (req_type,)
-
-        if not optional and obj is None:
-            raise ValueError(f"{name} is not optional but value is None")
-
-        if is_iterable(obj):
-            if len(obj) != self.n_layers:
-                raise ValueError(f"Length of '{name}' must match the length of 'layers': {len(obj)} != {self.n_layers}")
-            try:
-                assert all(val is not None and comparison_fn(val, types) for val in obj if not (optional and val is None))
-            except (AssertionError, TypeError):
-                raise ValueError(f"All elements in '{name}' must be a {str(req_type)}")
-            value = obj
-        elif obj is None or comparison_fn(obj, req_type):
-            if optional and obj is None:
-                value = None
-            else:
-                value = [obj] * self.n_layers
-        else:
-            raise ValueError(f"{name} ({obj}) is not a {str(req_type)} or iterable of {req_type}")
-
-        setattr(self, name, value)
-        
-class FCBlock(BaseFCBlock):
-    """Wrapper to intialize BaseFCBlock from FCBlockConfig"""
-    
-    def __init__(self, config: FCBlockConfig):
-        super(FCBlock, self).__init__(
-            layers=config.layers,
-            dropout_rate=config.dropout_rate,
-            use_batch_norm=config.use_batch_norm,
-            use_layer_norm=config.use_layer_norm,
-            activation_fn=config.activation_fn,
-            return_hidden=config.return_hidden,
-        )
 
 
 class ConditionalLayer(nn.Module):
     """
     Conditionaly passes split input tensor through repespective condition layer.
     
+    .. note::
+        To reduce loading time of creating and updating optimizer paramters on the fly the unique
+        conditions prevelent in the dataset must be known in advance. :attr:`conditions_path` should 
+        contain a path to a csv containing all the unique conditions. The batch_key is the column key
+        in the metadata.
+    
     Args:
         batch_key (str): Column key in metadata.
         conditions_path (str): Path to unqiue conditions in dataset for batch_key (used to initialize modules).
-        fc_block_config (FCBlockConfig): Configuration to be used for each condition module.
+        fc_block_config (`FCBlockConfig`): Configuration to be used for each condition module.
     """
-    
     def __init__(self, batch_key: str, conditions_path: str, fc_block_config: FCBlockConfig):
+        """Initialize condition modules from condition paths"""
         super(ConditionalLayer, self).__init__()
         
         self.batch_key = batch_key
@@ -298,11 +259,32 @@ class ConditionalLayer(nn.Module):
             for condition in self.unique_conditions
         })
         
-    def format_condition_key(self, condition: str):
+    def format_condition_key(self, condition: str) -> str:
+        """
+        Format condition key because '.' not allowed as `nn.ModuleDict` key.
+        
+        Args:
+            condition (str): Condition key
+        
+        Returns:
+            str: Condition key with all '.' replaced with '_'
+        """
         return condition.replace('.', '_')
     
     def forward(self, x: torch.Tensor, metadata: pd.DataFrame, condition: Optional[str] = None):
+        """
+        Run forward pass through each metadata label specific condition layer. The metadata is 
+        grouped by the batch_key and the indices are used to mask the input tensor. The resulting
+        Tensors are summed to form the output batch maintaining original sample order.
         
+        Args:
+            x (torch.Tensor): Input tensor.
+            metadata (pd.DataFrame): Metadata dataframe with corresponding batch_key
+            condition (str, optional): If available, all samples passed through this condition.
+        
+        Returns:
+            torch.Tensor: Output tensor of same shape as input.
+        """
         if condition:
             return self.conditions[condition](x), metadata
         
@@ -326,10 +308,9 @@ class ConditionalLayers(nn.Module):
     """
     Iterates over all ConditionLayer's allowing for shuffling or sequential iteration.
     
-    Args:
-        conditional_paths (dict[str, str]): Dictionary of batch_keys and paths to csv's with their respective unique conditions.
-        fc_block_config (FCBlockConfig): Configuration for all ConditionLayer's.
-        selection_order (Optional[list[str]]: Optional list of batch_keys to order forward pass on respective ConditionLayer's.
+    Attributes:
+        layers (nn.ModuleList): nn.ModuleList of :class:`ConditionLayer`'s
+        selection_order (torch.Tensor): torch.Tensor representing selection order.
     """
     
     def __init__(
@@ -338,6 +319,19 @@ class ConditionalLayers(nn.Module):
         fc_block_config: FCBlockConfig,
         selection_order: Optional[list[str]] = None,
     ):
+        """
+        Initialize :class:`ConditionLayer`'s for each batch_key.
+        
+        .. note::
+            All :class:`ConditionLayer`'s are instantiated from the same configuration. 
+            
+            Each key in conditional_paths is a :class:`ConditionLayer`.
+            
+        Args:
+            conditional_paths (dict[str, str]): Dictionary of batch_keys and paths to csv's with their respective unique conditions.
+            fc_block_config (cmmvae.modules.base.FCBlockConfig): Configuration for all ConditionLayer's.
+            selection_order (Optional[list[str]]: Optional list of batch_keys to order forward pass on respective ConditionLayer's.
+        """
         super(ConditionalLayers, self).__init__()
         
         if not selection_order:
@@ -348,12 +342,22 @@ class ConditionalLayers(nn.Module):
             
         self.selection_order = torch.arange(0, len(selection_order), dtype=torch.int32, requires_grad=False)
         
-        self.layers: list[ConditionalLayer] = nn.ModuleList([
+        self.layers = nn.ModuleList([
             ConditionalLayer(batch_key, conditional_paths[batch_key], fc_block_config)
             for batch_key in selection_order
         ])
         
-    def forward(self, x: torch.Tensor, metadata: pd.DataFrame, conditions: Optional[dict[str, str]] = None):
+    def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
+        """
+        Run forward pass through each :class:`ConditionLayer` either shuffled or in-order.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            metadata (pd.DataFrame): Input metadata
+        
+        Returns:
+            torch.Tensor: Resulting torch.Tensor
+        """
         order = self.selection_order
         
         if self.shuffle_selection_order:
@@ -371,17 +375,10 @@ def _identity(x):
             
 class Encoder(nn.Module):
     """
-    Encoder module for a Variational Autoencoder (VAE) with flexible configurations.
-
-    Args:
-        latent_dim (int): Size of latent dimension.
-        fc_block_config (FCBlockConfig): Configuration for fc block.
-        distribution (Union[Literal['ln'], Literal['normal']], optional): Type of distribution for the latent variables. Defaults to 'normal'.
-        return_dist (bool, optional): Whether to return the distribution object. Defaults to False.
-        var_eps (float, optional): Small epsilon value for numerical stability in variance calculation. Defaults to 1e-4.
+    Encoder module for a Variational Autoencoder (cmmvae.modules.VAE) with flexible configurations.
 
     Attributes:
-        encoder (FCBlock): Fully connected block for encoding input features.
+        encoder (cmmvae.modules.base.FCBlock): Fully connected block for encoding input features.
         mean_encoder (nn.Linear): Linear layer to compute the mean of the latent variables.
         var_encoder (nn.Linear): Linear layer to compute the variance of the latent variables.
         z_transformation (Callable): Transformation applied to the latent variables. Defaults to softmax for log-normal distribution.
@@ -398,6 +395,16 @@ class Encoder(nn.Module):
         return_dist: bool = False,
         var_eps: float = 1e-4, # numerical stability
     ):
+        """
+        Initialize Encoder nn.Module from configuration and set defaults.
+        
+        Args:
+            latent_dim (int): Size of latent dimension.
+            fc_block_config (`FCBlockConfig`): Configuration for fc block.
+            distribution (Union[Literal['ln'], Literal['normal']], optional): Type of distribution for the latent variables. Defaults to 'normal'.
+            return_dist (bool, optional): Whether to return the distribution object. Defaults to False.
+            var_eps (float, optional): Small epsilon value for numerical stability in variance calculation. Defaults to 1e-4.
+        """
         super().__init__()
         self.fc = FCBlock(fc_block_config)
 
@@ -419,11 +426,20 @@ class Encoder(nn.Module):
         self.return_dist = return_dist
     
     @property
-    def n_layers(self):
-        return self.fc.n_layers
+    def n_layers(self) -> int:
+        """Number of layer's."""
+        return self.fc.config.n_layers
     
     def encode(self, x: torch.Tensor):
-        """Encode input and return output and list of hidden representations"""
+        """
+        Encode input and return output and list of hidden representations
+        
+        Args:
+            x (torch.Tensor): Input tensor
+        
+        Returns:
+            torch.Tensor: Output tensor
+        """
         return self.fc(x)
     
     def forward(self, x: torch.Tensor):
@@ -463,76 +479,61 @@ class Encoder(nn.Module):
         return q_m, q_v, latent, hidden_representations
 
 
-class BaseExpert(nn.Module):
+class Expert(nn.Module):
     """
     Container that stores expert encoder and decoder networks.
-    
-    Args:
-        id (str): Name of expert (unique identifier)
-        encoder (FCBlock): encoder network
-        decoder (FCBlock): decoder network 
         
     Attributes:
         id (str)
-        encoder (FCBlock): encoder network
-        decoder (FCBlock): decoder network 
+        encoder (`FCBlock`): encoder network
+        decoder (`FCBlock`): decoder network 
     """
-    def __init__(
-        self,
-        id: str,
-        encoder: FCBlock,
-        decoder: FCBlock
-    ):
-        super().__init__()
-        
-        self.id = id
-        self.encoder = encoder
-        self.decoder = decoder
-    
-    def encode(self, x: torch.Tensor):
-        return self.encoder(x)
-        
-    def decode(self, x: torch.Tensor):
-        return self.decoder(x)
-    
-class Expert(BaseExpert):
-    """
-    Wrapper to BaseExpert that allows easy configuration through FCBlockConfig.
-    
-    Args:
-        id (str): Name of expert (unique identifier)
-        encoder_config (FCBlockConfig): Encoder layer configuration
-        decoder_config (FCBlockConfig): Decoder layer configuration
-    
-    Attributes:
-        id (str)
-        encoder (FCBlock): encoder network
-        decoder (FCBlock): decoder network 
-    """
-    
     def __init__(
         self,
         id: str,
         encoder_config: FCBlockConfig,
-        decoder_config: FCBlockConfig, 
+        decoder_config: FCBlockConfig,
     ):
-        super(Expert, self).__init__(
-            id=id, 
-            encoder=FCBlock(encoder_config), 
-            decoder=FCBlock(decoder_config)
-        )
+        """
+        Initialize encoder and decoder network storage.
+            
+        Args:
+            id (str): Name of expert (unique identifier)
+            encoder (`FCBlock`): encoder network
+            decoder (`FCBlock`): decoder network 
+        """
+        super().__init__()
+        
+        self.id = id
+        self.encoder = FCBlock(encoder_config)
+        self.decoder = FCBlock(decoder_config)
+        
+    def forward(self, *args, **kwargs):
+        """
+        .. warning::
+            Forward pass will through NotImplementedErro as it does not make sense to pass through joint encoder and decoder.
+        """
+        raise NotImplementedError("Cannot call forward pass on disjoint encoder and decoder")
     
+    def encode(self, x: torch.Tensor):
+        """Run forward pass on encoder"""
+        return self.encoder(x)
+        
+    def decode(self, x: torch.Tensor):
+        """Run forward pass on decoder"""
+        return self.decoder(x)
+
 class Experts(nn.ModuleDict):
     """
-    Container to store Expert encoder and decoder networks.
+    Container to store cmmvae.modules.base.Expert encoder and decoder networks.
     
     Args:
-        experts (list[BaseExpert]): List of Expert modules.
+        experts (list[cmmvae.modules.base.BaseExpert]): List of Expert modules.
         
     Attributes:
         labels (dict[str, int]): Dictionary of expert.id's to their integer representation.
     """
     
-    def __init__(self, experts: list[BaseExpert]):
+    def __init__(self, experts: list[Expert]):
         super().__init__({ expert.id: expert for expert in experts})
         self.labels = { key: i for i, key in enumerate(self.keys())}

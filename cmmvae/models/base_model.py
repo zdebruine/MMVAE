@@ -46,58 +46,62 @@ def tag_log_dict(
 
 class BaseModel(pl.LightningModule):
     """
-    Base class for Variational Autoencoder (VAE) models, extending PyTorch Lightning's LightningModule.
-
-    This class provides a structured approach to experiment tracking, auto-optimization,
-    and modularized forward pass handling for VAE architectures. It serves as a foundation
-    for building VAE models and their derivatives, reducing redundancy in trace code and logging.
-
-    Args:
-        module (BaseModule): The module to be used in the forward pass.
-        batch_size (int, optional): Batch size for logging purposes only. Defaults to 128.
-        record_embeddings (bool, optional): Whether to record embeddings (z and z*star). Defaults to False.
-        record_gradients (bool, optional): Whether to record gradients of the model. Defaults to False.
-        configure_optimizer_kwargs (dict, optional): Keyword arguments to be passed to configure_optimizers. Defaults to an empty dict.
-        gradient_record_cap (int, optional): Cap on the number of gradients to record to prevent clogging TensorBoard. Defaults to 20.
-
+    This class serves as a wrapper to `LightningModule` providing methods for experiment tracking and training.
+    
+    
     Attributes:
-        get_module_input_kwargs (Callable): Returns input arguments for the forward pass based on the data registry and additional kwargs.
-        example_input_array (tuple): A tuple of positional arguments to be passed to the forward pass.
-        get_adata_latent_representations (Callable): Takes AnnData and returns latent representations.
+        example_input_array (tuple): A tuple of positional arguments to be passed to the forward pass for graph creation.
     """
-
     def __init__(
         self,
-        module: nn.Module,
         batch_size: int = 128,
         record_gradients: bool = False,
         save_gradients_interval: int = 25,
         gradient_record_cap: int = 20,
-        kl_annealing_fn: Optional[Union[Literal['linear', 'constant']]] = 'constant', # add more annealing functions
-        kl_annealing_fn_kwargs: dict[str, Any] = {},
+        kl_annealing_fn: Optional[KLAnnealingFn] = None,
         predict_dir: str = "",
         predict_save_interval: int = 600,
         initial_save_index: int = -1,
         use_he_init_weights: bool = True,
     ):
-        super().__init__()
+        """
+        Initializes a BaseModel instance registering KLAnnealingFn and initializing weights.
         
+        .. warning::
+            Inorder for module parameters to be picked up subclasses must call :attr:`init_weights` to initialize weights.
+        
+        Args:
+            batch_size (int, optional): Batch size for logging purposes only. Defaults to 128.
+            record_gradients (bool, optional): Whether to record gradients of the model. Defaults to False.
+            save_gradients_interval (int): Interval of steps to save gradients. Defaults to 25.
+            gradient_record_cap (int, optional): Cap on the number of gradients to record to prevent clogging TensorBoard. Defaults to 20.
+            kl_annealing_fn (KLAnnealingFn, optional): Annealing function used for kl_weight. Defaults to `KLAnnealingFn(1.0)`
+            predict_dir (str): Directory to save predictions. If not absolute path then saved within Tensorboard log_dir. Defaults to "".
+            predict_save_interval (int): Interval to save embeddings and metadata to prevent OOM Error. Defaults to 600.
+            initial_save_index (int): The starting point for predictions index when saving (ie z_embeddings_0.npz for -1). Defaults to -1.
+            use_he_init_weights (bool): Initialize weights using He initialization. Defaults to True.
+        """
+        super().__init__()
         self.save_hyperparameters(ignore=['module'], logger=False)
         
         self.batch_size = batch_size
-        self.save_gradients_interval = save_gradients_interval
-        self.record_gradients = record_gradients
-        self.gradient_record_cap = gradient_record_cap
-        self.predictions = []
+        self.record_gradients: bool = record_gradients
+        self.save_gradients_interval: int = save_gradients_interval
+        self.gradient_record_cap: int = gradient_record_cap
         self.predict_dir = predict_dir
         self.predict_save_interval = predict_save_interval
+        
+        self._running_predictions = []
         self._curr_save_idx = initial_save_index
-        self.module = module
-        self._register_kl_annealing_fn(kl_annealing_fn, **kl_annealing_fn_kwargs)
+        
+        if not kl_annealing_fn:
+            kl_annealing_fn = KLAnnealingFn(1.0)
+            
+        self.kl_annealing_fn = kl_annealing_fn
         self._use_he_init_weights = use_he_init_weights
-        self.init_weights()
         
     def init_weights(self):
+        """Initialize model parameters with He initialization."""
         if self._use_he_init_weights:
             init.he_init_weights(self)
     
@@ -106,6 +110,19 @@ class BaseModel(pl.LightningModule):
         embeddings_path: str = 'embeddings.npz',
         metadata_path: str = 'metadata.pkl',
     ):
+        """
+        Saves embeddings and metadata to disk.
+        
+        .. note::
+            if path supplied in :attr:`embeddings_path` or :attr:`metadata_path`
+            is not an absolute path then the current logger.log_dir is used.
+        
+        Args:
+            embeddings (np.ndarray): Model embeddings
+            metadata (pd.DataFrame): Associate metadata
+            embeddings_path (str): Name of embeddings file
+            metadata_path (str): name of metadata file
+        """
         for path in (metadata_path, embeddings_path):
             if not os.path.isabs(path):
                 path = os.path.join(self.logger.log_dir, path)
@@ -117,19 +134,7 @@ class BaseModel(pl.LightningModule):
                 np.savez(path, embeddings=embeddings)
             if path.endswith('.pkl'):
                 metadata.to_pickle(path) 
-            
-    def _register_kl_annealing_fn(self, kl_annealing_fn, **kwargs):
-        if kl_annealing_fn == 'linear':
-            self.kl_annealing_fn = LinearKLAnnealingFn(**kwargs)
-        elif kl_annealing_fn == 'constant' or not kl_annealing_fn:
-            if 'kl_weight' not in kwargs:
-                kwargs = { 'kl_weight': 1.0 }
-                import warnings
-                warnings.warn("No kl_weight set: setting default 1.0")
-            self.kl_annealing_fn = KLAnnealingFn(**kwargs)
-        else:
-            raise ValueError(f"kl_annealing_fn {kl_annealing_fn} is unknown")
-    
+                
     @property
     def stage_name(self):
         """
@@ -207,7 +212,7 @@ class BaseModel(pl.LightningModule):
         Get latent representations from AnnData.
 
         Args:
-            adata (AnnData): Annotated data matrix.
+            adata (Any): Annotated data matrix.
             batch_size (int): Batch size for data loading.
 
         Returns:
@@ -269,16 +274,24 @@ class BaseModel(pl.LightningModule):
         )
         
     def on_predict_epoch_start(self):
-        self.predictions.clear()
+        """Clear predictions on epoch start"""
+        self._running_predictions.clear()
         
     def on_predict_epoch_end(self):
-        if self.predictions:
+        """Save and clear leftover predictions after epoch"""
+        if self._running_predictions:
             self._save_paired_predictions()
-        self.predictions.clear()
+        self._running_predictions.clear()
         
-    def save_predictions(self, predictions, idx: int):  
+    def save_predictions(self, predictions: np.ndarray, idx: int):  
+        """
+        Accumulate predictions and save periodically dicated by :attr:`predict_save_interval`.
         
-        self.predictions.append(predictions)
+        Args:
+            predictions (np.ndarray): Predictions to be saved.
+            idx (int): Index of save prediction (To keep track of save interval).
+        """
+        self._running_predictions.append(predictions)
         
         div, mod = divmod(idx + 1, self.predict_save_interval)
         if mod == 0:
@@ -289,11 +302,11 @@ class BaseModel(pl.LightningModule):
         self._curr_save_idx += 1
         stacked_predictions = {}
         
-        for key in self.predictions[0].keys():
-            if isinstance(self.predictions[0][key], pd.DataFrame):
-                stacked_predictions[key] = pd.concat([prediction[key] for prediction in self.predictions])
+        for key in self._running_predictions[0].keys():
+            if isinstance(self._running_predictions[0][key], pd.DataFrame):
+                stacked_predictions[key] = pd.concat([prediction[key] for prediction in self._running_predictions])
             else:
-                stacked_predictions[key] = torch.cat([prediction[key] for prediction in self.predictions], dim=0).cpu().numpy()
+                stacked_predictions[key] = torch.cat([prediction[key] for prediction in self._running_predictions], dim=0).cpu().numpy()
 
         for key in stacked_predictions:
             if RK.METADATA in key:

@@ -1,14 +1,15 @@
 class_path: cmmvae.models.CMMVAEModel
 init_args:
-  kl_annealing_fn: constant
-  kl_annealing_fn_kwargs: 
-    kl_weight: 1.0
+  kl_annealing_fn: 
+    class_path: cmmvae.modules.base.KLAnnealingFn
+    init_args:
+      kl_weight: 1.0
   record_gradients: false
   gradient_record_cap: 20
   module:
     class_path: cmmvae.modules.CMMVAE
     init_args: 
-      clvae: 
+      vae: 
         class_path: cmmvae.modules.CLVAE
         init_args:
           latent_dim: 128
@@ -39,7 +40,7 @@ init_args:
               use_layer_norm: True
               activation_fn: null
           conditional_paths:
-            assay: "/mnt/projects/debruinz_project/denhofja/cmmvae/src/cmmvae/data/conditional_layers/unique_assays.csv"
+            assay: "/mnt/projects/debruinz_project/denhofja/cmmvae/cmmvae/data/conditional_layers/unique_assays.csv"
           selection_order: null
       experts:
         class_path: cmmvae.modules.base.Experts

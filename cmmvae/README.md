@@ -30,8 +30,9 @@ To use this workflow, you must have Snakemake and the required dependencies inst
    pip install .
    ```
    * make sure to set workflow/config.yaml's env_path to the python in virtual env
-   *GVSU HPC users can point to /mnt/projects/debruinz_project/pytorch-nightly-env
+   * GVSU HPC users can point to /mnt/projects/debruinz_project/pytorch-nightly-env
    and this already taken care of in workflow/config.yaml
+   * GVSU HPC venv can be found at /mnt/projects/debruinz_project/pytorch-nightly-env
 
 ## Configuration
 
@@ -40,13 +41,13 @@ The workflow requires a configuration file in YAML format, which contains the se
 Below is a sample configuration file:
 
 ```yaml
-root_dir: /path/to/root
-experiment_name: my_experiment
-run_name: my_run
-env_path: /path/to/conda/env/bin/python
-trainer: trainer_config.yaml
-model: model_config.yaml
-data: data_config.yaml
+root_dir: lightning_logs
+experiment_name: default
+run_name: default_run
+env_path: /mnt/projects/debruinz_project/pytorch-nightly-env/bin/python3
+trainer: configs/trainer/config.test.yaml
+model: configs/model/config.yaml
+data: configs/data/server.yaml
 merge_keys:
   - z
 categories:
@@ -85,7 +86,7 @@ To run the Snakemake workflow, follow these steps:
 
    Once the workflow completes, results will be stored in the directory specified by `root_dir` within subdirectories for the experiment and run.
 
-## Rules Overview
+## Rules Overview: [Pipeline Documenation](./cmmvae/pipeline.html)
 
 This Snakemake workflow consists of the following rules:
 
@@ -98,6 +99,9 @@ This Snakemake workflow consists of the following rules:
 4. **`umap_predictions`:** Generates UMAP visualizations based on the merged predictions and saves the resulting images.
 
 ## Further Information
+
+Snakemake requires that rule's complete gracefully and at the end of the rule the file's specified by it's output exist. If they do not 
+they will be deleted unless --keep-incomplete specified.
 
 For additional information on Snakemake, consult the [Snakemake documentation](https://snakemake.readthedocs.io/).
 

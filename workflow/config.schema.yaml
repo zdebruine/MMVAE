@@ -10,9 +10,6 @@ properties:
   run_name:
     type: string
     description: The name of the specific run within the experiment.
-  env_path:
-    type: string
-    description: Path to the conda environment or the virtual environment for running the commands.
   config_name:
     type: string
     description: The name of the configuration file.
@@ -53,7 +50,6 @@ properties:
 required:
   - root_dir
   - experiment_name
-  - env_path
   - merge_keys
   - trainer
   - model

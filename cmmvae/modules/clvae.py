@@ -2,21 +2,21 @@ from typing import Optional, Dict, List
 import torch
 import pandas as pd
 
-from .vae import VAE
-from .base import FCBlockConfig, ConditionalLayers
+from cmmvae.modules.vae import VAE
+from cmmvae.modules.base import FCBlockConfig, ConditionalLayers
 
 
 class CLVAE(VAE):
     """
-    Conditional Latent Variational Autoencoder (CLVAE) class.
+    Conditional Latent Variational Autoencoder class.
 
     This class extends the basic VAE to incorporate conditional layers, allowing
     for conditioning the latent space on additional metadata.
 
     Args:
-        encoder_config (FCBlockConfig): Configuration for the encoder's fully connected block.
-        decoder_config (FCBlockConfig): Configuration for the decoder's fully connected block.
-        conditional_config (Optional[FCBlockConfig]): Configuration for the conditional layers.
+        encoder_config (cmmvae.modules.base.FCBlockConfig): Configuration for the encoder's fully connected block.
+        decoder_config (cmmvae.modules.base.FCBlockConfig): Configuration for the decoder's fully connected block.
+        conditional_config (Optional[cmmvae.modules.base.FCBlockConfig]): Configuration for the conditional layers.
         conditional_paths (Dict[str, str]): Mapping of conditional paths for the conditional layers.
         selection_order (Optional[List[str]]): Order in which to apply selection of conditionals.
         encoder_kwargs (dict): Additional keyword arguments for the encoder.

@@ -4,42 +4,37 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-from .base import Experts, FCBlock, FCBlockConfig
-from .clvae import CLVAE
-from .mmvae import MMVAE
+from cmmvae.modules.base import Experts, FCBlock, FCBlockConfig
+from cmmvae.modules import CLVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 
 
-class CMMVAE(MMVAE):
+class CMMVAE(nn.Module):
     """
-    Conditional Multi-Modal Variational Autoencoder (CMMVAE) class.
+    Conditional Multi-Modal Variational Autoencoder class.
 
     This class extends the MMVAE to incorporate conditional latent spaces and adversarial networks
     for enhanced learning across multiple modalities.
 
     Attributes:
-        vae (CLVAE): The conditional latent VAE used for encoding and decoding.
+        vae (Any): The conditional latent VAE used for encoding and decoding.
         adversarials (nn.ModuleList): List of adversarial networks applied to the latent space.
 
     Args:
-        clvae (CLVAE): Instance of a conditional latent VAE.
-        experts (Experts): Collection of expert networks for different modalities.
-        adversarials (Union[Optional[FCBlockConfig], List[Optional[FCBlockConfig]]]): Configuration(s) for adversarial networks.
+        vae (cmmvae.modules.clvae.CLVAE): Instance of a conditional latent VAE.
+        experts (cmmvae.modules.base.Experts): Collection of expert networks for different modalities.
+        adversarials (Union[Optional[cmmvae.modules.base.FCBlockConfig], List[Optional[cmmvae.modules.base.FCBlockConfig]]]): Configuration(s) for adversarial networks.
     """
 
-    vae: CLVAE
-    
     def __init__(
         self, 
-        clvae: CLVAE, 
+        vae: CLVAE, 
         experts: Experts,
         adversarials: Union[Optional[FCBlockConfig], List[Optional[FCBlockConfig]]] = None,
     ):
-        super().__init__(
-            vae=clvae,
-            experts=experts
-        )
-        
+        super().__init__()
+        self.vae = vae
+        self.experts = experts
         self.adversarials = nn.ModuleList([FCBlock(config) for config in adversarials if config])
     
     def forward(
@@ -117,8 +112,8 @@ class CMMVAE(MMVAE):
         x = self.experts[expert_id].encode(x)
         
         # Encode using the VAE
-        qz, z = self.vae.encode(x)
-
+        qz, z, hidden_representations = self.vae.encode(x)
+ 
         return {
             RK.Z: z,
             f"{RK.Z}_{RK.METADATA}": metadata

@@ -1,9 +1,15 @@
+"""
+    Merge Embeddings and Metadata.
+    
+    This module epects files to be stored by {key}_embddings_{\d}.npz and {key}_metadata_{\d}.pkl
+    and outputs a single {key}_embedding.npz and {key}_metadata.pkl for each key.
+"""
 import os
 import re
 import argparse
+import sys
 import numpy as np
 import pandas as pd
-
 
 
 def get_matching_files(directory, pattern):
@@ -23,14 +29,27 @@ def extract_index(filename, pattern):
         return int(match.group(1))
     return -1
 
-def merge_predictions_main(args):
-    for key in args.keys:
+def merge_predictions_main(
+    directory: str,
+    save_dir: str,
+    keys: list[str]
+):
+    """
+    Merge's saved embeddings and metadata into one npz and pkl file.
+    
+    Args:
+        directory (str): Directory where _embeddings{\d}.npz and _metadata{\d}.pkl are stored.
+        save_dir (str): Directory to store {key}_embeddings.npz and {key}_metadata.npz
+        keys (list[str]): List of prefix keys for embeddings and metadata paths.
+    """
+    assert os.path.exists(directory), f"Root directory does not exist {directory}"
+    for key in keys:
         regex = rf"{key}(_embeddings_\d+\.npz|_metadata_\d+\.pkl)"
             
-        if not args.save_dir:
-            args.save_dir = args.directory
+        if not save_dir:
+            save_dir = directory
         
-        files = get_matching_files(args.directory, regex)
+        files = get_matching_files(directory, regex)
         
         embedding_files = []
         metadata_files = []
@@ -53,16 +72,21 @@ def merge_predictions_main(args):
         embeddings = np.concatenate([np.load(file)['embeddings'] for file in embedding_files])
         metadata = pd.concat([pd.read_pickle(file) for file in metadata_files])
         
-        np.savez(f"{args.save_dir}/{key}_embeddings.npz", embeddings=embeddings)
-        metadata.to_pickle(f"{args.save_dir}/{key}_metadata.pkl")
-    
-if __name__ == "__main__":
-    
-    parser = argparse.ArgumentParser("Merge Predictions")
-    parser.add_argument('-d', '--directory', type=str, required=True, help="Directory where samples are stored to be merged")
-    parser.add_argument('-s', '--save_dir', type=str, help="Path to aggreated file location")
-    parser.add_argument('--keys', nargs='*', type=str, required=True, help="Keys to merge z_ for z_embeddings000.npz")
+        np.savez(f"{save_dir}/{key}_embeddings.npz", embeddings=embeddings)
+        metadata.to_pickle(f"{save_dir}/{key}_metadata.pkl")
+
+def main():
+    parser = argparse.ArgumentParser(description="Merge Predictions")
+    parser.add_argument('-d', '--directory', required=True, help="Directory where samples are stored to be merged")
+    parser.add_argument('-s', '--save_dir', required=True, help="Path to aggregated file location")
+    parser.add_argument('--keys', nargs='*', required=True, help="Keys to merge")
     args = parser.parse_args()
-    
-    assert os.path.exists(args.directory), f"Root directory does not exist {args.directory}"
-    merge_predictions_main(args)
+    # Call the merge_predictions_main function with parsed arguments
+    merge_predictions_main(
+        directory=args.directory,
+        save_dir=args.save_dir,
+        keys=args.keys
+    )
+
+if __name__ == "__main__":
+    main()

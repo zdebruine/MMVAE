@@ -3,7 +3,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-from .base_model import BaseModel
+from cmmvae.models import BaseModel
 from cmmvae.modules import CMMVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 
@@ -51,27 +51,36 @@ class GradientReversalFunction(torch.autograd.Function):
 
 
 class CMMVAEModel(BaseModel):
-    """
+    r"""
     Conditional Multi-Modal Variational Autoencoder (CMMVAE) model for handling expert-specific data.
 
     This class is designed for training VAEs with multiple experts and adversarial components.
 
     Args:
-        module (CMMVAE): Conditional Multi-Modal VAE module.
-        **kwargs: Additional keyword arguments for the base VAE model.
+        module (Any): Conditional Multi-Modal VAE module.
+        batch_size (int, optional): Batch size for logging purposes only. Defaults to 128.
+        record_gradients (bool, optional): Whether to record gradients of the model. Defaults to False.
+        save_gradients_interval (int): Interval of steps to save gradients. Defaults to 25.
+        gradient_record_cap (int, optional): Cap on the number of gradients to record to prevent clogging TensorBoard. Defaults to 20.
+        kl_annealing_fn (KLAnnealingFn, optional): Annealing function used for kl_weight. Defaults to `KLAnnealingFn(1.0)`
+        predict_dir (str): Directory to save predictions. If not absolute path then saved within Tensorboard log_dir. Defaults to "".
+        predict_save_interval (int): Interval to save embeddings and metadata to prevent OOM Error. Defaults to 600.
+        initial_save_index (int): The starting point for predictions index when saving (ie z_embeddings_0.npz for -1). Defaults to -1.
+        use_he_init_weights (bool): Initialize weights using He initialization. Defaults to True.
 
     Attributes:
-        module (CMMVAE): The CMMVAE module for processing and generating data.
+        module (`CMMVAE`): The CMMVAE module for processing and generating data.
         automatic_optimization (bool): Flag to control automatic optimization. Set to False for manual optimization.
         adversarial_criterion (nn.CrossEntropyLoss): Loss function for adversarial training.
+        kl_annealing_fn (cmmvae.modules.base.KLAnnealingFn): KLAnnealingFn for weighting KL Divergence. Defaults to KLAnnealingFn(1.0).
     """
     
-    module: CMMVAE
-    
-    def __init__(self, *args, **kwargs):
+    def __init__(self, module: CMMVAE, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.module = module
         self.automatic_optimization = False  # Disable automatic optimization for manual control
         self.adversarial_criterion = nn.CrossEntropyLoss()  # Criterion for adversarial loss
+        self.init_weights()
         
     def training_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int) -> None:
         """

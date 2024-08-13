@@ -1,3 +1,6 @@
+"""
+    Generate UMAP's from embeddings and metadata.
+"""
 import os
 import umap
 import torch
@@ -29,6 +32,25 @@ def plot_umap(
     save_dir: str = None,
     **umap_kwargs,
 ):
+    # """
+    # Generate and plot embeddings using UMAP.
+    
+    # Args:
+    #     directory (str): Directory where embeddings are stored
+    #     keys (list[str]): List of embedding keys
+    #     categories (list[str]): List of categories to color by
+    #     n_neighbors (int): Number of neighbors for UMAP. Defaults to 30.
+    #     min_dist (float): Min distance for UMAP. Defaults to 0.3.
+    #     n_components (int): Number of components for UMAP. Defaults to 2.
+    #     metric (str): Metric for UMAP. Defaults to 'cosine'.
+    #     low_memory (bool): Low memory kwarg passed to UMAP
+    #     n_jobs (int): Number of cpus availabe for UMAP
+    #     n_epochs (int): Number of epochs to run UMAP
+    #     n_largest (int): Number of most common categories to plot
+    #     method (str): Method title
+    #     save_dir (str): Directory to store UMAP's
+    #     **umap_kwargs: Extra kwargs passed to `umap.UMAP`
+    # """
     if not save_dir:
         save_dir = directory
         
@@ -111,7 +133,13 @@ def plot_category(embedding, metadata, category, save_path, n_largest, name, met
     return image_path
 
 def add_images_to_tensorboard(log_dir, image_paths):
+    # """
+    # Add images to Tensorboard.
     
+    # Args:
+    #     log_dir (str): Path to Tensorboard log directory.
+    #     image_paths (list[str]): Paths to images to load to Tensorboard
+    # """
     writer = SummaryWriter(log_dir=log_dir)
     
     for image_path in image_paths:
@@ -121,8 +149,31 @@ def add_images_to_tensorboard(log_dir, image_paths):
         tag = os.path.basename(image_path)
         writer.add_image(tag, image, global_step=0)
     writer.close()
+    
+def generate_umap_main(
+    directory: str,
+    categories: list[str],
+    keys: list[str],
+    method: str,
+    save_dir: str,
+    skip_tensorboard: bool,
+):
+    """
+    Plot UMAP embeddings and has ability to log images to Tensorboard.
+    
+    Args:
+        directory (str): Directory where embeddings to plot are stored.
+        categores (list[str]): List of of categories to color by.
+        keys (list[str]): List of embedding keys that prefix save_paths of _embeddings.npz and _metadata.pkl
+        save_dir (str): Path to save UMAP outputs
+        skip_tensorboard (bool): Prevent logging umaps to Tensorboard
+    """
+    image_paths = plot_umap(directory=directory, keys=keys, categories=categories, method=method, save_dir=save_dir)
 
-if __name__ == "__main__":
+    if not skip_tensorboard:
+        add_images_to_tensorboard(directory, image_paths)
+
+def main():
     import argparse
     parser = argparse.ArgumentParser(description='UMAP Projection Plotting')
     parser.add_argument('-d', '--directory', type=str, required=True, help="Directory of run")
@@ -132,8 +183,15 @@ if __name__ == "__main__":
     parser.add_argument('--save_dir', type=str, help="Directory to store pngs")
     parser.add_argument('--skip_tensorboard', action='store_true')
     args = parser.parse_args()
-        
-    image_paths = plot_umap(directory=args.directory, keys=args.keys, categories=args.categories, method=args.method, save_dir=args.save_dir)
+    
+    generate_umap_main(
+        directory=args.directory,
+        categories=args.categories,
+        keys=args.keys,
+        method=args.method,
+        save_dir=args.save_dir,
+        skip_tensorboard=args.skip_tensorboard)
 
-    if not args.skip_tensorboard:
-        add_images_to_tensorboard(args.directory, image_paths)
+if __name__ == "__main__":
+
+    main()

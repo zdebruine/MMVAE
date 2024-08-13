@@ -1,19 +1,18 @@
 cluster:
-  mkdir -p .snakemake/slurm_logs/{rule} &&
+  mkdir -p .cmmvae/logs/{rule} &&
   sbatch
     --partition={resources.partition}
     --qos={resources.qos}
     --cpus-per-task={resources.cpus_per_task}
     --mem={resources.mem}
-    --job-name={rule}-{wildcards}-smk
-    --output=.snakemake/slurm_logs/{rule}/job.%j.out
-    --error=.snakemake/slurm_logs/{rule}/job.%j.err
+    --job-name={rule}-smk
+    --output=.cmmvae/logs/{rule}/job.%j.out
+    --error=.cmmvae/logs/{rule}/job.%j.err
     --gpus-per-node={resources.gpus_per_node}
     --account=account
     --ntasks=1
     --nodes=1
     --time={resources.runtime}
-    --export=ALL,PYTHONPATH=./:$PYTHONPATH 
     --parsable
 cluster-status: workflow/profile/slurm/status.py
 cluster-cancel: scancel

@@ -9,7 +9,7 @@ predict_dir: samples
 
 model: configs/model/config.yaml
 data: configs/data/local.yaml
-trainer: configs/trainer/config.yaml
+trainer: configs/trainer/config.test.yaml
 
 categories: 
 - 'donor_id'
@@ -19,7 +19,3 @@ categories:
 
 merge_keys:
 - z
-
-
-# ENVIROMENT SPECIFIC
-env_path: /mnt/projects/debruinz_project/pytorch-nightly-env/bin/python3

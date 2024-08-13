@@ -170,4 +170,7 @@ cython_debug/
 .hide..*/
 .vscode/
 .snakemake/
+.slurm_logs/
 .config/
+.cmmvae/
+lightning_logs/

@@ -1,12 +1,9 @@
 import random
-from typing import Callable, Iterable, Literal, Optional, Union
+from typing import Callable, Literal, Optional, Union
 import numpy as np
 import scipy.sparse as sp
 import pandas as pd
 import pickle
-
-from cmmvae.constants import REGISTRY_KEYS as RK
-
 import torch
 from torchdata.datapipes.iter import FileLister, IterDataPipe, Zipper, Multiplexer
 from torch.utils.data import functional_datapipe
@@ -16,14 +13,39 @@ from torch.utils.data.datapipes.iter import sharding
 
 @functional_datapipe("load_matrix_and_dataframe")
 class LoadIndexMatchedCSRMatrixAndDataFrameDataPipe(IterDataPipe):
-    
+    """
+    A DataPipe for loading a CSR matrix and its corresponding DataFrame from file paths.
+
+    This DataPipe takes a source DataPipe that yields tuples of file paths, loads the 
+    sparse matrix and metadata, and yields them as tuples.
+
+    Attributes:
+        source_dp (IterDataPipe): The source DataPipe providing file paths.
+        verbose (bool): If True, prints the file paths being loaded.
+    """
+
     def __init__(self, source_datapipe, verbose: bool = False):
+        """
+        Initializes the DataPipe with a source DataPipe and verbosity setting.
+
+        Args:
+            source_datapipe (IterDataPipe): The source DataPipe yielding file paths.
+            verbose (bool): If True, enables verbose output. Defaults to False.
+        """
         super().__init__()
         self.source_dp = source_datapipe
         self.verbose = verbose
         
     def __iter__(self):
-        """Split incoming tuple from FileLister and load scipy .npz"""
+        """
+        Iterates over the source DataPipe, loading and yielding the CSR matrix and DataFrame.
+
+        Yields:
+            tuple: A tuple containing a scipy sparse matrix and a metadata DataFrame.
+        
+        Raises:
+            Exception: If there is an error loading the files.
+        """
         for npz_path, metadata_path in self.source_dp:
             
             if self.verbose:
@@ -47,12 +69,33 @@ class LoadIndexMatchedCSRMatrixAndDataFrameDataPipe(IterDataPipe):
             
 @functional_datapipe("shuffle_matrix_and_dataframe")
 class ShuffleCSRMatrixAndDataFrameDataPipe(IterDataPipe):
+    """
+    A DataPipe for shuffling rows of a CSR matrix and a corresponding DataFrame.
+
+    This DataPipe takes a source DataPipe that yields tuples of a CSR matrix and DataFrame,
+    applies a random permutation to both, and yields the shuffled results.
+
+    Attributes:
+        source_dp (IterDataPipe): The source DataPipe providing the CSR matrix and DataFrame.
+    """
     
     def __init__(self, source_datapipe):
+        """
+        Initializes the DataPipe with a source DataPipe.
+
+        Args:
+            source_datapipe (IterDataPipe): The source DataPipe yielding a CSR matrix and DataFrame.
+        """
         super().__init__()
         self.source_dp = source_datapipe
         
     def __iter__(self):
+        """
+        Iterates over the source DataPipe, shuffling and yielding the CSR matrix and DataFrame.
+
+        Yields:
+            tuple: A tuple containing a shuffled scipy sparse matrix and DataFrame.
+        """
         for sparse_matrix, dataframe in self.source_dp:
             
             permutation = np.random.permutation(sparse_matrix.shape[0])
@@ -65,11 +108,15 @@ class ShuffleCSRMatrixAndDataFrameDataPipe(IterDataPipe):
 @functional_datapipe("batch_csr_matrix_and_dataframe") 
 class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
     """
-    Yields batches of torch.sparse_csr_tensor's of batch_size from sparse matrice from input datapipe.
+    A DataPipe for batching a CSR matrix and corresponding DataFrame.
+
+    This DataPipe creates batches of a specified size from a CSR matrix and DataFrame,
+    yielding them as torch sparse tensors.
+
     Args: 
-     - batch_size: Size of the row 
-     - drop_last: Drops last batch to ensure batches of equal size
-     - tensor_func: function to create tensor ie. (torch.tensor)
+        batch_size (int): The size of each batch.
+        allow_partials (bool): Whether to allow partial batches.
+        return_dense (bool): Whether to return dense tensors.
     """
     def __init__(
         self, 
@@ -78,6 +125,15 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
         allow_partials: bool = False,
         return_dense: bool = False
     ):
+        """
+        Initializes the DataPipe with a source DataPipe and batch settings.
+
+        Args:
+            source_datapipe (IterDataPipe): The source DataPipe yielding CSR matrix and DataFrame.
+            batch_size (int): The size of each batch.
+            allow_partials (bool): Whether to allow partial batches. Defaults to False.
+            return_dense (bool): Whether to return dense tensors. Defaults to False.
+        """
         super(SparseCSRMatrixBatcherDataPipe, self).__init__()
         
         self.source_datapipe = source_datapipe
@@ -86,6 +142,12 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
         self.return_dense = return_dense
 
     def __iter__(self):
+        """
+        Iterates over the source DataPipe, creating and yielding batches of tensors and metadata.
+
+        Yields:
+            tuple: A tuple containing a torch sparse tensor and metadata DataFrame.
+        """
         for sparse_matrix, dataframe in self.source_datapipe:
             
             n_samples = sparse_matrix.shape[0]
@@ -112,17 +174,56 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
                 
 @functional_datapipe("transform")
 class TransformDataPipe(IterDataPipe):
+    """
+    A DataPipe for applying a transformation function to each element of the input DataPipe.
+
+    This DataPipe allows the user to specify a custom transformation function to modify 
+    the data elements yielded by the source DataPipe.
+
+    Attributes:
+        source_datapipe (IterDataPipe): The source DataPipe providing the data elements.
+        transform_fn (Callable): A callable function to apply to each data element.
+    """
     
     def __init__(self, source_datapipe, transform_fn: Callable):
+        """
+        Initializes the DataPipe with a source DataPipe and a transformation function.
+
+        Args:
+            source_datapipe (IterDataPipe): The source DataPipe yielding data elements.
+            transform_fn (Callable): The transformation function to apply.
+        """
         self.source_datapipe = source_datapipe
         self.transform_fn = transform_fn
         
     def __iter__(self):
+        """
+        Iterates over the source DataPipe, applying the transformation function.
+
+        Yields:
+            Any: The transformed data element.
+        """
         for source in self.source_datapipe:
             yield self.transform_fn(source)
             
 
 class SpeciesDataPipe(IterDataPipe):
+    """
+    A DataPipe for processing species data, including loading, shuffling, and batching.
+
+    This DataPipe manages the complete data processing pipeline for species data, including
+    loading CSR matrices and metadata, applying transformations, and generating batches.
+
+    Attributes:
+        directory_path (str): The directory path containing the data files.
+        npz_masks (Union[str, list[str]]): File masks for the CSR matrix files.
+        metadata_masks (Union[str, list[str]]): File masks for the metadata files.
+        batch_size (int): The size of each batch.
+        shuffle (bool): Whether to shuffle the data.
+        return_dense (bool): Whether to return dense tensors.
+        verbose (bool): If True, enables verbose output.
+        transform_fn (Optional[Callable]): A transformation function to apply to the data.
+    """
     
     def __init__(
         self, 
@@ -135,11 +236,24 @@ class SpeciesDataPipe(IterDataPipe):
         verbose: bool = False,
         transform_fn: Optional[Callable] = None,
     ):
+        """
+        Initializes the SpeciesDataPipe with the specified parameters.
+
+        Args:
+            directory_path (str): The directory path containing the data files.
+            npz_masks (Union[str, list[str]]): File masks for the CSR matrix files.
+            metadata_masks (Union[str, list[str]]): File masks for the metadata files.
+            batch_size (int): The size of each batch.
+            shuffle (bool): Whether to shuffle the data. Defaults to True.
+            return_dense (bool): Whether to return dense tensors. Defaults to False.
+            verbose (bool): If True, enables verbose output. Defaults to False.
+            transform_fn (Optional[Callable]): A transformation function to apply to the data. Defaults to None.
+        """
         super(SpeciesDataPipe, self).__init__()
         
         # Create file lister datapipe for all npz files in dataset
         npz_paths_dp = FileLister(
-            root=directory_path, 
+            root=directory_path,
             masks=npz_masks,
             recursive=False,
             abspath=True,
@@ -175,8 +289,6 @@ class SpeciesDataPipe(IterDataPipe):
         self._shuffle = shuffle
         self.transform_fn = transform_fn
         
- 
-            
         dp = self.zipped_paths_dp
         # don't skip workers all load same chunk
         if len(chunk_paths) > 1:
@@ -193,9 +305,9 @@ class SpeciesDataPipe(IterDataPipe):
         dp = dp.batch_csr_matrix_and_dataframe(self.batch_size, return_dense=self.return_dense)
         
         # thought process on removal
-        # the matrix is already completly shufled before batching
+        # the matrix is already completely shuffled before batching
         # the shuffle dp holds a buffer and shuffles the buffer by pulling in samples to shuffle
-        # this could cause it to hold more npz in memory then desired
+        # this could cause it to hold more npz in memory than desired
         
         # if self._shuffle:
         #     dp = dp.shuffle()
@@ -214,9 +326,18 @@ class SpeciesDataPipe(IterDataPipe):
     #     torch.manual_seed(seed)
     #     np.random.seed(seed)
     #     random.seed(seed)
-    
+
                 
     def __iter__(self):
+        """
+        Iterates over the DataPipe, yielding processed data elements.
+
+        Yields:
+            tuple: A tuple containing processed data, typically a sparse tensor and metadata.
+        
+        Raises:
+            Exception: If there is an error during iteration.
+        """
         # self.set_seed()
         
         try:
@@ -227,12 +348,36 @@ class SpeciesDataPipe(IterDataPipe):
         finally:
             # Ensure all resources are properly cleaned up
             pass
-
+        
+        
 class RandomSelectDataPipe(IterDataPipe):
+    """
+    A DataPipe for randomly selecting data from multiple input DataPipes.
+    This DataPipe allows for random selection of data elements from multiple source DataPipes,
+    yielding elements until all input DataPipes are exhausted.
+
+    Attributes:
+        datapipes (list[IterDataPipe]): A list of source DataPipes to select from.
+    """
     def __init__(self, *datapipes):
+        """
+        Initializes the RandomSelectDataPipe with multiple source DataPipes.
+
+        Args:
+            datapipes (list[IterDataPipe]): A list of source DataPipes.
+        """
         self.datapipes = datapipes
 
     def __iter__(self):
+        """
+        Iterates over the DataPipes, yielding data elements randomly from the available options.
+
+        Yields:
+            Any: A randomly selected data element from one of the input DataPipes.
+
+        Raises:
+            StopIteration: When all input DataPipes are exhausted.
+        """
         iterators = [iter(dp) for dp in self.datapipes]
         while iterators:
             selected_iterator = random.choice(iterators)
@@ -242,17 +387,35 @@ class RandomSelectDataPipe(IterDataPipe):
                 # Remove exhausted iterator
                 iterators.remove(selected_iterator)
         raise StopIteration
-        
-        
+
 class MultiSpeciesDataPipe(IterDataPipe):
-    
+    """
+    A DataPipe for handling multiple species data pipelines with selection strategy.
+    This DataPipe provides a unified interface to handle multiple species data,
+    allowing for random or sequential selection of data elements.
+
+    Attributes:
+        datapipe (IterDataPipe): The combined DataPipe for multiple species.
+    """
+
     def __init__(self, *species: SpeciesDataPipe, selection_fn: Union[Literal["random"], Literal["sequential"]] = 'random'):
-        
+        """
+        Initializes the MultiSpeciesDataPipe with species data pipelines and a selection function.
+
+        Args:
+            species (list[SpeciesDataPipe]): A list of species DataPipes.
+            selection_fn (Union[Literal["random"], Literal["sequential"]]): The selection strategy ('random' or 'sequential'). Defaults to 'random'.
+        """
         if selection_fn == "sequential":
             self.datapipe = Multiplexer(*species)
         elif selection_fn == "random":
             self.datapipe = RandomSelectDataPipe(*species)
         
     def __iter__(self):
+        """
+        Iterates over the combined species DataPipe, yielding data elements according to the selection strategy.
+
+        Yields:
+            Any: A data element from the selected species DataPipe.
+        """
         yield from self.datapipe
-        

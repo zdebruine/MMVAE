@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal, kl_divergence, Distribution
 from typing import List, Tuple, Dict, Union, Literal
 
-from .base import Encoder, FCBlock, FCBlockConfig
+from cmmvae.modules import base
 from cmmvae.constants import REGISTRY_KEYS as RK
 
 
@@ -17,11 +17,11 @@ class BaseVAE(nn.Module):
     This class implements a basic structure for a VAE with configurable encoder and decoder architectures.
 
     Args:
-        encoder (Encoder): The encoder model.
+        encoder (cmmvae.modules.baseEncoder): The encoder model.
         decoder (nn.Module): The decoder model.
     """
     
-    def __init__(self, encoder: Encoder, decoder: nn.Module):
+    def __init__(self, encoder: base.Encoder, decoder: nn.Module):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -101,8 +101,8 @@ class BaseVAE(nn.Module):
         weighted by a given factor.
 
         Args:
-            qz (torch.distributions.Distribution): Approximate posterior distribution.
-            pz (torch.distributions.Distribution): Prior distribution.
+            qz (Distribution): Approximate posterior distribution.
+            pz (Distribution): Prior distribution.
             x (torch.Tensor): Original input tensor of shape (batch_size, n_in).
             xhat (torch.Tensor): Reconstructed input tensor of shape (batch_size, n_out).
             kl_weight (float): Weight for the KL divergence term.
@@ -160,21 +160,21 @@ class VAE(BaseVAE):
     This class extends the BaseVAE to utilize specific configurations for the encoder and decoder.
 
     Args:
-        encoder_config (FCBlockConfig): Configuration for the encoder's fully connected block.
-        decoder_config (FCBlockConfig): Configuration for the decoder's fully connected block.
+        encoder_config (cmmvae.modules.baseFCBlockConfig): Configuration for the encoder's fully connected block.
+        decoder_config (cmmvae.modules.baseFCBlockConfig): Configuration for the decoder's fully connected block.
         encoder_kwargs (dict): Additional keyword arguments for the encoder.
     """
     
     def __init__(
         self,
-        encoder_config: FCBlockConfig,
-        decoder_config: FCBlockConfig,
+        encoder_config: base.FCBlockConfig,
+        decoder_config: base.FCBlockConfig,
         **encoder_kwargs,
     ):
         super(VAE, self).__init__(
-            encoder=Encoder(
+            encoder=base.Encoder(
                 fc_block_config=encoder_config,
                 return_dist=True,
                 **encoder_kwargs), 
-            decoder=FCBlock(decoder_config)
+            decoder=base.FCBlock(decoder_config)
         )

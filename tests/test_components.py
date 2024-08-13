@@ -8,12 +8,11 @@ import os
 import pandas as pd
 from cmmvae.modules.base.components import (
     is_iterable,
-    BaseFCBlock,
+    FCBlock,
     FCBlockConfig,
     ConditionalLayer,
     ConditionalLayers,
     Encoder,
-    BaseExpert,
     Expert,
     Experts,
 )
@@ -36,24 +35,26 @@ def test_is_iterable_with_none():
 
 
 # 2. Class: BaseFCBlock
-def test_base_fc_block_initialization():
-    block = BaseFCBlock(layers=[10, 20, 30], dropout_rate=0.5)
-    assert block.n_layers == 2
+def test_base_fc_block_config_initialization():
+    block_config = FCBlockConfig(layers=[10, 20, 30], dropout_rate=0.5)
+    block = FCBlock(block_config)
+    assert block_config.n_layers == 2
     assert block.input_dim == 10
     assert block.output_dim == 30
 
 def test_base_fc_block_forward_pass():
-    block = BaseFCBlock(layers=[10, 20, 30], dropout_rate=0.5)
+    block_config = FCBlockConfig(layers=[10, 20, 30], dropout_rate=0.5)
+    block = FCBlock(block_config)
     input_tensor = torch.randn(5, 10)
     output_tensor = block(input_tensor)
     assert output_tensor.shape == (5, 30)
 
 def test_base_fc_block_can_bypass():
-    block = BaseFCBlock(layers=[10, 20, 30], return_hidden=False)
+    block = FCBlock(FCBlockConfig(layers=[10, 20, 30], return_hidden=False))
     assert block.can_bypass == True
 
 def test_base_fc_block_return_hidden():
-    block = BaseFCBlock(layers=[10, 20, 30], return_hidden=True)
+    block = FCBlock(FCBlockConfig(layers=[10, 20, 30], return_hidden=True))
     assert block.can_bypass == False
 
 
