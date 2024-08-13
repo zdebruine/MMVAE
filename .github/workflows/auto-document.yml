@@ -3,10 +3,10 @@ run_name: Deploy to github-pages
 on:
   push:
     branches:
-      - main
+      - summer_merge
   pull_request:
     branches:
-      - main
+      - summer_merge
 
 jobs:
   build:

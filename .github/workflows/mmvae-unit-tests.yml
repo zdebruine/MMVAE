@@ -3,17 +3,18 @@ run_name: Running unit tests
 on:
   push:
     branches:
-      - main
+      - summer_merge
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.9.18' 
 
       - name: Cache pip dependencies
         uses: actions/cache@v3
@@ -25,7 +26,7 @@ jobs:
 
       - name: Install project+test dependencies
         run: pip install -e .[test]
-        
+
       - name: Run unit tests with coverage
         env:
           PYTHONPATH: .
