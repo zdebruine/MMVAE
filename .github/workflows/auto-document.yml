@@ -17,10 +17,7 @@ permissions:
 
 jobs:
   # Job to build the static HTML documentation with pdoc
-  build_and_deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,7 +46,15 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
-    
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
