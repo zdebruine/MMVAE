@@ -1,5 +1,5 @@
 name: CMMVAE Unit Tests
-run_name: Running unit tests
+run-name: Running tests on modules in the CMMVAE package
 on:
   push:
     branches:
