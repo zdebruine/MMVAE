@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   # Job to build the static HTML documentation with pdoc
-  deploy:
+  build_and_deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
