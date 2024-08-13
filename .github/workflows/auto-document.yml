@@ -17,7 +17,10 @@ permissions:
 
 jobs:
   # Job to build the static HTML documentation with pdoc
-  build:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -41,36 +44,9 @@ jobs:
       
       - name: Generate HTML documentation
         run: ./scripts/auto-doc.sh
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-docs
-          path: docs
-
-  # Job to deploy the documentation to GitHub Pages
-  deploy:
-    needs: build
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: generated-docs
-
+    
       - name: Setup Pages
         uses: actions/configure-pages@v5
-
-      - name: Upload artifact to Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
 
       - name: Deploy to GitHub Pages
         id: deployment
