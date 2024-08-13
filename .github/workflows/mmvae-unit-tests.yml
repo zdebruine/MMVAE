@@ -3,7 +3,7 @@ run-name: Running tests on modules in the CMMVAE package
 on:
   push:
     branches:
-      - summer_merge
+      - main
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
