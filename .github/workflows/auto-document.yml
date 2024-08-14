@@ -66,4 +66,4 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
         with:
-          artifact_name: gh-pages-${{ github.ref_name }}
+          artifact_name: gh-pages
