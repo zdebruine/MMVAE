@@ -32,41 +32,35 @@ jobs:
           python-version: '3.9.18' 
 
       - name: Cache pip dependencies
+        id: cache-python
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            venv-${{ runner.os }}-
+      
+      - name: Set up virtual environment
+        run: python -m venv .venv
 
-      - name: Install project and doc dependencies
-        run: |
-          pip install -e .[doc]
+      - name: Install project+test dependencies
+        if: steps.cache-python.outputs.cache-hit != 'True'
+        run: .venv/bin/pip install -e .[test, doc]
       
       - name: Generate HTML documentation with pdoc
         run: ./scripts/auto-doc.sh
 
       - name: Rename docs folder for branch-specific deployment
-        if: github.ref_name == 'main'
-        run: |
-          mv docs "docs-${{ github.ref_name }}"
-          
+        run: mv docs "docs-${{ github.ref_name }}"
+
       - name: Upload artifact to Pages (non-main branches)
         uses: actions/upload-pages-artifact@v3
         with:
           path: "docs-${{ github.ref_name }}"
           name: gh-pages-${{ github.ref_name }}
 
-      - name: Deploy to GitHub Pages (main branch)
-        if: github.ref_name == 'main'
-        id: deployment_main
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: gh-pages-main
-
-      - name: Deploy to GitHub Pages (non-main branches)
-        if: github.ref_name != 'main'
-        id: deployment_non_main
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
         with:
           artifact_name: gh-pages-${{ github.ref_name }}

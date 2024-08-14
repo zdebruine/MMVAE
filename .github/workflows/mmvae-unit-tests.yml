@@ -17,17 +17,20 @@ jobs:
           python-version: '3.9.18' 
 
       - name: Cache pip dependencies
+        id: cache-python
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
           restore-keys: |
-            ${{ runner.os }}-pip-
+            venv-${{ runner.os }}-
+      
+      - name: Set up virtual environment
+        run: python -m venv .venv
 
       - name: Install project+test dependencies
-        run: pip install -e .[test]
+        if: steps.cache-python.outputs.cache-hit != 'True'
+        run: .venv/bin/pip install -e .[test]
 
       - name: Run unit tests with coverage
-        env:
-          PYTHONPATH: .
-        run: pytest --cov=cmmvae tests/
+        run: .venv/bin/pytest --cov=cmmvae tests
