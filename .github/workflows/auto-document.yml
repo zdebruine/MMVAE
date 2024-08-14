@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: '3.9.18' 
 
-      - name: Cache pip dependencies
+      - name: Cache virtual environment
         id: cache-python
         uses: actions/cache@v3
         with:
@@ -42,10 +42,15 @@ jobs:
       
       - name: Set up virtual environment
         run: python -m venv .venv
+      
+      - name: Activate virtual environment
+        run: source .venv/bin/activate
 
       - name: Install project+test dependencies
         if: steps.cache-python.outputs.cache-hit != 'True'
-        run: .venv/bin/pip install -e .[test,doc]
+        run: |
+          pip install --upgrade pip
+          pip install -e .[test,doc]
       
       - name: Generate HTML documentation with pdoc
         run: ./scripts/auto-doc.sh
@@ -53,7 +58,7 @@ jobs:
       - name: Rename docs folder for branch-specific deployment
         run: mv docs "docs-${{ github.ref_name }}"
 
-      - name: Upload artifact to Pages (non-main branches)
+      - name: Upload artifact to Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: "docs-${{ github.ref_name }}"
