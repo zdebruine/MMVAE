@@ -47,16 +47,26 @@ jobs:
         run: ./scripts/auto-doc.sh
 
       - name: Rename docs folder for branch-specific deployment
-        if: github.ref_name != 'main'
+        if: github.ref_name == 'main'
         run: |
-          BRANCH_NAME=${{ github.ref_name }}
-          mv docs "docs-${BRANCH_NAME}"
+          mv docs "docs-${{ github.ref_name }}"
           
-      - name: Upload artifact to Pages
+      - name: Upload artifact to Pages (non-main branches)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ github.ref_name == 'main' && 'docs' || "docs-${github.ref_name}" }}
-          
-      - name: Deploy to GitHub Pages
-        id: deployment
+          path: "docs-${{ github.ref_name }}"
+          name: gh-pages-${{ github.ref_name }}
+
+      - name: Deploy to GitHub Pages (main branch)
+        if: github.ref_name == 'main'
+        id: deployment_main
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: gh-pages-main
+
+      - name: Deploy to GitHub Pages (non-main branches)
+        if: github.ref_name != 'main'
+        id: deployment_non_main
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: gh-pages-${{ github.ref_name }}
