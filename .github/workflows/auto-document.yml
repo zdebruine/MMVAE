@@ -41,6 +41,7 @@ jobs:
             venv-${{ runner.os }}-
       
       - name: Set up virtual environment
+        if: steps.cache-python.outputs.cache-hit != 'True'
         run: python -m venv .venv
       
       - name: Activate virtual environment
@@ -55,14 +56,11 @@ jobs:
       - name: Generate HTML documentation with pdoc
         run: ./scripts/auto-doc.sh
 
-      - name: Rename docs folder for branch-specific deployment
-        run: mv docs "docs-${{ github.ref_name }}"
-
       - name: Upload artifact to Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "docs-${{ github.ref_name }}"
-          name: gh-pages-${{ github.ref_name }}
+          path: docs
+          name: gh-pages
 
       - name: Deploy to GitHub Pages
         id: deployment
