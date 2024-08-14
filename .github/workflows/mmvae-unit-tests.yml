@@ -30,7 +30,7 @@ jobs:
 
       - name: Install project+test dependencies
         if: steps.cache-python.outputs.cache-hit != 'True'
-        run: .venv/bin/pip install -e .[test]
+        run: .venv/bin/pip install -e .[test,doc]
 
       - name: Run unit tests with coverage
         run: .venv/bin/pytest --cov=cmmvae tests
