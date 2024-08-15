@@ -42,7 +42,9 @@ jobs:
         run: python -m venv .venv
       
       - name: Activate virtual environment
-        run: source .venv/bin/activate
+        run: |
+          ls .venv
+          source .venv/bin/activate
 
       - name: Install all project dependencies
         if: steps.cache-python.outputs.cache-hit != 'True'
