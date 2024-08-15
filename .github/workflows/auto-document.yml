@@ -5,9 +5,9 @@ on:
   push:
     branches:
       - main
-      - development
+      - dev
       - feature/*
-      - summer_merge
+
 
   workflow_dispatch:
 
@@ -19,8 +19,8 @@ permissions:
 jobs:
   build:
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      name: github-pages-${{ github.ref_name }}
+      url: ${{ steps.deployment.outputs.page_url }}-${{ github.ref_name }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -41,13 +41,12 @@ jobs:
             venv-${{ runner.os }}-
       
       - name: Set up virtual environment
-        if: steps.cache-python.outputs.cache-hit != 'True'
         run: python -m venv .venv
       
       - name: Activate virtual environment
         run: source .venv/bin/activate
 
-      - name: Install project+test dependencies
+      - name: Install all project dependencies
         if: steps.cache-python.outputs.cache-hit != 'True'
         run: |
           pip install --upgrade pip
