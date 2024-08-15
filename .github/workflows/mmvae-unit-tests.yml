@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+      - dev
+      - feature/*
+
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
@@ -28,7 +31,7 @@ jobs:
       - name: Set up virtual environment
         run: python -m venv .venv
 
-      - name: Install project+test dependencies
+      - name: Install all project dependencies
         if: steps.cache-python.outputs.cache-hit != 'True'
         run: .venv/bin/pip install -e .[test,doc]
 
