@@ -5,10 +5,6 @@ on:
   push:
     branches:
       - main
-      - dev
-      - feature/*
-      - summer_merge
-
 
   workflow_dispatch:
 
@@ -20,8 +16,8 @@ permissions:
 jobs:
   build:
     environment:
-      name: github-pages-${{ github.ref_name }}
-      url: ${{ steps.deployment.outputs.page_url }}-${{ github.ref_name }}
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -59,7 +55,7 @@ jobs:
       - name: Upload artifact to Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs
+          path: .cmmvae/docs
           name: gh-pages
 
       - name: Deploy to GitHub Pages
