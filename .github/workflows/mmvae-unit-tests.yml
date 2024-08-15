@@ -29,6 +29,7 @@ jobs:
             venv-${{ runner.os }}-
       
       - name: Set up virtual environment
+        if: steps.cache-python.outputs.cache-hit != 'True'
         run: python -m venv .venv
       
       - name: Activate virtual environment

@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.9.18' 
 
-      - name: Cache virtual environment
+      - name: Cache pip dependencies
         id: cache-python
         uses: actions/cache@v3
         with:
@@ -38,6 +38,7 @@ jobs:
             venv-${{ runner.os }}-
       
       - name: Set up virtual environment
+        if: steps.cache-python.outputs.cache-hit != 'True'
         run: python -m venv .venv
       
       - name: Activate virtual environment
