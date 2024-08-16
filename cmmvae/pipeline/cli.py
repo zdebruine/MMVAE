@@ -1,8 +1,10 @@
 """
     Subclass of LightningCli specialized for pipeline.
 """
+import sys
 from lightning.pytorch.cli import LightningCLI, SaveConfigCallback
 from cmmvae.models import BaseModel
+import click
 
 
 class SCIMLCli(LightningCLI):
@@ -71,7 +73,17 @@ class SCIMLCli(LightningCLI):
             ckpt_path='best',
         )
 
-def main():
+@click.command(name='cli', context_settings=dict(
+    ignore_unknown_options=True,
+    allow_extra_args=True,
+))
+@click.pass_context
+def main(ctx: click.Context):
+    """Run using the LightningCli."""
+    if ctx.args:
+        # Ensure `args` is passed as the command-line arguments
+        sys.argv = [sys.argv[0]] + ctx.args
+
     SCIMLCli()
 
 if __name__ == "__main__":

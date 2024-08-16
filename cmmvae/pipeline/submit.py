@@ -3,7 +3,7 @@ import subprocess
 import itertools
 import warnings
 import yaml
-import argparse
+import click
 
 def load_yaml(path):
     with open(path, 'r') as file:
@@ -19,7 +19,7 @@ def parse(v):
         return '"' + '[' + ', '.join(f'"{str(elem)}"' if isinstance(elem, str) else str(elem) for elem in v) + ']' + '"'
     return v
 
-def submit_experiments_main(
+def submit_experiments(
     config_file: str,
     max_job_limit: int,
     preview: bool = False,
@@ -54,7 +54,7 @@ def submit_experiments_main(
         warnings.warn(
             f"""
             Number of jobs is close to limit configured meaning the configuration file supplied
-                may not be performing as expected, othewise you can ignore this message. 
+                may not be performing as expected, otherwise you can ignore this message. 
                 Number of jobs: {len(jobs)}
             """)
 
@@ -62,7 +62,7 @@ def submit_experiments_main(
     init_config = config
     for i, job in enumerate(jobs):
         config = copy.deepcopy(init_config)
-        config['train_command'] = f"{' '.join([arg for arg, _ in job])}"
+        config['train_command'] = f"{subcommand} {' '.join([arg for arg, _ in job])}"
         config['run_name'] += '.' + '.'.join([name for _, name in job if name])
         config_args = list(f"{key}={value}" for key, value in config.items())
 
@@ -74,23 +74,21 @@ def submit_experiments_main(
         if not preview:
             subprocess.run(commands)
 
-def main():
 
-    parser = argparse.ArgumentParser("Submit experiments")
-    parser.add_argument("-c", "--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
-    parser.add_argument("-m", "--max_job_limit", type=int, default=3, help="Max number of jobs capable of outputting without failure.")
-    parser.add_argument("-p", "--preview", action='store_true', help="Do not run subprocces only preview job configurations.")
-    args = parser.parse_args()
-
-    submit_experiments_main(
-        config_file=args.config_file,
-        max_job_limit=args.max_job_limit,
-        preview=args.preview,
-    )
+@click.command(name="submit")
+@click.option("-c", "--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
+@click.option("-m", "--max_job_limit", type=int, default=3, help="Max number of jobs capable of outputting without failure.")
+@click.option("-p", "--preview", is_flag=True, help="Do not run subprocess, only preview job configurations.")
+def main(config_file, max_job_limit, preview):
+    """
+    Submit experiments using configurations from a YAML file.
+    
+    Args:
+        config_file (str): Path to the YAML configuration file.
+        max_job_limit (int): Maximum number of jobs that can be run.
+        preview (bool): Whether to preview job configurations without running them.
+    """
+    submit_experiments(config_file, max_job_limit, preview)
 
 if __name__ == "__main__":
     main()
-
-
-
-

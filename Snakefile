@@ -107,7 +107,7 @@ rule train:
         command=TRAIN_COMMAND
     shell:
         """
-        cmmvae.cli fit {params.command}
+        cmmvae cli {params.command}
         """
 
 ## Define the rule for merging predictions.
@@ -123,7 +123,7 @@ rule merge_predictions:
     shell:
         """
         mkdir -p {MERGED_DIR}
-        cmmvae.merge_predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
+        cmmvae merge_predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
         """
 
 ## Define the rule for generating UMAP visualizations from the merged predictions.
@@ -137,9 +137,9 @@ rule umap_predictions:
     params:
         predict_dir=MERGED_DIR,
         save_dir=UMAP_DIR,
-        categories=" ".join(CATEGORIES),
-        merge_keys=" ".join(MERGE_KEYS),
+        categories=" ".join(f"--category {category}" for category in CATEGORIES),
+        merge_keys=" ".join(f"--key {merge_key}" for merge_key in MERGE_KEYS),
     shell:
         """
-        cmmvae.generate_umap --directory {params.predict_dir} --save_dir {params.save_dir} --categories {params.categories} --keys {params.merge_keys}
+        cmmvae generate_umap --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
         """

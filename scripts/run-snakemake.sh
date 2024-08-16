@@ -15,5 +15,5 @@ fi
 module purge
 
 source $CMMVAE_ENV_PATH/bin/activate
-snakemake --profile workflow/profile/slurm "$@" 
+snakemake --profile workflow/profile/slurm --latency-wait 30 "$@" 
 deactivate

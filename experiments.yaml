@@ -1,6 +1,6 @@
 
 experiment_name: submit
-run_name: default
+run_name: default000
 
 train_command:
   fit:
@@ -8,7 +8,6 @@ train_command:
     trainer:
       track:
         test: configs/trainer/config.test.yaml
-        full: configs/trainer/config.yaml
     data: configs/data/local.yaml
 
 categories: 

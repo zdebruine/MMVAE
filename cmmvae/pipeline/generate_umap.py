@@ -1,6 +1,7 @@
 """
-    Generate UMAP's from embeddings and metadata.
+Generate UMAPs from embeddings and metadata.
 """
+
 import os
 import umap
 import torch
@@ -9,9 +10,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from torch.utils.tensorboard import SummaryWriter
 from PIL import Image
+import click
 
 
 def load_embeddings(npz_path, meta_path):
+    """Load embeddings and metadata from specified paths."""
     embedding = np.load(npz_path)['embeddings']
     metadata = pd.read_pickle(meta_path)
     return embedding, metadata
@@ -20,37 +23,37 @@ def plot_umap(
     directory,
     keys,
     categories,
-    n_neighbors = 30,
-    min_dist = 0.3,
-    n_components = 2,
-    metric = "cosine",
-    low_memory = False,
-    n_jobs = 40,
-    n_epochs = 200,
-    n_largest = 15,
-    method: str = None,
-    save_dir: str = None,
+    n_neighbors=30,
+    min_dist=0.3,
+    n_components=2,
+    metric="cosine",
+    low_memory=False,
+    n_jobs=40,
+    n_epochs=200,
+    n_largest=15,
+    method=None,
+    save_dir=None,
     **umap_kwargs,
 ):
-    # """
-    # Generate and plot embeddings using UMAP.
-    
-    # Args:
-    #     directory (str): Directory where embeddings are stored
-    #     keys (list[str]): List of embedding keys
-    #     categories (list[str]): List of categories to color by
-    #     n_neighbors (int): Number of neighbors for UMAP. Defaults to 30.
-    #     min_dist (float): Min distance for UMAP. Defaults to 0.3.
-    #     n_components (int): Number of components for UMAP. Defaults to 2.
-    #     metric (str): Metric for UMAP. Defaults to 'cosine'.
-    #     low_memory (bool): Low memory kwarg passed to UMAP
-    #     n_jobs (int): Number of cpus availabe for UMAP
-    #     n_epochs (int): Number of epochs to run UMAP
-    #     n_largest (int): Number of most common categories to plot
-    #     method (str): Method title
-    #     save_dir (str): Directory to store UMAP's
-    #     **umap_kwargs: Extra kwargs passed to `umap.UMAP`
-    # """
+    """
+    Generate UMAP embeddings and plot them.
+
+    Args:
+        directory (str): Directory where embeddings are stored.
+        keys (list[str]): List of embedding keys.
+        categories (list[str]): List of categories to color by.
+        n_neighbors (int): Number of neighbors for UMAP.
+        min_dist (float): Minimum distance for UMAP.
+        n_components (int): Number of components for UMAP.
+        metric (str): Metric for UMAP.
+        low_memory (bool): Low memory setting for UMAP.
+        n_jobs (int): Number of CPUs available for UMAP.
+        n_epochs (int): Number of epochs to run UMAP.
+        n_largest (int): Number of most common categories to plot.
+        method (str): Method title to add to the graph.
+        save_dir (str): Directory to save UMAP plots.
+        **umap_kwargs: Extra kwargs passed to `umap.UMAP`.
+    """
     if not save_dir:
         save_dir = directory
         
@@ -68,19 +71,20 @@ def plot_umap(
             
             # Fit and transform the data using UMAP
             reducer = umap.UMAP(
-                n_neighbors=n_neighbors, 
-                min_dist=min_dist, 
+                n_neighbors=n_neighbors,
+                min_dist=min_dist,
                 n_components=n_components,
-                metric=metric, 
-                low_memory=low_memory, 
-                n_jobs=n_jobs, 
-                n_epochs=n_epochs, 
-                **umap_kwargs)
+                metric=metric,
+                low_memory=low_memory,
+                n_jobs=n_jobs,
+                n_epochs=n_epochs,
+                **umap_kwargs
+            )
             
             embedding = reducer.fit_transform(X)
             embedding_path = os.path.join(save_dir, f'{key}_umap_embeddings.npz')
             metadata_path = os.path.join(save_dir, f'{key}_umap_metadata.pkl')
-            os.makedirs(save_dir, exist_ok = True)
+            os.makedirs(save_dir, exist_ok=True)
             np.savez(embedding_path, embeddings=embedding)
             metadata.to_pickle(metadata_path)
         
@@ -90,6 +94,23 @@ def plot_umap(
     return image_paths
 
 def plot_category(embedding, metadata, category, save_path, n_largest, name, method, alpha=0.5, marker_size=1):
+    """
+    Plot UMAP embeddings colored by a specific category.
+
+    Args:
+        embedding (np.ndarray): The UMAP embeddings.
+        metadata (pd.DataFrame): The metadata associated with embeddings.
+        category (str): Category to color by.
+        save_path (str): Directory to save the plot.
+        n_largest (int): Number of most common categories to plot.
+        name (str): Name for the file.
+        method (str): Method title to add to the graph.
+        alpha (float): Opacity of plot points.
+        marker_size (int): Size of plot points.
+
+    Returns:
+        str: Path to the saved plot image.
+    """
     plt.figure(figsize=(14, 8))
     unique_values = metadata[category].value_counts().nlargest(n_largest).index
     
@@ -117,11 +138,11 @@ def plot_category(embedding, metadata, category, save_path, n_largest, name, met
     plt.scatter(df['x'], df['y'], c=df['color'], s=marker_size, alpha=alpha)
     
     if method:
-        method = f" for {method} "
+        method_str = f" for {method} "
     else:
-        method = " "
+        method_str = " "
     
-    plt.title(f'UMAP projection{method}colored by {category}')
+    plt.title(f'UMAP projection{method_str}colored by {category}')
     
     # Custom legend with a circle for each label
     legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=cmap(i), markersize=10, label=label)
@@ -133,13 +154,13 @@ def plot_category(embedding, metadata, category, save_path, n_largest, name, met
     return image_path
 
 def add_images_to_tensorboard(log_dir, image_paths):
-    # """
-    # Add images to Tensorboard.
-    
-    # Args:
-    #     log_dir (str): Path to Tensorboard log directory.
-    #     image_paths (list[str]): Paths to images to load to Tensorboard
-    # """
+    """
+    Add images to Tensorboard.
+
+    Args:
+        log_dir (str): Path to Tensorboard log directory.
+        image_paths (list[str]): Paths to images to load to Tensorboard.
+    """
     writer = SummaryWriter(log_dir=log_dir)
     
     for image_path in image_paths:
@@ -149,49 +170,40 @@ def add_images_to_tensorboard(log_dir, image_paths):
         tag = os.path.basename(image_path)
         writer.add_image(tag, image, global_step=0)
     writer.close()
-    
-def generate_umap_main(
+
+def generate_umap(
     directory: str,
-    categories: list[str],
-    keys: list[str],
+    categories: tuple[str],
+    keys: tuple[str],
     method: str,
     save_dir: str,
     skip_tensorboard: bool,
 ):
-    """
-    Plot UMAP embeddings and has ability to log images to Tensorboard.
-    
-    Args:
-        directory (str): Directory where embeddings to plot are stored.
-        categores (list[str]): List of of categories to color by.
-        keys (list[str]): List of embedding keys that prefix save_paths of _embeddings.npz and _metadata.pkl
-        save_dir (str): Path to save UMAP outputs
-        skip_tensorboard (bool): Prevent logging umaps to Tensorboard
-    """
     image_paths = plot_umap(directory=directory, keys=keys, categories=categories, method=method, save_dir=save_dir)
 
     if not skip_tensorboard:
         add_images_to_tensorboard(directory, image_paths)
 
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(description='UMAP Projection Plotting')
-    parser.add_argument('-d', '--directory', type=str, required=True, help="Directory of run")
-    parser.add_argument('--categories', nargs='*', required=True, help="Categories to color by")
-    parser.add_argument('--keys', nargs='*', required=True, help="Embeddings keys")
-    parser.add_argument('--method', type=str, help="Method name to add to graph title")
-    parser.add_argument('--save_dir', type=str, help="Directory to store pngs")
-    parser.add_argument('--skip_tensorboard', action='store_true')
-    args = parser.parse_args()
-    
-    generate_umap_main(
-        directory=args.directory,
-        categories=args.categories,
-        keys=args.keys,
-        method=args.method,
-        save_dir=args.save_dir,
-        skip_tensorboard=args.skip_tensorboard)
+
+@click.command(name='generate_umap')
+@click.option('--directory', type=click.Path(exists=True), required=True)
+@click.option('--category', type=str, multiple=True, required=True)  # Multiple positional arguments
+@click.option('--key', type=str, multiple=True, required=True) 
+@click.option('--save_dir', type=click.Path(), help="Directory to store PNGs")
+@click.option('--method', type=str, help="Method name to add to graph title")
+@click.option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
+def main(directory, category, key, method, save_dir, skip_tensorboard):
+    """
+    Plot UMAP embeddings and optionally log images to Tensorboard.
+
+    Args:
+        directory (str): Directory where embeddings to plot are stored.
+        categories (tuple[str]): List of categories to color by.
+        keys (tuple[str]): List of embedding keys that prefix save_paths of _embeddings.npz and _metadata.pkl
+        save_dir (str): Path to save UMAP outputs.
+        skip_tensorboard (bool): Prevent logging UMAPs to Tensorboard.
+    """
+    generate_umap(directory, category, key, method, save_dir, skip_tensorboard)
 
 if __name__ == "__main__":
-
     main()
