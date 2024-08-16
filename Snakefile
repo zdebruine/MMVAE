@@ -80,16 +80,14 @@ EVALUATION_FILES = expand(
 ## Construct the command to run the CMMVAE training pipeline.
 ## If a configuration directory is provided, it is included in the command; otherwise, 
 ## individual parameters such as trainer, model, and data are passed explicitly.
-TRAIN_COMMAND = (
-    f" --trainer {config['trainer']} --model {config['model']} "
-    f"--data {config['data']} --default_root_dir {ROOT_DIR} "
+TRAIN_COMMAND = config["train_command"]
+
+TRAIN_COMMAND += str(
+    f" --default_root_dir {ROOT_DIR} "
     f"--experiment_name {EXPERIMENT_NAME} --run_name {RUN_NAME} "
     f"--seed_everything {SEED} "
     f"--predict_dir {PREDICT_SUBDIR} "
 )
-
-if CONFIG_DIR:
-    TRAIN_COMMAND = f" -c {CONFIG_DIR}"
 
 
 ## Define the final output rule for Snakemake, specifying the target files that should be generated 

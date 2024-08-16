@@ -1,0 +1,21 @@
+
+experiment_name: submit
+run_name: default
+
+train_command:
+  fit:
+    model: configs/model/config.yaml
+    trainer:
+      track:
+        test: configs/trainer/config.test.yaml
+        full: configs/trainer/config.yaml
+    data: configs/data/local.yaml
+
+categories: 
+- 'donor_id'
+- 'assay'
+- 'dataset_id' 
+- 'cell_type'
+
+merge_keys:
+- z

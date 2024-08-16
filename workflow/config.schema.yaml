@@ -35,15 +35,6 @@ properties:
     type: string
     description: Directory for storing UMAP results.
     default: umap
-  trainer:
-    type: string
-    description: The trainer configuration for the model.
-  model:
-    type: string
-    description: The model configuration.
-  data:
-    type: string
-    description: The data configuration.
   seed:
     type: integer
     description: Random seed for reproducibility.
@@ -51,6 +42,3 @@ required:
   - root_dir
   - experiment_name
   - merge_keys
-  - trainer
-  - model
-  - data
