@@ -12,4 +12,4 @@ for name, obj in inspect.getmembers(cmmvae.runners):
         main.add_command(obj)
 
 if __name__ == '__main__':
-    main()
+    main(auto_envvar_prefix='CMMVAE')

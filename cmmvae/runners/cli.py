@@ -2,10 +2,10 @@
     Subclass of LightningCli specialized for pipeline.
 """
 import sys
-from lightning.pytorch import cli
+from lightning.pytorch import cli as plcli
 import click
 
-class SCIMLCli(cli.LightningCLI):
+class CMMVAECli(plcli.LightningCLI):
     """
     LightningCLI meant to ease in setting default arguments and 
     logging parameters. All Models of subclass BaseVAEModel should use this
@@ -74,13 +74,16 @@ class SCIMLCli(cli.LightningCLI):
     allow_extra_args=True,
 ))
 @click.pass_context
-def main(ctx: click.Context):
+def cmmvaecli(ctx: click.Context):
     """Run using the LightningCli."""
     if ctx.args:
         # Ensure `args` is passed as the command-line arguments
         sys.argv = [sys.argv[0]] + ctx.args
 
-    SCIMLCli()
+    CMMVAECli()
+    
+def cli():
+    cmmvaecli()
 
 if __name__ == "__main__":
-    main()
+    cli()

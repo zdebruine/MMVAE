@@ -73,7 +73,7 @@ def merge_predictions(directory, save_dir, keys):
 @click_env_option('--directory', type=click.Path(exists=True), required=True, help="Path to the directory containing the embeddings and metadata.")
 @click_env_option('--save_dir', type=click.Path(), default=None, help="Directory to store merged predictions. Defaults to the same as the input directory if not provided.")
 @click_env_option('--keys', multiple=True, required=True, help="List of prefix keys for embeddings and metadata paths.")
-def main(directory, save_dir, keys):
+def merge_predictions(directory, save_dir, keys):
     """
     Merge saved embeddings and metadata into one npz and pkl file.
 
@@ -83,6 +83,9 @@ def main(directory, save_dir, keys):
         keys (list[str]): List of prefix keys for embeddings and metadata paths.
     """
     merge_predictions(directory, save_dir, keys)
+    
+def cli():
+    merge_predictions()
 
 if __name__ == '__main__':
-    main()
+    cli()

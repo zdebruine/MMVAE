@@ -186,14 +186,14 @@ def generate_umap(
         add_images_to_tensorboard(directory, image_paths)
 
 
-@click.command(name='generate_umap')
-@click_env_option('--directory', type=click.Path(exists=True), required=True)
+@click.command()
+@click.option('--directory', default=lambda: os.environ.get("DIRECTORY", ""), type=click.Path(exists=True), required=True)
 @click_env_option('--category', type=str, multiple=True, required=True)  # Multiple positional arguments
 @click_env_option('--key', type=str, multiple=True, required=True) 
 @click_env_option('--save_dir', type=click.Path(), help="Directory to store PNGs")
 @click_env_option('--method', type=str, help="Method name to add to graph title")
 @click_env_option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
-def main(directory, category, key, method, save_dir, skip_tensorboard):
+def merge_predictions(directory, category, key, method, save_dir, skip_tensorboard):
     """
     Plot UMAP embeddings and optionally log images to Tensorboard.
 
@@ -205,6 +205,9 @@ def main(directory, category, key, method, save_dir, skip_tensorboard):
         skip_tensorboard (bool): Prevent logging UMAPs to Tensorboard.
     """
     generate_umap(directory, category, key, method, save_dir, skip_tensorboard)
+    
+def cli():
+    merge_predictions()
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    cli()
