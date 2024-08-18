@@ -69,12 +69,12 @@ class CMMVAECli(plcli.LightningCLI):
             ckpt_path='best',
         )
 
-@click.command(name='cli', context_settings=dict(
+@click.command(context_settings=dict(
     ignore_unknown_options=True,
     allow_extra_args=True,
 ))
 @click.pass_context
-def cmmvaecli(ctx: click.Context):
+def cli(ctx: click.Context):
     """Run using the LightningCli."""
     if ctx.args:
         # Ensure `args` is passed as the command-line arguments
@@ -82,8 +82,8 @@ def cmmvaecli(ctx: click.Context):
 
     CMMVAECli()
     
-def cli():
-    cmmvaecli()
+def main():
+    cli()
 
 if __name__ == "__main__":
-    cli()
+    main()

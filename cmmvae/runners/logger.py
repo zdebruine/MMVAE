@@ -3,8 +3,8 @@
 def logger():
     pass
 
-def cli():
+def main():
     logger()
 
 if __name__ == '__main__':
-    cli()
+    main()

@@ -84,8 +84,8 @@ def merge_predictions(directory, save_dir, keys):
     """
     merge_predictions(directory, save_dir, keys)
     
-def cli():
+def main():
     merge_predictions()
 
 if __name__ == '__main__':
-    cli()
+    main()

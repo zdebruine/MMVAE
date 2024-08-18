@@ -206,8 +206,8 @@ def merge_predictions(directory, category, key, method, save_dir, skip_tensorboa
     """
     generate_umap(directory, category, key, method, save_dir, skip_tensorboard)
     
-def cli():
+def main():
     merge_predictions()
 
 if __name__ == '__main__':
-    cli()
+    main()

@@ -79,11 +79,11 @@ def submit_experiments(
             print("Total jobs found:", len(jobs))
 
 
-@click.command(name="submit")
+@click.command()
 @click_env_option("-c", "--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
 @click_env_option("-m", "--max_job_limit", type=int, default=3, help="Max number of jobs capable of outputting without failure.")
 @click_env_option("-p", "--preview", is_flag=True, help="Do not run subprocess, only preview job configurations.")
-def main(**kwargs):
+def submit(**kwargs):
     """
     Submit experiments using configurations from a YAML file.
     
@@ -94,5 +94,8 @@ def main(**kwargs):
     """
     submit_experiments(**kwargs)
 
+def main():
+    submit()
+    
 if __name__ == "__main__":
     main()
