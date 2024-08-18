@@ -193,7 +193,7 @@ def generate_umap(
 @click_env_option('--save_dir', type=click.Path(), help="Directory to store PNGs")
 @click_env_option('--method', type=str, help="Method name to add to graph title")
 @click_env_option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
-def merge_predictions(directory, category, key, method, save_dir, skip_tensorboard):
+def umap_predictions(directory, category, key, method, save_dir, skip_tensorboard):
     """
     Plot UMAP embeddings and optionally log images to Tensorboard.
 
@@ -207,7 +207,7 @@ def merge_predictions(directory, category, key, method, save_dir, skip_tensorboa
     generate_umap(directory, category, key, method, save_dir, skip_tensorboard)
     
 def main():
-    merge_predictions()
+    umap_predictions()
 
 if __name__ == '__main__':
     main()
