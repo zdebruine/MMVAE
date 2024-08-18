@@ -1,18 +1,15 @@
 import click
+import inspect
 
-from cmmvae.pipeline import(
-    submit, cli, 
-    merge_predictions, generate_umap,
-)
+import cmmvae.runners
 
 @click.group()
 def main():
     """Main entry point for cmmvae CLI"""
 
-main.add_command(cli.main)
-main.add_command(merge_predictions.main)
-main.add_command(generate_umap.main)
-main.add_command(submit.main)
+for name, obj in inspect.getmembers(cmmvae.runners):
+    if isinstance(obj, click.Command):
+        main.add_command(obj)
 
 if __name__ == '__main__':
     main()

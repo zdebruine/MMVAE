@@ -1,6 +1,6 @@
 
-experiment_name: submit
-run_name: default000
+experiment_name: experiment
+run_name: version000
 
 train_command:
   fit:

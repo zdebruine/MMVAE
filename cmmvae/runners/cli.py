@@ -2,12 +2,10 @@
     Subclass of LightningCli specialized for pipeline.
 """
 import sys
-from lightning.pytorch.cli import LightningCLI, SaveConfigCallback
-from cmmvae.models import BaseModel
+from lightning.pytorch import cli
 import click
 
-
-class SCIMLCli(LightningCLI):
+class SCIMLCli(cli.LightningCLI):
     """
     LightningCLI meant to ease in setting default arguments and 
     logging parameters. All Models of subclass BaseVAEModel should use this
@@ -21,11 +19,9 @@ class SCIMLCli(LightningCLI):
         Handles loading trainer, model, and data modules from config file,
         while linking common arguments for ease of access.
         """
-        self.is_run = bool(kwargs.get('run', True)) 
+        self.is_run = not kwargs.get('run', False)
         
         super().__init__(
-            model_class=BaseModel,
-            subclass_mode_model=True,
             parser_kwargs={
                 "default_env": True, 
                 "parser_mode": "omegaconf",

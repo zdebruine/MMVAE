@@ -40,3 +40,6 @@ def debug():
             logger.removeHandler(handl)
         logger.addHandler(hdlr)
         logger.setLevel(logging.DEBUG)  # Set to debug to capture all messages for these modules
+
+if logging.DEBUG:
+    logging.debug()

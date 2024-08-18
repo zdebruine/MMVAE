@@ -3,15 +3,10 @@ Generate UMAPs from embeddings and metadata.
 """
 
 import os
-import umap
-import torch
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-from torch.utils.tensorboard import SummaryWriter
-from PIL import Image
 import click
-
+from ._decorators import click_env_option
 
 def load_embeddings(npz_path, meta_path):
     """Load embeddings and metadata from specified paths."""
@@ -54,6 +49,8 @@ def plot_umap(
         save_dir (str): Directory to save UMAP plots.
         **umap_kwargs: Extra kwargs passed to `umap.UMAP`.
     """
+    import umap
+
     if not save_dir:
         save_dir = directory
         
@@ -111,6 +108,7 @@ def plot_category(embedding, metadata, category, save_path, n_largest, name, met
     Returns:
         str: Path to the saved plot image.
     """
+    import matplotlib.pyplot as plt
     plt.figure(figsize=(14, 8))
     unique_values = metadata[category].value_counts().nlargest(n_largest).index
     
@@ -161,12 +159,15 @@ def add_images_to_tensorboard(log_dir, image_paths):
         log_dir (str): Path to Tensorboard log directory.
         image_paths (list[str]): Paths to images to load to Tensorboard.
     """
+    from torch.utils.tensorboard import SummaryWriter
+    from PIL import Image
+    from torch import tensor
     writer = SummaryWriter(log_dir=log_dir)
     
     for image_path in image_paths:
         image = Image.open(image_path)
         image = np.array(image)
-        image = torch.tensor(image).permute(2, 0, 1)
+        image = tensor(image).permute(2, 0, 1)
         tag = os.path.basename(image_path)
         writer.add_image(tag, image, global_step=0)
     writer.close()
@@ -186,12 +187,12 @@ def generate_umap(
 
 
 @click.command(name='generate_umap')
-@click.option('--directory', type=click.Path(exists=True), required=True)
-@click.option('--category', type=str, multiple=True, required=True)  # Multiple positional arguments
-@click.option('--key', type=str, multiple=True, required=True) 
-@click.option('--save_dir', type=click.Path(), help="Directory to store PNGs")
-@click.option('--method', type=str, help="Method name to add to graph title")
-@click.option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
+@click_env_option('--directory', type=click.Path(exists=True), required=True)
+@click_env_option('--category', type=str, multiple=True, required=True)  # Multiple positional arguments
+@click_env_option('--key', type=str, multiple=True, required=True) 
+@click_env_option('--save_dir', type=click.Path(), help="Directory to store PNGs")
+@click_env_option('--method', type=str, help="Method name to add to graph title")
+@click_env_option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
 def main(directory, category, key, method, save_dir, skip_tensorboard):
     """
     Plot UMAP embeddings and optionally log images to Tensorboard.

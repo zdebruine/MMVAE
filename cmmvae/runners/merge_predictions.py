@@ -10,6 +10,8 @@ import re
 import click
 import numpy as np
 import pandas as pd
+from ._decorators import click_env_option
+
 
 def get_matching_files(directory, pattern):
     """Return a list of files matching the given pattern in the directory."""
@@ -68,9 +70,9 @@ def merge_predictions(directory, save_dir, keys):
 
 
 @click.command(name="merge_predictions")
-@click.option('--directory', type=click.Path(exists=True), required=True, help="Path to the directory containing the embeddings and metadata.")
-@click.option('--save_dir', type=click.Path(), default=None, help="Directory to store merged predictions. Defaults to the same as the input directory if not provided.")
-@click.option('--keys', multiple=True, required=True, help="List of prefix keys for embeddings and metadata paths.")
+@click_env_option('--directory', type=click.Path(exists=True), required=True, help="Path to the directory containing the embeddings and metadata.")
+@click_env_option('--save_dir', type=click.Path(), default=None, help="Directory to store merged predictions. Defaults to the same as the input directory if not provided.")
+@click_env_option('--keys', multiple=True, required=True, help="List of prefix keys for embeddings and metadata paths.")
 def main(directory, save_dir, keys):
     """
     Merge saved embeddings and metadata into one npz and pkl file.
