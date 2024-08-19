@@ -123,7 +123,7 @@ rule merge_predictions:
     shell:
         """
         mkdir -p {MERGED_DIR}
-        cmmvae merge_predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
+        cmmvae merge-predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
         """
 
 ## Define the rule for generating UMAP visualizations from the merged predictions.
@@ -141,5 +141,5 @@ rule umap_predictions:
         merge_keys=" ".join(f"--key {merge_key}" for merge_key in MERGE_KEYS),
     shell:
         """
-        cmmvae generate_umap --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
+        cmmvae generate-umap --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
         """

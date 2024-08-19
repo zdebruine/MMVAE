@@ -31,7 +31,7 @@ def extract_index(filename, pattern):
         return int(match.group(1))
     return -1
 
-def merge_predictions(directory, keys, save_dir):
+def merge(directory, keys, save_dir):
 
     assert os.path.exists(directory), f"Root directory does not exist: {directory}"
     
@@ -81,8 +81,7 @@ def merge_predictions(**kwargs):
         save_dir (str): Directory to store {key}_embeddings.npz and {key}_metadata.pkl. Defaults to directory if not provided.
         keys (list[str]): List of prefix keys for embeddings and metadata paths.
     """
-    print(kwargs)
-    merge_predictions(**kwargs)
+    merge(**kwargs)
     
 def main():
     merge_predictions()

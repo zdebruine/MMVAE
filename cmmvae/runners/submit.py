@@ -1,6 +1,9 @@
+import sys
 import click
 import os
 from datetime import datetime
+from copy import deepcopy
+import subprocess
 
 def load_yaml(path):
     import yaml
@@ -34,85 +37,119 @@ def parse_tracked_command(command_key, command):
             """
         )
     return commands
-        
-def create_experiment_combinations(combinations):
-    from itertools import product
-    return list(product(*combinations))
 
-def parse_train_commands(commands):
-    combinations = []
-    for command_key, command in commands.items():
-        if isinstance(command, dict):
-            if 'track' in command:
-                command = command['track']
-                tracked_commands = parse_tracked_command(command)
-                combinations.append(tracked_commands)
+def key_to_command(command_key: str):
+    if command_key.startswith('_'):
+        key = '---'
+    else:
+        key = '-' if len(command_key) == 1 else "---"
+    return f"{key}{command_key}"
+            
+class Experimenter:
+    
+    def __init__(
+        self,
+        config_file: str,
+        config: dict,
+        max_job_limit: int,
+        timestamp: bool = False,
+        preview: bool = False,
+        command: str = ("sbatch", "scripts/run-snakemake.sh"),
+    ): 
+
+        self.config: dict = load_yaml(config_file)
+        self.config.update(config)
+        self.max_job_limit = max_job_limit
+        self.timestamp = timestamp
+        self.ispreview = preview
+        self.command = command
+            
+        self.setup_experiments()
+        self.validate_experiments()
+        self.build_job_commands()
+        
+        if self.ispreview:
+            for i, command in enumerate(self.job_commands, start=1):
+                print(f"Experiment {i} commands:\n\t{' '.join(command)}")
+        
+        
+    def build_job_commands(self):
+        self.job_commands = []
+        for job in self.jobs:
+            run_config = deepcopy(self.config)
+            train_command_string = ' '.join([f"{'--' if len(command) > 1 else '-'}{command} {value}" for command, value, _ in job])
+            run_config['train_command'] = f"{self.subcommand} {train_command_string}"
+            run_name = '.' + '.'.join([name for _, _, name in job if name])
+            if self.timestamp:
+                run_name += datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_config['run_name'] += run_name
+            
+            config_args = list(f"{key}={value}" for key, value in run_config.items())
+
+            self.job_commands.append([*self.command, '--config', *config_args])
+        
+    def setup_experiments(self):
+        
+        self.subcommand, train_commands = next(iter(self.config['train_command'].items()))
+        command_pairs = self.parse_command_key_value_name_combinations(train_commands)
+        from itertools import product
+        self.jobs = list(product(*command_pairs))
+        
+    def parse_command_key_value_name_combinations(self, commands: dict):
+        combinations = []
+        for command_key, command in commands.items():
+            if isinstance(command, dict):
+                if 'track' in command:
+                    command = command['track']
+                    tracked_commands = parse_tracked_command(command_key, command)
+                    combinations.append(tracked_commands)
+                else:
+                    raise RuntimeError()
             else:
-                raise RuntimeError()
-        else:
-            combinations.append([(command_key, parse(command), "")])
-    return create_experiment_combinations(combinations)
-
-def validate_experiments(jobs, max_job_limit):
-    if len(jobs) > max_job_limit:
-        raise RuntimeError(
-            f"""
-            Number of jobs configured to run '{len(jobs)} exceeds 'max_job_limit' of {max_job_limit}.
-                Look over the job configuration and if number of jobs is correct consider raising 'max_job_limit'.
-            """)
-    elif max_job_limit - 1 <= len(jobs):
-        import warnings
-        warnings.warn(
-            f"""
-            Number of jobs is close to limit configured meaning the configuration file supplied
-                may not be performing as expected, otherwise you can ignore this message. 
-                Number of jobs: {len(jobs)}
-            """)
-        
-def submit_experiments(
-    config_file: str,
-    max_job_limit: int,
-    preview: bool = False,
-    timestamp: bool = False,
-):
-    config: dict = load_yaml(config_file)
+                combinations.append([(command_key, parse(command), "")])
+        return combinations
     
-    subcommand, train_commands = next(iter(config['train_command'].items()))
-    subcommand, jobs = parse_train_commands(train_commands)
-    
-    validate_experiments(jobs, max_job_limit)
-    
-    
-    command = ('sbatch', 'scripts/run-snakemake.sh')
-    init_config = config
-    from copy import deepcopy
-    for i, job in enumerate(jobs):
+    def validate_experiments(self):
         
-        config = deepcopy(init_config)
-        train_commands = [f"{'--' if len(command) > 1 else '-'}{command} {value}" for command, value, _ in job]
-        config['train_command'] = f"{subcommand} {' '.join(train_commands)}"
+        if not hasattr(self, 'jobs'):
+            raise RuntimeError("setup_experiments failed: attr 'jobs' not available")
         
-        run_name = '.' + '.'.join([name for _, _, name in job if name])
-        if timestamp:
-            run_name += datetime.now().strftime("%Y%m%d_%H%M%S")
-        config['run_name'] += run_name
+        if len(self.jobs) > self.max_job_limit:
+            raise RuntimeError(
+                f"""
+                Number of jobs configured to run '{len(self.jobs)} exceeds 'max_job_limit' of {self.max_job_limit}.
+                    Look over the job configuration and if number of jobs is correct consider raising 'max_job_limit'.
+                """)
+        elif self.max_job_limit - 1 <= len(self.jobs):
+            import warnings
+            warnings.warn(
+                f"""
+                Number of jobs is close to limit configured meaning the configuration file supplied
+                    may not be performing as expected, otherwise you can ignore this message. 
+                    Number of jobs: {len(self.jobs)}
+                """)
+            
+    def run(self):
+        for i, commands in enumerate(self.job_commands):
+            print(f"Job: {i}", '\n\t'.join(commands))
+            if not self.ispreview:
+                subprocess.run(commands)
+        print(f"Total jobs ran: {len(self.job_commands)}")
         
-        config_args = list(f"{key}={value}" for key, value in config.items())
-
-        print(f"Overriden config properties for experiment {i}:")
-        for config_arg in config_args:
-            print('\t', '\n\t\t'.join(config_arg.split('=')))
-
-        commands = [*command, '--config', *config_args]
-        if not preview:
-            import subprocess
-            subprocess.run(commands)
-        else:
-            print("Total jobs found:", len(jobs))
+def parse_kwargs(ctx, param, value):
+    kwargs = {}
+    for item in value:
+        try:
+            key, val = item.split('=', 1)
+            kwargs[key] = val
+        except ValueError:
+            raise click.BadParameter(f'Invalid format for {param.name}. Expected format: key=value')
+    return kwargs
 
 
 @click.command()
-@click.option("-c", "--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
+@click.option("--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
+@click.option('--config', multiple=True, callback=parse_kwargs, help="Configuration options as key=value pairs")
 @click.option("-m", "--max_job_limit", type=int, default=3, help="Max number of jobs capable of outputting without failure.")
 @click.option("-t", "--timestamp", is_flag=True, help="Added timestamp to end of run name.")
 @click.option("-p", "--preview", is_flag=True, help="Do not run subprocess, only preview job configurations.")
@@ -125,10 +162,16 @@ def submit(**kwargs):
         max_job_limit (int): Maximum number of jobs that can be run.
         preview (bool): Whether to preview job configurations without running them.
     """
-    submit_experiments(**kwargs)
+    Experimenter(**kwargs).run()
+
+@click.group()
+def experiment():
+    """Submit snakemake experiments"""
+
+experiment.add_command(submit)
 
 def main():
-    submit()
+    experiment()
     
 if __name__ == "__main__":
     main()
