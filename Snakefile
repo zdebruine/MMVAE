@@ -141,5 +141,5 @@ rule umap_predictions:
         merge_keys=" ".join(f"--key {merge_key}" for merge_key in MERGE_KEYS),
     shell:
         """
-        cmmvae generate-umap --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
+        cmmvae umap-predictions --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
         """

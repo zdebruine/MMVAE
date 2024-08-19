@@ -148,9 +148,9 @@ def parse_kwargs(ctx, param, value):
 
 
 @click.command()
-@click.option("--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
+@click.option("--config_file", type=str, default="experiments.yaml", show_default=True, help="Path to configuration file.")
 @click.option('--config', multiple=True, callback=parse_kwargs, help="Configuration options as key=value pairs")
-@click.option("-m", "--max_job_limit", type=int, default=3, help="Max number of jobs capable of outputting without failure.")
+@click.option("-m", "--max_job_limit", type=int, default=3, show_default=True, help="Max number of jobs capable of outputting without failure.")
 @click.option("-t", "--timestamp", is_flag=True, help="Added timestamp to end of run name.")
 @click.option("-p", "--preview", is_flag=True, help="Do not run subprocess, only preview job configurations.")
 def submit(**kwargs):
