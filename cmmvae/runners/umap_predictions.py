@@ -6,7 +6,6 @@ import os
 import numpy as np
 import pandas as pd
 import click
-from ._decorators import click_env_option
 
 def load_embeddings(npz_path, meta_path):
     """Load embeddings and metadata from specified paths."""
@@ -188,11 +187,11 @@ def generate_umap(
 
 @click.command()
 @click.option('--directory', default=lambda: os.environ.get("DIRECTORY", ""), type=click.Path(exists=True), required=True)
-@click_env_option('--category', type=str, multiple=True, required=True)  # Multiple positional arguments
-@click_env_option('--key', type=str, multiple=True, required=True) 
-@click_env_option('--save_dir', type=click.Path(), help="Directory to store PNGs")
-@click_env_option('--method', type=str, help="Method name to add to graph title")
-@click_env_option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
+@click.option('--category', type=str, multiple=True, required=True)  # Multiple positional arguments
+@click.option('--key', type=str, multiple=True, required=True) 
+@click.option('--save_dir', type=click.Path(), help="Directory to store PNGs")
+@click.option('--method', type=str, help="Method name to add to graph title")
+@click.option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
 def umap_predictions(directory, category, key, method, save_dir, skip_tensorboard):
     """
     Plot UMAP embeddings and optionally log images to Tensorboard.

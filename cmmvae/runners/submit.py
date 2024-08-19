@@ -1,6 +1,6 @@
 import click
 import os
-from ._decorators import click_env_option
+from datetime import datetime
 
 def load_yaml(path):
     import yaml
@@ -17,32 +17,43 @@ def parse(v):
         return '"' + '[' + ', '.join(f'"{str(elem)}"' if isinstance(elem, str) else str(elem) for elem in v) + ']' + '"'
     return v
 
-def submit_experiments(
-    config_file: str,
-    max_job_limit: int,
-    preview: bool = False,
-):
-    config: dict = load_yaml(config_file)
+def parse_tracked_command(command_key, command):
+    commands = []
+    if isinstance(command, dict) and len(command) == 1 and isinstance(list(command.values())[0], list):
+        for name, val in command.items():
+            commands.append((command_key, val, name.replace("{value}", str(val))))
+    elif isinstance(command, dict):
+        for name, val in command.items():
+            commands.append((command_key, parse(val), name))
+    else:
+        raise RuntimeError(
+            """
+            Unintened code block hit during execution.
+            Please file a issue to the maintainers if 
+            applicable.
+            """
+        )
+    return commands
+        
+def create_experiment_combinations(combinations):
+    from itertools import product
+    return list(product(*combinations))
 
-    train_commands = []
-    subcommand, commands = next(iter(config['train_command'].items()))
+def parse_train_commands(commands):
+    combinations = []
     for command_key, command in commands.items():
         if isinstance(command, dict):
             if 'track' in command:
                 command = command['track']
-                if isinstance(command, dict) and len(command) == 1 and isinstance(list(command.values())[0], list):
-                    train_commands.append([(f"--{command_key} {val}", name.replace("{value}", str(val))) for name, val in command.items()])
-                elif isinstance(command, dict):
-                    train_commands.append([(f"--{command_key} {parse(val)}", name) for name, val in command.items()])
-                else:
-                    train_commands.append([(f"--{command_key} {command}")])
+                tracked_commands = parse_tracked_command(command)
+                combinations.append(tracked_commands)
             else:
                 raise RuntimeError()
         else:
-            train_commands.append([(f"--{command_key} {parse(command)}", "")])
-    from itertools import product
-    jobs = list(product(*train_commands))
+            combinations.append([(command_key, parse(command), "")])
+    return create_experiment_combinations(combinations)
 
+def validate_experiments(jobs, max_job_limit):
     if len(jobs) > max_job_limit:
         raise RuntimeError(
             f"""
@@ -57,14 +68,35 @@ def submit_experiments(
                 may not be performing as expected, otherwise you can ignore this message. 
                 Number of jobs: {len(jobs)}
             """)
-
+        
+def submit_experiments(
+    config_file: str,
+    max_job_limit: int,
+    preview: bool = False,
+    timestamp: bool = False,
+):
+    config: dict = load_yaml(config_file)
+    
+    subcommand, train_commands = next(iter(config['train_command'].items()))
+    subcommand, jobs = parse_train_commands(train_commands)
+    
+    validate_experiments(jobs, max_job_limit)
+    
+    
     command = ('sbatch', 'scripts/run-snakemake.sh')
     init_config = config
     from copy import deepcopy
     for i, job in enumerate(jobs):
+        
         config = deepcopy(init_config)
-        config['train_command'] = f"{subcommand} {' '.join([arg for arg, _ in job])}"
-        config['run_name'] += '.' + '.'.join([name for _, name in job if name])
+        train_commands = [f"{'--' if len(command) > 1 else '-'}{command} {value}" for command, value, _ in job]
+        config['train_command'] = f"{subcommand} {' '.join(train_commands)}"
+        
+        run_name = '.' + '.'.join([name for _, _, name in job if name])
+        if timestamp:
+            run_name += datetime.now().strftime("%Y%m%d_%H%M%S")
+        config['run_name'] += run_name
+        
         config_args = list(f"{key}={value}" for key, value in config.items())
 
         print(f"Overriden config properties for experiment {i}:")
@@ -80,9 +112,10 @@ def submit_experiments(
 
 
 @click.command()
-@click_env_option("-c", "--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
-@click_env_option("-m", "--max_job_limit", type=int, default=3, help="Max number of jobs capable of outputting without failure.")
-@click_env_option("-p", "--preview", is_flag=True, help="Do not run subprocess, only preview job configurations.")
+@click.option("-c", "--config_file", type=str, default="experiments.yaml", help="Path to configuration file.")
+@click.option("-m", "--max_job_limit", type=int, default=3, help="Max number of jobs capable of outputting without failure.")
+@click.option("-t", "--timestamp", is_flag=True, help="Added timestamp to end of run name.")
+@click.option("-p", "--preview", is_flag=True, help="Do not run subprocess, only preview job configurations.")
 def submit(**kwargs):
     """
     Submit experiments using configurations from a YAML file.

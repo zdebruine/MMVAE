@@ -2,7 +2,7 @@ import psutil
 import logging
 import os
 
-DEBUG = os.getenv("CMMVAE_LOGGING_STATUS", "").upper() == 'DEBUG'
+DEBUG = os.getenv("CMMVAE_LOGGING_STATUS", "").upper() == "DEBUG"
 
 def debug():
     # Get memory statistics
@@ -42,4 +42,4 @@ def debug():
         logger.setLevel(logging.DEBUG)  # Set to debug to capture all messages for these modules
 
 if logging.DEBUG:
-    logging.debug()
+    debug()

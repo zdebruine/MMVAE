@@ -10,7 +10,6 @@ import re
 import click
 import numpy as np
 import pandas as pd
-from ._decorators import click_env_option
 
 
 def get_matching_files(directory, pattern):
@@ -32,7 +31,7 @@ def extract_index(filename, pattern):
         return int(match.group(1))
     return -1
 
-def merge_predictions(directory, save_dir, keys):
+def merge_predictions(directory, keys, save_dir):
 
     assert os.path.exists(directory), f"Root directory does not exist: {directory}"
     
@@ -69,11 +68,11 @@ def merge_predictions(directory, save_dir, keys):
         metadata.to_pickle(os.path.join(save_dir, f"{key}_metadata.pkl"))
 
 
-@click.command(name="merge_predictions")
-@click_env_option('--directory', type=click.Path(exists=True), required=True, help="Path to the directory containing the embeddings and metadata.")
-@click_env_option('--save_dir', type=click.Path(), default=None, help="Directory to store merged predictions. Defaults to the same as the input directory if not provided.")
-@click_env_option('--keys', multiple=True, required=True, help="List of prefix keys for embeddings and metadata paths.")
-def merge_predictions(directory, save_dir, keys):
+@click.command()
+@click.option('--directory', type=click.Path(exists=True), required=True, show_default=True, help="Path to the directory containing the embeddings and metadata.")
+@click.option('--save_dir', type=click.Path(), default=None, show_default=True, help="Directory to store merged predictions. Defaults to the same as the input directory if not provided.")
+@click.option('--keys', multiple=True, required=True, show_default=True, help="List of prefix keys for embeddings and metadata paths.")
+def merge_predictions(**kwargs):
     """
     Merge saved embeddings and metadata into one npz and pkl file.
 
@@ -82,7 +81,8 @@ def merge_predictions(directory, save_dir, keys):
         save_dir (str): Directory to store {key}_embeddings.npz and {key}_metadata.pkl. Defaults to directory if not provided.
         keys (list[str]): List of prefix keys for embeddings and metadata paths.
     """
-    merge_predictions(directory, save_dir, keys)
+    print(kwargs)
+    merge_predictions(**kwargs)
     
 def main():
     merge_predictions()
