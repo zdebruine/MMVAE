@@ -53,7 +53,7 @@ jobs:
           pip install -e .[test,doc]
       
       - name: Generate HTML documentation with pdoc
-        run: ./scripts/auto-doc.sh
+        run: cmmvae autodoc build
 
       - name: Upload artifact to Pages
         uses: actions/upload-pages-artifact@v3
