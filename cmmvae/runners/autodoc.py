@@ -1,3 +1,7 @@
+"""
+    CMMVAE Command to automatically build and serve documentation using pdoc.
+"""
+
 from typing import Literal, Union
 import click
 
@@ -7,6 +11,7 @@ import sys
 import threading
 import shutil
 from http.server import SimpleHTTPRequestHandler, HTTPServer
+
 
 class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
     """Custom handler to silence logging for HTTP requests."""
@@ -65,8 +70,12 @@ def start_server(source_dir, output_dir, port: Union[Literal['auto'], int] = 800
         print("\nShutting down server...")
         httpd.shutdown()
         server_thread.join()
+        
+@click.group()
+def autodoc():
+    """Build or serve documention automatically using pdoc."""
 
-@click.command()
+@autodoc.command()
 @click.option("--port", default=8000, help="Port to open http.server")
 @click.option("--source_dir", default="./cmmvae", show_default=True, help="Directory of module")
 @click.option("--output_dir", default="./.cmmvae/docs", show_default=True, help="Directory to store documentation")
@@ -74,24 +83,12 @@ def serve(source_dir, output_dir, port):
     """Serve documention with http server."""
     start_server(source_dir, output_dir, port=port)
     
-@click.command()
+@autodoc.command()
 @click.option("--source_dir", default="./cmmvae", show_default=True, help="Directory of module")
 @click.option("--output_dir", default="./.cmmvae/docs", show_default=True, help="Directory to store documentation")
 def build(source_dir, output_dir):
     """Build module documentation to directory with pdoc."""
     rebuild_pdoc(source_dir, output_dir)
-    
-@click.group()
-def autodoc():
-    """Build or serve documention automatically using pdoc."""
-    
-autodoc.add_command(serve)
-autodoc.add_command(build)
-
-def main():
-    autodoc()
-        
         
 if __name__ == "__main__":
-    
-    main()
+    autodoc()

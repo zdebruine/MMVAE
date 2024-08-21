@@ -1,9 +1,14 @@
+"""
+    Configure multiple experiments at one time and submit automatically.
+"""
+
 import sys
 import click
 import os
 from datetime import datetime
 from copy import deepcopy
 import subprocess
+
 
 def load_yaml(path):
     import yaml
@@ -54,7 +59,7 @@ class Experimenter:
         max_job_limit: int,
         timestamp: bool = False,
         preview: bool = False,
-        command: str = ("sbatch", "scripts/run-snakemake.sh"),
+        command: tuple = ("sbatch", "scripts/run-snakemake.sh"),
     ): 
 
         self.config: dict = load_yaml(config_file)
@@ -146,8 +151,11 @@ def parse_kwargs(ctx, param, value):
             raise click.BadParameter(f'Invalid format for {param.name}. Expected format: key=value')
     return kwargs
 
+@click.group()
+def experiment():
+    """Submit snakemake experiments"""
 
-@click.command()
+@experiment.command()
 @click.option("--config_file", type=str, default="experiments.yaml", show_default=True, help="Path to configuration file.")
 @click.option('--config', multiple=True, callback=parse_kwargs, help="Configuration options as key=value pairs")
 @click.option("-m", "--max_job_limit", type=int, default=3, show_default=True, help="Max number of jobs capable of outputting without failure.")
@@ -163,15 +171,6 @@ def submit(**kwargs):
         preview (bool): Whether to preview job configurations without running them.
     """
     Experimenter(**kwargs).run()
-
-@click.group()
-def experiment():
-    """Submit snakemake experiments"""
-
-experiment.add_command(submit)
-
-def main():
-    experiment()
     
 if __name__ == "__main__":
-    main()
+    experiment()

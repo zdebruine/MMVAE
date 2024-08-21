@@ -5,6 +5,7 @@ import sys
 from lightning.pytorch import cli as plcli
 import click
 
+
 class CMMVAECli(plcli.LightningCLI):
     """
     LightningCLI meant to ease in setting default arguments and 
@@ -82,8 +83,5 @@ def cli(ctx: click.Context):
 
     CMMVAECli()
     
-def main():
-    cli()
-
 if __name__ == "__main__":
-    main()
+    cli()

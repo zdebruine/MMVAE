@@ -83,8 +83,6 @@ def merge_predictions(**kwargs):
     """
     merge(**kwargs)
     
-def main():
-    merge_predictions()
 
 if __name__ == '__main__':
-    main()
+    merge_predictions()

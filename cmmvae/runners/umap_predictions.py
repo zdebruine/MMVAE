@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import click
 
+
 def load_embeddings(npz_path, meta_path):
     """Load embeddings and metadata from specified paths."""
     embedding = np.load(npz_path)['embeddings']
@@ -205,8 +206,5 @@ def umap_predictions(directory, category, key, method, save_dir, skip_tensorboar
     """
     generate_umap(directory, category, key, method, save_dir, skip_tensorboard)
     
-def main():
-    umap_predictions()
-
 if __name__ == '__main__':
-    main()
+    umap_predictions()
