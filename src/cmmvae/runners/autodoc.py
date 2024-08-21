@@ -12,20 +12,20 @@ import shutil
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 
-class QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
+class _QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
     """Custom handler to silence logging for HTTP requests."""
     def log_message(self, format, *args):
         pass
 
 
-def clean_directory(directory_path):
+def _clean_directory(directory_path):
     # Remove the entire directory
     shutil.rmtree(directory_path)
     # Recreate the directory
     os.makedirs(directory_path)
 
 
-def rebuild_pdoc(source_dir, output_dir):
+def _rebuild_pdoc(source_dir, output_dir):
     """Rebuild the pdoc documentation."""
     try:
         subprocess.run(
@@ -44,7 +44,7 @@ def rebuild_pdoc(source_dir, output_dir):
         print(f"Error during pdoc rebuild: {e}")
 
 
-def start_server(
+def _start_server(
     source_dir: str,
     output_dir: str,
     port: Union[Literal['auto'], int] = 8000
@@ -52,7 +52,7 @@ def start_server(
     """Start an HTTP server serving files from the specified directory."""
 
     try:
-        handler = QuietHTTPRequestHandler
+        handler = _QuietHTTPRequestHandler
         httpd = HTTPServer(
             server_address=("", port),
             RequestHandlerClass=lambda *args, **kwargs: handler(
@@ -79,10 +79,10 @@ def start_server(
             command = input(input_msg).lower()
             if command in ('r', 'build', 'rebuild'):
                 print("Rebuilding pdoc documentation...")
-                rebuild_pdoc(source_dir, output_dir)
+                _rebuild_pdoc(source_dir, output_dir)
             elif command in ('c', 'clean'):
                 print(f"Cleaning {output_dir}")
-                clean_directory(output_dir)
+                _clean_directory(output_dir)
     except KeyboardInterrupt:
         print("\nShutting down server...")
         httpd.shutdown()
@@ -102,7 +102,7 @@ def autodoc():
               help="Directory to store documentation")
 def serve(source_dir, output_dir, port):
     """Serve documention with http server."""
-    start_server(source_dir, output_dir, port=port)
+    _start_server(source_dir, output_dir, port=port)
 
 
 @autodoc.command()
@@ -112,7 +112,7 @@ def serve(source_dir, output_dir, port):
               help="Directory to store documentation")
 def build(source_dir, output_dir):
     """Build module documentation to directory with pdoc."""
-    rebuild_pdoc(source_dir, output_dir)
+    _rebuild_pdoc(source_dir, output_dir)
 
 
 if __name__ == "__main__":

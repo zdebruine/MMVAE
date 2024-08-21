@@ -24,7 +24,7 @@ def scan_file(out_file: str):
                 time.sleep(1)
 
 
-def parse_submission_file(log_file):
+def _parse_submission_file(log_file):
     """
     Parses snakemake head node (submission) stderr output file
     for rules that have been executed along with the job id for each rule.
@@ -47,7 +47,6 @@ def parse_submission_file(log_file):
 
 
 def default_quit_callback():
-    """Display Exiting... and exit"""
     click.echo("Exiting...")
     exit(0)
 
@@ -109,11 +108,6 @@ def record_view_history():
 
 
 def get_files(rule_dir, starts_with: str = 'job.', ends_with: str = '.err'):
-    """
-    Returns a list of paths to files in rule_dir that start and end
-        with arguments.
-    Default it will return all '.err' files that start with 'job.'
-    """
     return [
         f for f in os.listdir(rule_dir)
         if f.startswith(starts_with) and f.endswith(ends_with)
@@ -196,7 +190,7 @@ class Logger:
         submission_dir = self.get_path('submission')
         submission_jobid = submission_jobid or get_last_job_id(submission_dir)
         log_file = self.get_submission_log_file(submission_jobid)
-        rules = parse_submission_file(log_file)
+        rules = _parse_submission_file(log_file)
         return rules
 
     def back_callback(self):
