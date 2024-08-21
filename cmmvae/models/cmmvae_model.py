@@ -7,6 +7,7 @@ from cmmvae.models import BaseModel
 from cmmvae.modules import CMMVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 
+
 # Gradient reversal layer function
 class GradientReversalFunction(torch.autograd.Function):
     """
@@ -74,14 +75,14 @@ class CMMVAEModel(BaseModel):
         adversarial_criterion (nn.CrossEntropyLoss): Loss function for adversarial training.
         kl_annealing_fn (cmmvae.modules.base.KLAnnealingFn): KLAnnealingFn for weighting KL Divergence. Defaults to KLAnnealingFn(1.0).
     """
-    
+
     def __init__(self, module: CMMVAE, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.module = module
         self.automatic_optimization = False  # Disable automatic optimization for manual control
         self.adversarial_criterion = nn.CrossEntropyLoss()  # Criterion for adversarial loss
         self.init_weights()
-        
+
     def training_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int) -> None:
         """
         Perform a single training step.
@@ -103,7 +104,7 @@ class CMMVAEModel(BaseModel):
 
         # Perform forward pass and compute the loss
         qz, pz, z, xhats, cg_xhats, hidden_representations = self.module(x, metadata, expert_id)
-        
+
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
@@ -114,11 +115,13 @@ class CMMVAEModel(BaseModel):
         adversarial_loss = None
         for i, (hidden_rep, adv) in enumerate(zip(hidden_representations, self.module.adversarials)):
             # Create expert labels
-            expert_labels = torch.full((self.batch_size,), expert_label, dtype=torch.long, device=x.device)
+            expert_labels = torch.full(
+                (self.batch_size,), expert_label,
+                dtype=torch.long, device=x.device)
 
             # Apply gradient reversal
             reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
-            
+
             # Get adversarial predictions
             adv_output = adv(reversed_hidden_rep)
 
@@ -132,37 +135,40 @@ class CMMVAEModel(BaseModel):
             # Backpropagation for the adversarial
             self.manual_backward(current_adversarial_loss, retain_graph=True)
             adversarial_optimizers[i].step()
-            
+
         loss_dict['adversarial_loss'] = adversarial_loss
         loss = loss_dict[RK.LOSS]
-        
+
         # Backpropagation for encoder and decoder
         self.manual_backward(loss)
 
         # Clip gradients for stability
         self.clip_gradients(vae_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
         self.clip_gradients(expert_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
-        
+
         # Handle inactive conditional modules
         inactive_modules = []
         if self.module.vae.conditionals:
-            for conditional_layer in self.module.vae.conditionals.layers:
-                inactive = conditional_layer.unique_conditions - conditional_layer.active_condition_modules
-                inactive_modules.extend([conditional_layer.conditions[key] for key in conditional_layer.conditions if key in inactive])
-        
+            for cl in self.module.vae.conditionals.layers:
+                inactive = cl.unique_conditions - cl.active_condition_modules
+                inactive_modules.extend([
+                    cl.conditions[key]
+                    for key in cl.conditions
+                    if key in inactive])
+
         for module in inactive_modules:
             for param in module.parameters():
                 if param.grad is not None:
                     param.grad.zero_()
-        
+
         # Update the weights
         vae_optimizer.step()
         expert_optimizer.step()
         self.kl_annealing_fn.step()
-        
+
         # Log the loss
         self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
-        
+
     def validation_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str]) -> None:
         """
         Perform a single validation step.
@@ -177,7 +183,7 @@ class CMMVAEModel(BaseModel):
 
         # Perform forward pass and compute the loss
         qz, pz, z, xhats, cg_xhats, hidden_representations = self.module(x, metadata, expert_id)
-        
+
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
@@ -188,7 +194,9 @@ class CMMVAEModel(BaseModel):
         adversarial_loss = None
         for i, (hidden_rep, adv) in enumerate(zip(hidden_representations, self.module.adversarials)):
             # Create expert labels
-            expert_labels = torch.full((self.batch_size,), expert_label, dtype=torch.long, device=x.device)
+            expert_labels = torch.full(
+                (self.batch_size,), expert_label,
+                dtype=torch.long, device=x.device)
 
             # Apply gradient reversal
             reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
@@ -199,19 +207,19 @@ class CMMVAEModel(BaseModel):
             # Calculate adversarial loss
             current_adversarial_loss = self.adversarial_criterion(adv_output, expert_labels)
             loss_dict[f'adv_{i}'] = current_adversarial_loss
-            
+
             if adversarial_loss is None:
                 adversarial_loss = current_adversarial_loss
             else:
                 adversarial_loss += current_adversarial_loss
-            
+
         loss_dict[RK.LOSS] += adversarial_loss
-        
+
         self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
-        
+
     # Alias for validation_step method to reuse for testing
     test_step = validation_step
-    
+
     def predict_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int) -> None:
         """
         Perform a prediction step.
@@ -224,8 +232,8 @@ class CMMVAEModel(BaseModel):
         """
         embeddings = self.module.get_latent_embeddings(*batch)
         self.save_predictions(embeddings, batch_idx)
-        
-    def get_optimizers(self, zero_all: bool = False) -> Dict[str, Union[torch.optim.Optimizer, Dict[str, torch.optim.Optimizer]]]:
+
+    def get_optimizers(self, zero_all: bool = False):
         """
         Retrieve optimizers for the model components.
 
@@ -237,7 +245,6 @@ class CMMVAEModel(BaseModel):
         Returns:
             dict: Dictionary containing optimizers for experts, VAE, and adversarials.
         """
-        assert hasattr(self, 'optimizer_map'), "configure_optimizers must be called before get_optimizers"
         optimizers = self.optimizers()
 
         if zero_all:
@@ -246,15 +253,17 @@ class CMMVAEModel(BaseModel):
 
         def replace_indices_with_optimizers(mapping, optimizer_list):
             if isinstance(mapping, dict):
-                return {key: replace_indices_with_optimizers(value, optimizer_list) for key, value in mapping.items()}
+                return {
+                    key: replace_indices_with_optimizers(value, optimizer_list)
+                    for key, value in mapping.items()}
             else:
                 return optimizer_list[mapping]
-            
+
         # Create a dictionary with indices replaced with optimizer instances
         optimizer_dict = replace_indices_with_optimizers(self.optimizer_map, optimizers)
-        
+
         return optimizer_dict
-        
+
     def configure_optimizers(self) -> List[torch.optim.Optimizer]:
         """
         Configure optimizers for different components of the model.
@@ -264,18 +273,26 @@ class CMMVAEModel(BaseModel):
         """
         optimizers = {}
         optimizers['experts'] = {
-            expert_id: torch.optim.Adam(self.module.experts[expert_id].parameters(), lr=1e-3, weight_decay=1e-6)
+            expert_id: torch.optim.Adam(
+                self.module.experts[expert_id].parameters(),
+                lr=1e-3, weight_decay=1e-6)
             for expert_id in self.module.experts
         }
-        optimizers['vae'] = torch.optim.Adam(self.module.vae.encoder.parameters(), lr=1e-3, weight_decay=1e-6)
+        optimizers['vae'] = torch.optim.Adam(
+            self.module.vae.encoder.parameters(),
+            lr=1e-3, weight_decay=1e-6)
         optimizers['adversarials'] = {
-            i: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
+            i: torch.optim.Adam(
+                module.parameters(),
+                lr=1e-3, weight_decay=1e-6)
             for i, module in enumerate(self.module.adversarials)
         }
 
         optimizer_list = []
-        self.optimizer_map = convert_to_flat_list_and_map(optimizers, optimizer_list)
+        self.optimizer_map = convert_to_flat_list_and_map(
+            optimizers, optimizer_list)
         return optimizer_list
+
 
 def convert_to_flat_list_and_map(d: Dict, flat_list: Optional[List] = None) -> Dict:
     """

@@ -3,6 +3,7 @@
 """
 from typing import NamedTuple
 
+
 class REGISTRY_KEYS_NT(NamedTuple):
     """A NamedTuple to store constant keys used in a registry for machine learning models."""
     LOSS: str = "loss"
@@ -32,7 +33,7 @@ class REGISTRY_KEYS_NT(NamedTuple):
     X: str = "x"
     """Key for the input data x."""
     xhat: str = "xhat"
-    """Key for the reconstructed data \hat{x}."""
+    """Key for the reconstructed data \\hat{x}."""
     Y: str = "Y"
     """Key for the target or output data y."""
     METADATA: str = "metadata"
@@ -49,6 +50,7 @@ class REGISTRY_KEYS_NT(NamedTuple):
     """Key for the registry container."""
     EXPERT_ID: str = "expert_id"
     """Key for the expert identifier."""
+
 
 # Instance of _REGISTRY_KEYS_NT for use in the application
 REGISTRY_KEYS = REGISTRY_KEYS_NT()

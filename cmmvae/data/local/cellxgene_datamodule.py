@@ -9,19 +9,19 @@ from cmmvae.data.local.cellxgene_manager import SpeciesManager
 class SpeciesDataModule(LightningDataModule):
     """
     A LightningDataModule for handling data loading and preparation for multiple species datasets.
-    
-    This module orchestrates the training, validation, testing, and prediction dataloaders 
+
+    This module orchestrates the training, validation, testing, and prediction dataloaders
     for multiple species, enabling efficient data management and processing.
-    
+
     Attributes:
         species (list[Any]): A list of `Any` instances for each species.
         num_workers (int): Number of workers for data loading.
         n_val_workers (int): Number of workers for validation data loading.
         n_test_workers (int): Number of workers for test data loading.
         n_predict_workers (int): Number of workers for prediction data loading.
-        
+
     """
-    
+
     def __init__(
         self,
         species: list[SpeciesManager],
@@ -29,10 +29,10 @@ class SpeciesDataModule(LightningDataModule):
         n_val_workers: int = None,
         n_test_workers: int = None,
         n_predict_workers: int = None,
-    ):  
+    ):
         super().__init__()
         self.save_hyperparameters(logger=True)
-        
+
         self.species: list[SpeciesManager] = species
         self.num_workers = num_workers
         self.n_val_workers = n_val_workers if n_val_workers else num_workers
@@ -42,10 +42,10 @@ class SpeciesDataModule(LightningDataModule):
     def setup(self, stage):
         """
         Sets up the data pipelines based on the current stage of the training process.
-        
+
         Args:
             stage (str): The current stage in the training process, e.g., 'fit', 'validate', 'test', 'predict'.
-            
+
         """
         if stage in (TrainerFn.FITTING,):
             self._train_datapipe = self.train_datapipe()
@@ -54,7 +54,7 @@ class SpeciesDataModule(LightningDataModule):
             self._val_datapipe = self.val_datapipe()
         elif stage in (TrainerFn.PREDICTING, TrainerFn.TESTING):
             self._test_datapipe = self.test_datapipe()
-    
+
     def train_datapipe(self):
         """
         Creates the training data pipeline for each species.
@@ -63,7 +63,7 @@ class SpeciesDataModule(LightningDataModule):
             list: A list of training data pipelines for each species.
         """
         return [species.train_datapipe() for species in self.species]
-    
+
     def val_datapipe(self):
         """
         Creates the validation data pipeline for each species.
@@ -72,7 +72,7 @@ class SpeciesDataModule(LightningDataModule):
             list: A list of validation data pipelines for each species.
         """
         return [species.val_datapipe() for species in self.species]
-    
+
     def test_datapipe(self):
         """
         Creates the test data pipeline for each species.
@@ -81,7 +81,7 @@ class SpeciesDataModule(LightningDataModule):
             list: A list of test data pipelines for each species.
         """
         return [species.test_datapipe() for species in self.species]
-    
+
     @property
     def can_pin_memory(self):
         """
@@ -91,7 +91,7 @@ class SpeciesDataModule(LightningDataModule):
             bool: True if all species return dense data, allowing for memory pinning.
         """
         return all(species.return_dense for species in self.species)
-    
+
     def train_dataloader(self):
         """
         Creates the training DataLoader.
@@ -101,7 +101,7 @@ class SpeciesDataModule(LightningDataModule):
         """
         dps = list(self.train_datapipe())
         return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.num_workers)
-    
+
     def val_dataloader(self):
         """
         Creates the validation DataLoader.
@@ -111,7 +111,7 @@ class SpeciesDataModule(LightningDataModule):
         """
         dps = list(self.val_datapipe())
         return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_val_workers)
-    
+
     def test_dataloader(self):
         """
         Creates the test DataLoader.
@@ -121,7 +121,7 @@ class SpeciesDataModule(LightningDataModule):
         """
         dps = list(self.test_datapipe())
         return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers)
-    
+
     def predict_dataloader(self):
         """
         Creates the prediction DataLoader.
@@ -131,7 +131,7 @@ class SpeciesDataModule(LightningDataModule):
         """
         dps = list(self.test_datapipe())
         return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers)
-    
+
     def create_dataloader(self, *species: SpeciesDataPipe, **kwargs):
         """
         Creates a DataLoader for the given species data pipelines.
@@ -141,12 +141,12 @@ class SpeciesDataModule(LightningDataModule):
             **kwargs: Additional keyword arguments for the DataLoader.
 
         Returns:
-            DataLoader or MultiModalDataLoader: A DataLoader if a single species pipeline is provided, 
+            DataLoader or MultiModalDataLoader: A DataLoader if a single species pipeline is provided,
             otherwise a MultiModalDataLoader for multiple species.
         """
         dataloaders = [
             DataLoader(
-                dataset=dp, 
+                dataset=dp,
                 batch_size=None,
                 shuffle=False,
                 collate_fn=lambda x: x,

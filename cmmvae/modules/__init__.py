@@ -1,5 +1,6 @@
 """
-    This module holds torch.nn.Modules with sole responsibility on neural network creation/forward pass.
+    This module holds torch.nn.Modules with sole responsibility
+    on neural network creation/forward pass.
 """
 import cmmvae.modules.base as base
 from cmmvae.modules.vae import VAE

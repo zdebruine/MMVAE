@@ -1,7 +1,8 @@
 """
 Merge Embeddings and Metadata.
 
-This module expects files to be stored by {key}_embeddings_{\d}.npz and {key}_metadata_{\d}.pkl
+This module expects files to be stored by
+{key}_embeddings_{\\d}.npz and {key}_metadata_{\\d}.pkl
 and outputs a single {key}_embedding.npz and {key}_metadata.pkl for each key.
 """
 
@@ -21,8 +22,9 @@ def get_matching_files(directory, pattern):
         for file in files:
             if pattern.match(file):
                 matching_files.append(os.path.join(root, file))
-    
+
     return matching_files
+
 
 def extract_index(filename, pattern):
     """Extract numeric index from the filename based on the pattern."""
@@ -31,18 +33,19 @@ def extract_index(filename, pattern):
         return int(match.group(1))
     return -1
 
+
 def merge(directory, keys, save_dir):
 
-    assert os.path.exists(directory), f"Root directory does not exist: {directory}"
-    
+    assert os.path.exists(directory), f"Directory does not exist: {directory}"
+
     if not save_dir:
         save_dir = directory
 
     for key in keys:
         regex = rf"{key}(_embeddings_\d+\.npz|_metadata_\d+\.pkl)"
-        
+
         files = get_matching_files(directory, regex)
-        
+
         embedding_files = []
         metadata_files = []
 
@@ -54,35 +57,48 @@ def merge(directory, keys, save_dir):
                 embedding_files.append(file)
             elif metadata_pattern.search(file):
                 metadata_files.append(file)
-                
+
         if not embedding_files or not metadata_files:
-            raise FileNotFoundError(f"No files found for key '{key}'.\nEmbeddings: {embedding_files}\nMetadata: {metadata_files}")
-        
+            msg = f"""
+            No files found for key '{key}'.
+            Embeddings: {embedding_files}
+            Metadata: {metadata_files}
+            """
+            raise FileNotFoundError(msg)
+
         embedding_files.sort(key=lambda x: extract_index(x, embedding_pattern))
         metadata_files.sort(key=lambda x: extract_index(x, metadata_pattern))
-        
-        embeddings = np.concatenate([np.load(file)['embeddings'] for file in embedding_files])
+
+        embeddings = np.concatenate([
+            np.load(file)['embeddings']
+            for file in embedding_files
+        ])
         metadata = pd.concat([pd.read_pickle(file) for file in metadata_files])
-        
-        np.savez(os.path.join(save_dir, f"{key}_embeddings.npz"), embeddings=embeddings)
+        embeddings_path = os.path.join(save_dir, f"{key}_embeddings.npz")
+        np.savez(embeddings_path, embeddings=embeddings)
         metadata.to_pickle(os.path.join(save_dir, f"{key}_metadata.pkl"))
 
 
 @click.command()
-@click.option('--directory', type=click.Path(exists=True), required=True, show_default=True, help="Path to the directory containing the embeddings and metadata.")
-@click.option('--save_dir', type=click.Path(), default=None, show_default=True, help="Directory to store merged predictions. Defaults to the same as the input directory if not provided.")
-@click.option('--keys', multiple=True, required=True, show_default=True, help="List of prefix keys for embeddings and metadata paths.")
+@click.option('--directory', type=click.Path(exists=True),
+              required=True, show_default=True,
+              help="Directory containing the embeddings and metadata.")
+@click.option('--save_dir', type=click.Path(), default=None, show_default=True,
+              help="Directory to store merged predictions. Defaults to the input directory.")
+@click.option('--keys', multiple=True, required=True, show_default=True,
+              help="List of prefix keys for embeddings and metadata paths.")
 def merge_predictions(**kwargs):
     """
     Merge saved embeddings and metadata into one npz and pkl file.
 
     Args:
-        directory (str): Directory where _embeddings{\d}.npz and _metadata{\d}.pkl are stored.
-        save_dir (str): Directory to store {key}_embeddings.npz and {key}_metadata.pkl. Defaults to directory if not provided.
-        keys (list[str]): List of prefix keys for embeddings and metadata paths.
+        directory (str): Location of {key}_embeddings.npz & {key}_metadata.pkl.
+        save_dir (str): Directory to store merged outputs.
+            Defaults to directory if not provided.
+        keys (list[str]): Prefix keys for embeddings and metadata paths.
     """
     merge(**kwargs)
-    
+
 
 if __name__ == '__main__':
     merge_predictions()

@@ -14,6 +14,7 @@ def load_embeddings(npz_path, meta_path):
     metadata = pd.read_pickle(meta_path)
     return embedding, metadata
 
+
 def plot_umap(
     directory,
     keys,
@@ -53,7 +54,7 @@ def plot_umap(
 
     if not save_dir:
         save_dir = directory
-        
+
     image_paths = []
     for key in keys:
         umap_path = os.path.join(directory, f"{key}_umap_embeddings.npz")
@@ -65,7 +66,7 @@ def plot_umap(
             npz_path = os.path.join(directory, f"{key}_embeddings.npz")
             meta_path = os.path.join(directory, f"{key}_metadata.pkl")
             X, metadata = load_embeddings(npz_path, meta_path)
-            
+
             # Fit and transform the data using UMAP
             reducer = umap.UMAP(
                 n_neighbors=n_neighbors,
@@ -77,20 +78,28 @@ def plot_umap(
                 n_epochs=n_epochs,
                 **umap_kwargs
             )
-            
+
             embedding = reducer.fit_transform(X)
-            embedding_path = os.path.join(save_dir, f'{key}_umap_embeddings.npz')
-            metadata_path = os.path.join(save_dir, f'{key}_umap_metadata.pkl')
+            embedding_file_name = f'{key}_umap_embeddings.npz'
+            embedding_path = os.path.join(save_dir, embedding_file_name)
+            metadata_file_name = f'{key}_umap_metadata.pkl'
+            metadata_path = os.path.join(save_dir, metadata_file_name)
             os.makedirs(save_dir, exist_ok=True)
             np.savez(embedding_path, embeddings=embedding)
             metadata.to_pickle(metadata_path)
-        
+
         for category in categories:
-            image_path = plot_category(embedding, metadata, category, save_dir, n_largest, key, method)
+            image_path = plot_category(
+                embedding, metadata, category,
+                save_dir, n_largest, key, method)
             image_paths.append(image_path)
     return image_paths
 
-def plot_category(embedding, metadata, category, save_path, n_largest, name, method, alpha=0.5, marker_size=1):
+
+def plot_category(
+    embedding, metadata, category, save_path, n_largest,
+    name, method, alpha=0.5, marker_size=1
+):
     """
     Plot UMAP embeddings colored by a specific category.
 
@@ -111,45 +120,64 @@ def plot_category(embedding, metadata, category, save_path, n_largest, name, met
     import matplotlib.pyplot as plt
     plt.figure(figsize=(14, 8))
     unique_values = metadata[category].value_counts().nlargest(n_largest).index
-    
+
     # Prepare color map
     cmap = plt.get_cmap('nipy_spectral', len(unique_values))
     color_list = [cmap(i) for i in range(len(unique_values))]
-    
+
     # Combine embedding and metadata into a DataFrame
     df = pd.DataFrame(embedding, columns=['x', 'y'])
     df[category] = metadata[category].values
-    
+
     # Filter to include only the largest categories
     df = df[df[category].isin(unique_values)]
-    
+
     # Shuffle the DataFrame to randomize the plotting order
     df = df.sample(frac=1).reset_index(drop=True)
-    
+
     # Create a dictionary to map categories to colors
-    category_to_color = {value: color_list[i] for i, value in enumerate(unique_values)}
-    
+    category_to_color = {
+        value: color_list[i]
+        for i, value in enumerate(unique_values)
+    }
+
     # Map colors to the entire DataFrame
     df['color'] = df[category].map(category_to_color)
-    
-    # Plot all points in the shuffled order with specified opacity and marker size
-    plt.scatter(df['x'], df['y'], c=df['color'], s=marker_size, alpha=alpha)
-    
+
+    # Plot all points in the shuffled order
+    # with specified opacity and marker size
+    plt.scatter(
+        x=df['x'], y=df['y'], c=df['color'],
+        s=marker_size, alpha=alpha)
+
     if method:
         method_str = f" for {method} "
     else:
         method_str = " "
-    
+
     plt.title(f'UMAP projection{method_str}colored by {category}')
-    
+
     # Custom legend with a circle for each label
-    legend_handles = [plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=cmap(i), markersize=10, label=label)
-                      for i, label in enumerate(unique_values)]
-    plt.legend(handles=legend_handles, title=category, bbox_to_anchor=(1.05, 1), loc='upper left')
-    image_path = os.path.join(save_path, f"integrated.{category}.umap.{name}.png")
+    legend_handles = [
+        plt.Line2D(
+            [0], [0],
+            marker='o', color='w', label=label,
+            markerfacecolor=cmap(i), markersize=10,
+        )
+        for i, label in enumerate(unique_values)
+    ]
+
+    plt.legend(
+        handles=legend_handles,
+        title=category,
+        bbox_to_anchor=(1.05, 1),
+        loc='upper left')
+    image_file_name = f"integrated.{category}.umap.{name}.png"
+    image_path = os.path.join(save_path, image_file_name)
     plt.savefig(image_path, bbox_inches='tight')
     plt.close()
     return image_path
+
 
 def add_images_to_tensorboard(log_dir, image_paths):
     """
@@ -163,7 +191,7 @@ def add_images_to_tensorboard(log_dir, image_paths):
     from PIL import Image
     from torch import tensor
     writer = SummaryWriter(log_dir=log_dir)
-    
+
     for image_path in image_paths:
         image = Image.open(image_path)
         image = np.array(image)
@@ -171,6 +199,7 @@ def add_images_to_tensorboard(log_dir, image_paths):
         tag = os.path.basename(image_path)
         writer.add_image(tag, image, global_step=0)
     writer.close()
+
 
 def generate_umap(
     directory: str,
@@ -180,31 +209,45 @@ def generate_umap(
     save_dir: str,
     skip_tensorboard: bool,
 ):
-    image_paths = plot_umap(directory=directory, keys=keys, categories=categories, method=method, save_dir=save_dir)
+    image_paths = plot_umap(
+        directory=directory,
+        keys=keys,
+        categories=categories,
+        method=method,
+        save_dir=save_dir)
 
     if not skip_tensorboard:
         add_images_to_tensorboard(directory, image_paths)
 
 
 @click.command()
-@click.option('--directory', default=lambda: os.environ.get("DIRECTORY", ""), type=click.Path(exists=True), required=True)
-@click.option('--category', type=str, multiple=True, required=True)  # Multiple positional arguments
-@click.option('--key', type=str, multiple=True, required=True) 
-@click.option('--save_dir', type=click.Path(), help="Directory to store PNGs")
-@click.option('--method', type=str, help="Method name to add to graph title")
-@click.option('--skip_tensorboard', is_flag=True, help="Prevent logging UMAPs to Tensorboard")
-def umap_predictions(directory, category, key, method, save_dir, skip_tensorboard):
+@click.option('--directory', type=click.Path(exists=True), required=True,
+              default=lambda: os.environ.get("DIRECTORY", ""),
+              help="Directory where embeddings and metadata stored.")
+@click.option('--category', type=str, multiple=True, required=True,
+              help="Categories to color by.")  # Multiple positional arguments
+@click.option('--key', type=str, multiple=True, required=True,
+              help="Keys that prefix the embeddings and metadata.")
+@click.option('--save_dir', type=click.Path(),
+              help="Directory to store PNGs")
+@click.option('--method', type=str,
+              help="Method name to add to graph title")
+@click.option('--skip_tensorboard', is_flag=True,
+              help="Prevent logging UMAPs to Tensorboard")
+def umap_predictions(**kwargs):
     """
     Plot UMAP embeddings and optionally log images to Tensorboard.
 
     Args:
         directory (str): Directory where embeddings to plot are stored.
         categories (tuple[str]): List of categories to color by.
-        keys (tuple[str]): List of embedding keys that prefix save_paths of _embeddings.npz and _metadata.pkl
+        keys (tuple[str]): List of embedding keys that prefix save_paths.
         save_dir (str): Path to save UMAP outputs.
         skip_tensorboard (bool): Prevent logging UMAPs to Tensorboard.
     """
-    generate_umap(directory, category, key, method, save_dir, skip_tensorboard)
-    
+    generate_umap(**kwargs)
+
+
 if __name__ == '__main__':
+
     umap_predictions()

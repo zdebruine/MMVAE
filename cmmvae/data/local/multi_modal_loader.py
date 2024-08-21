@@ -20,7 +20,7 @@ class MultiModalDataLoader:
             *dataloaders (DataLoader): A variable number of DataLoader instances to combine.
         """
         self.dataloaders = dataloaders
-        
+
     def __iter__(self):
         """
         Create an iterator from each DataLoader and return the MultiModalDataLoader instance.
@@ -30,7 +30,7 @@ class MultiModalDataLoader:
         """
         self.iterators = [iter(dl) for dl in self.dataloaders]
         return self
-        
+
     def __next__(self):
         """
         Fetch the next batch of data from a randomly selected DataLoader.
@@ -47,10 +47,10 @@ class MultiModalDataLoader:
             import warnings
             warnings.warn("'__next__' called on MultiModalDataLoader when iterators are empty")
             raise StopIteration
-        
+
         # Get a random iterator from the available iterators
         iterator = random.choice(self.iterators)
-        
+
         try:
             # Try to get a batch from the iterator
             return next(iterator)

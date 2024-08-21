@@ -7,7 +7,7 @@
         - SpeciesDataModule: LightingDataModule for local npz, pkl dataset.
 """
 from .cellxgene_datamodule import CellxgeneDataModule
-from .anndata_dataset import AnnDataDataset, collate_fn
+
 
 __all__ = [
     "CellxgeneDataModule",

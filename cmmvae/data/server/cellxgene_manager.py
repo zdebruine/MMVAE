@@ -2,22 +2,30 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+
 DEFAULT_WEIGHTS = dict((("train", 0.8), ("val", 0.1), ("test", 0.1)))
+
 
 OBS_COL_NAMES = (
     "dataset_id",
-    "assay", 
+    "assay",
     "donor_id",
     "cell_type",
 )
 
-OBS_QUERY_VALUE_FILTER = 'is_primary_data == True and assay in ["microwell-seq", "10x 3\' v1", "10x 3\' v2", "10x 3\' v3", "10x 3\' transcription profiling", "10x 5\' transcription profiling", "10x 5\' v1", "10x 5\' v2"]'
+
+OBS_QUERY_VALUE_FILTER = (
+    'is_primary_data == True and assay in '
+    '["microwell-seq", "10x 3\' v1", "10x 3\' v2", "10x 3\' v3", "10x 3\' '
+    'transcription profiling", "10x 5\' transcription profiling", "10x 5\' '
+    'v1", "10x 5\' v2"]'
+)
 
 
 class CellxgeneManager:
     """
-    CellxgeneManager is responsible for managing data loading and processing 
-    for the cellxgene dataset. It utilizes tiledbsoma and cellxgene_census 
+    CellxgeneManager is responsible for managing data loading and processing
+    for the cellxgene dataset. It utilizes tiledbsoma and cellxgene_census
     libraries to create and handle experiment data pipes.
 
     Attributes:
@@ -63,7 +71,7 @@ class CellxgeneManager:
         self.soma_chunk_size = soma_chunk_size
         self.census = None
         self.census_version = census_version
-        
+
     def setup(self):
         """
         Set up the data manager by opening the cellxgene census and creating experiment data pipes.
@@ -74,7 +82,7 @@ class CellxgeneManager:
         import tiledbsoma as soma
 
         self.census = cell_census.open_soma(census_version=self.census_version)
-        
+
         self.experiment_datapipe = census_ml.ExperimentDataPipe(
             experiment=self.census["census_data"]["homo_sapiens"],
             measurement_name="RNA",
@@ -86,23 +94,23 @@ class CellxgeneManager:
             seed=self.seed,
             soma_chunk_size=self.soma_chunk_size,
             use_eager_fetch=False)
-        
+
         if not self.split_weights:
             self.datapipes = {k: self.experiment_datapipe for k in DEFAULT_WEIGHTS.keys()}
         else:
             datapipes = self.experiment_datapipe.random_split(
                 seed=self.seed,
                 weights=self.split_weights)
-            
+
             self.datapipes = dict((k, v) for k, v in zip(self.split_weights.keys(), datapipes))
-    
+
     def teardown(self):
         """
         Tear down the data manager by closing any open resources held by the cellxgene census.
         """
         if self.census and hasattr(self.census, 'close'):
             self.census.close()
-        
+
     def create_dataloader(self, target: str, num_workers: int):
         """
         Create a data loader for the specified dataset target.
@@ -122,7 +130,7 @@ class CellxgeneManager:
         if target not in self.datapipes:
             raise ValueError(f"target {target} not in {self.split_weights.keys()}")
         dp = self.datapipes[target]
-        
+
         return census_ml.experiment_dataloader(
             dp,
             pin_memory=True,
@@ -130,7 +138,7 @@ class CellxgeneManager:
             # causes OOM error
             # persistent_workers=self.trainer.training and self.hparams.num_workers > 0,
             prefetch_factor=1)
-        
+
     def metadata_to_df(self, metadata: Any) -> pd.DataFrame:
         """
         Convert metadata to a pandas DataFrame using observational encoders.

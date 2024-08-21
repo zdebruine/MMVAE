@@ -5,7 +5,7 @@ from cmmvae.data.local.cellxgene_datapipe import SpeciesDataPipe
 class SpeciesManager:
     """
     SpeciesManager is responsible for managing data pipelines for species data.
-    It initializes the configuration for training, validation, and testing datasets 
+    It initializes the configuration for training, validation, and testing datasets
     and provides methods to create data pipes with specific configurations.
 
     Attributes:
@@ -65,7 +65,7 @@ class SpeciesManager:
         self.return_dense = return_dense
         self.verbose = verbose
         self.name = name
-        
+
     def transform_fn(self):
         """
         Creates a transformation function for the data pipeline.
@@ -94,7 +94,7 @@ class SpeciesManager:
             verbose=self.verbose,
             return_dense=self.return_dense,
             transform_fn=self.transform_fn())
-    
+
     def val_datapipe(self):
         """
         Creates a data pipeline for validation data.
@@ -111,7 +111,7 @@ class SpeciesManager:
             verbose=self.verbose,
             return_dense=self.return_dense,
             transform_fn=self.transform_fn())
-        
+
     def test_datapipe(self):
         """
         Creates a data pipeline for testing data.
@@ -128,7 +128,7 @@ class SpeciesManager:
             shuffle=False,
             return_dense=self.return_dense,
             transform_fn=self.transform_fn())
-    
+
     def predict_datapipe(self):
         """
         Creates a data pipeline for prediction data.

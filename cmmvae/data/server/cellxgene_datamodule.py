@@ -2,18 +2,17 @@ from typing import Any, Sequence
 import lightning as L
 
 from .cellxgene_manager import (
-    CellxgeneManager, 
-    OBS_COL_NAMES, 
-    OBS_QUERY_VALUE_FILTER, 
+    CellxgeneManager,
+    OBS_COL_NAMES,
+    OBS_QUERY_VALUE_FILTER,
     DEFAULT_WEIGHTS
 )
 
-from cmmvae.constants import REGISTRY_KEYS as RK
 
 class CellxgeneDataModule(L.LightningDataModule):
     """
-    CellxgeneDataModule is a PyTorch Lightning data module designed to manage data loading 
-    for cellxgene datasets. It provides training, validation, test, and prediction data loaders, 
+    CellxgeneDataModule is a PyTorch Lightning data module designed to manage data loading
+    for cellxgene datasets. It provides training, validation, test, and prediction data loaders,
     leveraging the CellxgeneManager for handling dataset configurations and loading.
 
     Attributes:
@@ -48,7 +47,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             obs_column_names, soma_chunk_size
         )
         self.save_hyperparameters(logger=True)
-        
+
     def setup(self, stage: str):
         """
         Set up the data module by initializing the CellxgeneManager.
@@ -57,7 +56,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             stage (str): The stage of training (e.g., 'fit', 'test', 'predict').
         """
         self.cellx_manager.setup()
-        
+
     def teardown(self, stage: str):
         """
         Tear down the data module by closing any resources held by the CellxgeneManager.
@@ -66,7 +65,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             stage (str): The stage of training (e.g., 'fit', 'test', 'predict').
         """
         self.cellx_manager.teardown()
-        
+
     def train_dataloader(self) -> Any:
         """
         Create a data loader for training data.
@@ -75,7 +74,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             Any: A data loader for training data, configured with the specified number of workers.
         """
         return self.cellx_manager.create_dataloader('train', self.hparams.num_workers)
-    
+
     def val_dataloader(self) -> Any:
         """
         Create a data loader for validation data.
@@ -84,7 +83,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             Any: A data loader for validation data, using 2 workers.
         """
         return self.cellx_manager.create_dataloader('val', 2)
-        
+
     def test_dataloader(self) -> Any:
         """
         Create a data loader for test data.
@@ -93,7 +92,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             Any: A data loader for test data, using 2 workers.
         """
         return self.cellx_manager.create_dataloader('test', 2)
-        
+
     def predict_dataloader(self) -> Any:
         """
         Create a data loader for prediction.
@@ -102,7 +101,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             Any: A data loader for prediction data, using the test set configuration.
         """
         return self.cellx_manager.create_dataloader('test', 2)
-    
+
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         """
         Hook to modify batches before they are transferred to the GPU. Adds metadata to each batch.
@@ -115,7 +114,7 @@ class CellxgeneDataModule(L.LightningDataModule):
             Any: A tuple containing the input batch features, metadata, and the species label.
         """
         x_batch, labels = batch
-        
+
         metadata = self.cellx_manager.metadata_to_df(labels)
-        
+
         return x_batch, metadata, 'human'
