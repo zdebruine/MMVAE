@@ -12,7 +12,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
- 
+
 jobs:
   build:
     environment:
@@ -22,11 +22,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9.18' 
+          python-version: '3.9.18'
 
       - name: Cache pip dependencies
         id: cache-python
@@ -36,11 +36,11 @@ jobs:
           key: venv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
           restore-keys: |
             venv-${{ runner.os }}-
-      
+
       - name: Set up virtual environment
         if: steps.cache-python.outputs.cache-hit != 'True'
         run: python -m venv .venv
-      
+
       - name: Activate virtual environment
         run: |
           ls .venv
@@ -51,8 +51,11 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .[test,doc]
-      
+
       - name: Generate HTML documentation with pdoc
+        env:
+            GITHUB_REPO_OWNER: ${{ github.repository_owner }}
+            GITHUB_REPO_NAME: ${{ github.event.repository.name }}
         run: cmmvae autodoc build
 
       - name: Upload artifact to Pages

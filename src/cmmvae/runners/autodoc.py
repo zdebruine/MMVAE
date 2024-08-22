@@ -12,6 +12,22 @@ import shutil
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 
+def replace_placeholders(root_dir, repo_owner, repo_name):
+    for root, _, files in os.walk(root_dir):
+        for file in files:
+            file_path = os.path.join(root, file)
+            with open(file_path, "r") as f:
+                content = f.read()
+
+            # Replace placeholders
+            content = content.replace("&lt;GIT_REPO_OWNER&gt;", repo_owner)
+            content = content.replace("&lt;GIT_REPO_NAME&gt;", repo_name)
+
+            # Write the modified content back to the file
+            with open(file_path, "w") as f:
+                f.write(content)
+
+
 class _QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
     """Custom handler to silence logging for HTTP requests."""
 
@@ -40,11 +56,22 @@ def _rebuild_pdoc(source_dir, output_dir):
                 "--show-source",
                 "--no-include-undocumented",
                 "-e",
-                "cmmvae=https://github.com/zdebruine/MMVAE/",
+                "cmmvae=https://GIT.com/zdebruine/MMVAE/",
             ],
             check=True,
         )
-        print(f"Successfully rebuilt pdoc documentation in {output_dir}")
+
+        repo_owner = os.getenv("GIT_REPO_OWNER")
+        repo_name = os.getenv("GIT_REPO_NAME")
+
+        if repo_owner and repo_name:
+            replace_placeholders("./.cmmvae/docs", repo_owner, repo_name)
+            print(f"Successfully rebuilt pdoc documentation in {output_dir}")
+        else:
+            raise RuntimeError(
+                "Environment variables GIT_REPO_OWNER or GIT_REPO_NAME are not set."
+            )
+
     except subprocess.CalledProcessError as e:
         print(f"Error during pdoc rebuild: {e}")
 

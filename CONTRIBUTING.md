@@ -25,8 +25,8 @@ Before you begin contributing, please take a moment to review the following:
 
 1. **Clone the repository:**
     ```bash
-    git clone https://github.com/<REPO_OWNER>/<REPO_NAME>.git
-    cd <REPO_NAME>
+    git clone https://github.com/<GIT_REPO_OWNER>/<GIT_REPO_NAME>.git
+    cd <GIT_REPO_NAME>
     ```
 
 2. **Create a virtual environment:**

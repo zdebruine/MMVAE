@@ -16,8 +16,8 @@ To use this workflow, you must have Snakemake and the required dependencies inst
 
 1. **Clone the repository:**
     ```bash
-    git clone https://github.com/<REPO_OWNER>/<REPO_NAME>.git
-    cd <REPO_NAME>
+    git clone https://github.com/<GIT_REPO_OWNER>/<GIT_REPO_NAME>.git
+    cd <GIT_REPO_NAME>
     ```
 
 2. **Create a virtual environment:**
@@ -84,6 +84,7 @@ To run the Snakemake workflow, follow these steps:
    ```bash
    export CMMVAE_ENV_PATH="/path/to/env"
    sbatch scripts/run-snakemake.sh
+   ```
 
 3. **View Results:**
 
@@ -127,7 +128,7 @@ merge_keys:
 * **:Preview experiment history:** cmmvae logger history
 * **:Help:** cmmvae --help
 
-## Rules Overview: [Pipeline Documenation](./cmmvae/pipeline.html)
+## Rules Overview: [Pipeline Documenation](./cmmvae/runners.html)
 
 This Snakemake workflow consists of the following rules:
 
