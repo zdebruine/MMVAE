@@ -8,6 +8,7 @@ import re
 import time
 import subprocess
 
+
 SUBMISSION_REGEX = (
     r"rule (\w+):.*?" r"Submitted job (\d+)" r" with external jobid \'(\d+)\'"
 )
@@ -248,6 +249,7 @@ class Logger:
 
     @record_view_history()
     def view_history(self, n: int):
+        click.echo("\n")
         submission_dir = self.get_path("submission")
         submission_jobs = get_last_n_job_ids(submission_dir, n)
 
@@ -279,6 +281,7 @@ class Logger:
 
     @record_view_history()
     def view_submission(self, submission_jobid: Optional[str] = None):
+        click.echo("\n")
         submission_dir = self.get_path("submission")
         submission_jobid = submission_jobid or get_last_job_id(submission_dir)
         if not submission_jobid:
@@ -293,8 +296,7 @@ class Logger:
         rule = result if result in rules else jobids_to_rule[result]
         rule_jobid = result if result in jobids_to_rule else rules[result]
 
-        file_type = self.prompt_user(Prompts.prompt_file, valid_results=("out", "err"))
-        self.view_rule_files(rule, rule_jobid, file_type)
+        self.view_file_type(rule, rule_jobid)
 
     @record_view_history()
     def view_file_type(self, rule, rule_jobid):
@@ -312,11 +314,10 @@ class Logger:
             )
             return
 
-        if os.path.getsize(out_file) == 0:
-            click.echo("File is empty!")
-            return
-
         try:
+            while os.path.getsize(out_file) == 0:
+                click.echo("File is empty!")
+                time.sleep(3)
             scan_file(out_file)
         except KeyboardInterrupt:
             click.echo("Aborting scan...")
