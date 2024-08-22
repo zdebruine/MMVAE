@@ -97,7 +97,6 @@ def record_view_history():
     def decorator(func):
         def wrapper(self, *args, **kwargs):
             # Check if the attribute exists, if not, initialize it
-            print(f"Adding view to history: {func.__name__} {args}, {kwargs}")
             self._view_history.append((func.__name__, (args, kwargs)))
             # Call the original method
             return func(self, *args, **kwargs)
