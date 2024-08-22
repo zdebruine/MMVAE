@@ -81,7 +81,7 @@ def test_fc_block_config_activation_function():
 
 
 def test_fc_block_config_invalid_layers():
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         FCBlockConfig(layers=[-10, 20])  # Invalid layer sizes
 
 
@@ -95,7 +95,7 @@ def test_conditional_layer_initialization():
     config = FCBlockConfig(layers=[10])
     layer = ConditionalLayer(
         batch_key="assay",
-        conditions_path=f"{os.getcwd()}/cmmvae/data/conditional_layers/unique_assays.csv",
+        conditions_path=f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
         fc_block_config=config,
     )
     assert layer.batch_key == "assay"
@@ -106,7 +106,7 @@ def test_conditional_layer_forward_pass():
     config = FCBlockConfig(layers=[10])
     layer = ConditionalLayer(
         batch_key="assay",
-        conditions_path=f"{os.getcwd()}/cmmvae/data/conditional_layers/unique_assays.csv",
+        conditions_path=f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
         fc_block_config=config,
     )
     x = torch.randn(5, 10)
@@ -128,8 +128,8 @@ def test_conditional_layer_forward_pass():
 def test_conditional_layers_initialization():
     config = FCBlockConfig(layers=[10])
     conditional_paths = {
-        "assay": f"{os.getcwd()}/cmmvae/data/conditional_layers/unique_assays.csv",
-        "sex": f"{os.getcwd()}/cmmvae/data/conditional_layers/unique_sex.csv",
+        "assay": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
+        "sex": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_sex.csv",
     }
     layers = ConditionalLayers(conditional_paths, fc_block_config=config)
     assert len(layers.layers) == 2
@@ -138,8 +138,8 @@ def test_conditional_layers_initialization():
 def test_conditional_layers_forward_pass():
     config = FCBlockConfig(layers=[10])
     conditional_paths = {
-        "assay": f"{os.getcwd()}/cmmvae/data/conditional_layers/unique_assays.csv",
-        "sex": f"{os.getcwd()}/cmmvae/data/conditional_layers/unique_sex.csv",
+        "assay": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
+        "sex": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_sex.csv",
     }
     layers = ConditionalLayers(conditional_paths, fc_block_config=config)
     x = torch.randn(5, 10)
