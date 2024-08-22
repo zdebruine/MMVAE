@@ -29,13 +29,20 @@ def tag_log_dict(
         Dict[str, torch.Tensor]: A dictionary with updated keys based on the tags and separator.
     """
 
+    if key_pos not in ("last", "first"):
+        raise ValueError("Key position {key_pos} is not supported!")
+
     tags_str = sep.join(tags)
 
     def key_generator(key):
-        if key_pos == "first":
+        if not tags_str:
+            return key
+        elif key_pos == "first":
             return f"{key}{sep}{tags_str}"
-        if key_pos == "last":
+        elif key_pos == "last":
             return f"{tags_str}{sep}{key}"
+        else:
+            raise RuntimeError("Unexpected code block executed!")
 
     return {key_generator(key): value for key, value in log_dict.items()}
 
@@ -186,7 +193,7 @@ class BaseModel(pl.LightningModule):
         Returns:
             bool: True if gradients should be recorded, False otherwise.
         """
-        return self._record_gradients and not self.trainer.evaluating
+        return self._record_gradients and self.trainer and not self.trainer.evaluating
 
     @record_gradients.setter
     def record_gradients(self, value: bool):
@@ -201,6 +208,7 @@ class BaseModel(pl.LightningModule):
         """
         if (
             self.record_gradients
+            and self.trainer
             and self.trainer.global_step % self.save_gradients_interval == 0
         ):
             self.save_gradients()
@@ -258,7 +266,7 @@ class BaseModel(pl.LightningModule):
             log_sanity_checking (bool, optional): Whether to log during sanity checking. Defaults to False.
         """
         # Avoid logging during sanity checking unless necessary
-        if self.trainer.sanity_checking and not log_sanity_checking:
+        if self.trainer and self.trainer.sanity_checking and not log_sanity_checking:
             return
 
         # Tag log dict to differentiate losses
