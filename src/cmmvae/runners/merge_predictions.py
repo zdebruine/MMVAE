@@ -8,6 +8,7 @@ and outputs a single {key}_embedding.npz and {key}_metadata.pkl for each key.
 
 import os
 import re
+
 import click
 import numpy as np
 import pandas as pd

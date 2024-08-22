@@ -1,5 +1,6 @@
 import torch
 import pytest
+
 from cmmvae.models.base_model import tag_log_dict
 
 

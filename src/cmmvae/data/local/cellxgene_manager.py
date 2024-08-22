@@ -1,4 +1,5 @@
 from typing import Union
+
 from cmmvae.data.local.cellxgene_datapipe import SpeciesDataPipe
 
 
@@ -56,8 +57,8 @@ class SpeciesManager:
         super().__init__()
         self.directory_path = directory_path
         self.train_npz_masks = train_npz_masks
-        self.train_metadata_masks = train_metadata_masks
         self.val_npz_masks = val_npz_masks
+        self.train_metadata_masks = train_metadata_masks
         self.val_metadata_masks = val_metadata_masks
         self.test_npz_masks = test_npz_masks
         self.test_metadata_masks = test_metadata_masks

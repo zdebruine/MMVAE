@@ -3,13 +3,13 @@
 """
 
 from typing import Literal, Union
-import click
-
 import os
 import subprocess
 import threading
 import shutil
 from http.server import SimpleHTTPRequestHandler, HTTPServer
+
+import click
 
 
 def replace_placeholders(root_dir, repo_owner, repo_name):

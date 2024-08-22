@@ -1,13 +1,14 @@
+from typing import Iterable, Literal, Optional, Union
 import os
+
 import numpy as np
 import pandas as pd
 import torch
 import lightning.pytorch as pl
-from typing import Iterable, Literal, Optional, Union
 
 from cmmvae.constants import REGISTRY_KEYS as RK
-import cmmvae.modules.base.init as init
 from cmmvae.modules.base import KLAnnealingFn
+import cmmvae.modules.base.init as init
 
 
 def tag_log_dict(

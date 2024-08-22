@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal, kl_divergence, Distribution
 
-
 from cmmvae.modules import base
 from cmmvae.constants import REGISTRY_KEYS as RK
 

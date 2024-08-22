@@ -2,11 +2,12 @@
     Review snakemake job file outputs and history.
 """
 from typing import Callable, Literal, Optional, Union
-import click
 import os
 import re
 import time
 import subprocess
+
+import click
 
 
 SUBMISSION_REGEX = (

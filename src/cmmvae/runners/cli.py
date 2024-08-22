@@ -2,6 +2,7 @@
     Subclass of LightningCli specialized for pipeline.
 """
 import sys
+
 from lightning.pytorch import cli as plcli
 import click
 

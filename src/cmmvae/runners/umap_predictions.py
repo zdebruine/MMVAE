@@ -3,6 +3,7 @@ Generate UMAPs from embeddings and metadata.
 """
 
 import os
+
 import numpy as np
 import pandas as pd
 import click

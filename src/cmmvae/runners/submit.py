@@ -1,11 +1,11 @@
 """
     Configure multiple experiments at one time and submit automatically.
 """
-
-import click
 from datetime import datetime
 from copy import deepcopy
 import subprocess
+
+import click
 
 
 def load_yaml(path):

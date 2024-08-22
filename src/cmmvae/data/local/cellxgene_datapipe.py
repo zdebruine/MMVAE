@@ -1,9 +1,10 @@
-import random
 from typing import Callable, Literal, Optional, Union
-import numpy as np
+import random
+import pickle
+
 import scipy.sparse as sp
 import pandas as pd
-import pickle
+import numpy as np
 import torch
 from torchdata.datapipes.iter import FileLister, IterDataPipe, Zipper, Multiplexer
 from torch.utils.data import functional_datapipe

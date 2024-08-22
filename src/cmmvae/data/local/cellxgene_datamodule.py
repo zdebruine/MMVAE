@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from lightning import LightningDataModule
 from lightning.pytorch.trainer.states import TrainerFn
+
 from cmmvae.data.local.cellxgene_datapipe import SpeciesDataPipe
 from cmmvae.data.local.multi_modal_loader import MultiModalDataLoader
 from cmmvae.data.local.cellxgene_manager import SpeciesManager

@@ -1,9 +1,11 @@
 # test_neural_network_components.py
 
+import os
+
 import pytest
 import torch
 import torch.nn as nn
-import os
+
 import pandas as pd
 from cmmvae.modules.base.components import (
     is_iterable,

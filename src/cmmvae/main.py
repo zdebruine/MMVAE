@@ -1,5 +1,6 @@
-import click
 import inspect
+
+import click
 
 import cmmvae.runners
 
