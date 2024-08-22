@@ -14,7 +14,7 @@ def tag_log_dict(
     log_dict: dict[str, torch.Tensor],
     tags: Iterable[str] = [],
     sep: str = "/",
-    key_pos: Union[Literal['first'], Literal['last']] = 'first',
+    key_pos: Union[Literal["first"], Literal["last"]] = "first",
 ) -> dict[str, torch.Tensor]:
     """
     Annotates loss output keys with specified tags.
@@ -32,15 +32,12 @@ def tag_log_dict(
     tags_str = sep.join(tags)
 
     def key_generator(key):
-        if key_pos == 'first':
+        if key_pos == "first":
             return f"{key}{sep}{tags_str}"
-        if key_pos == 'last':
+        if key_pos == "last":
             return f"{tags_str}{sep}{key}"
 
-    return {
-        key_generator(key): value
-        for key, value in log_dict.items()
-    }
+    return {key_generator(key): value for key, value in log_dict.items()}
 
 
 class BaseModel(pl.LightningModule):
@@ -51,6 +48,7 @@ class BaseModel(pl.LightningModule):
     Attributes:
         example_input_array (tuple): A tuple of positional arguments to be passed to the forward pass for graph creation.
     """
+
     def __init__(
         self,
         batch_size: int = 128,
@@ -81,7 +79,7 @@ class BaseModel(pl.LightningModule):
             use_he_init_weights (bool): Initialize weights using He initialization. Defaults to True.
         """
         super().__init__()
-        self.save_hyperparameters(ignore=['module'], logger=False)
+        self.save_hyperparameters(ignore=["module"], logger=False)
 
         self.batch_size = batch_size
         self.record_gradients: bool = record_gradients
@@ -105,9 +103,11 @@ class BaseModel(pl.LightningModule):
             init.he_init_weights(self)
 
     def save_latent_predictions(
-        self, embeddings: np.ndarray, metadata: pd.DataFrame,
-        embeddings_path: str = 'embeddings.npz',
-        metadata_path: str = 'metadata.pkl',
+        self,
+        embeddings: np.ndarray,
+        metadata: pd.DataFrame,
+        embeddings_path: str = "embeddings.npz",
+        metadata_path: str = "metadata.pkl",
     ):
         """
         Saves embeddings and metadata to disk.
@@ -129,9 +129,9 @@ class BaseModel(pl.LightningModule):
 
             os.makedirs(directory, exist_ok=True)
 
-            if path.endswith('.npz'):
+            if path.endswith(".npz"):
                 np.savez(path, embeddings=embeddings)
-            if path.endswith('.pkl'):
+            if path.endswith(".pkl"):
                 metadata.to_pickle(path)
 
     @property
@@ -143,15 +143,15 @@ class BaseModel(pl.LightningModule):
             str: The stage name (training, validation, sanity_checking, prediction, test).
         """
         if self.trainer.training:
-            return 'training'
+            return "training"
         elif self.trainer.validating:
-            return 'validation'
+            return "validation"
         elif self.trainer.sanity_checking:
-            return 'sanity_checking'
+            return "sanity_checking"
         elif self.trainer.predicting:
-            return 'prediction'
+            return "prediction"
         elif self.trainer.testing:
-            return 'test'
+            return "test"
 
     def save_gradient(self, tag, grad):
         """
@@ -199,14 +199,13 @@ class BaseModel(pl.LightningModule):
         Args:
             optimizer (torch.optim.Optimizer): The optimizer being used.
         """
-        if self.record_gradients and self.trainer.global_step % self.save_gradients_interval == 0:
+        if (
+            self.record_gradients
+            and self.trainer.global_step % self.save_gradients_interval == 0
+        ):
             self.save_gradients()
 
-    def get_adata_latent_representations(
-        self,
-        adata,
-        batch_size
-    ):
+    def get_adata_latent_representations(self, adata, batch_size):
         """
         Get latent representations from AnnData.
 
@@ -221,7 +220,9 @@ class BaseModel(pl.LightningModule):
         from torch.utils.data import DataLoader
 
         dataset = AnnDataDataset(adata)
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+        dataloader = DataLoader(
+            dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn
+        )
 
         zs = []
         self.eval()
@@ -229,7 +230,7 @@ class BaseModel(pl.LightningModule):
             for batch_dict in dataloader:
                 for key in batch_dict.keys():
                     if isinstance(batch_dict[key], torch.Tensor):
-                        batch_dict[key] = batch_dict[key].to('cuda')
+                        batch_dict[key] = batch_dict[key].to("cuda")
 
                 predict_outputs = self.predict_step(batch_dict, None)
                 zs.append(predict_outputs[RK.Z])
@@ -241,7 +242,7 @@ class BaseModel(pl.LightningModule):
         log_dict: dict[str, torch.Tensor],
         tags: Iterable[str] = [],
         sep: str = "/",
-        key_pos: Literal['first', 'last'] = 'first',
+        key_pos: Literal["first", "last"] = "first",
         log_sanity_checking: bool = False,
     ):
         """
@@ -268,7 +269,7 @@ class BaseModel(pl.LightningModule):
             on_step=self.trainer.training,
             on_epoch=True,
             logger=True,
-            batch_size=self.batch_size
+            batch_size=self.batch_size,
         )
 
     def on_predict_epoch_start(self):
@@ -296,15 +297,23 @@ class BaseModel(pl.LightningModule):
             self._save_paired_predictions()
 
     def _save_paired_predictions(self):
-
         self._curr_save_idx += 1
         stacked_predictions = {}
 
         for key in self._running_predictions[0].keys():
             if isinstance(self._running_predictions[0][key], pd.DataFrame):
-                stacked_predictions[key] = pd.concat([prediction[key] for prediction in self._running_predictions])
+                stacked_predictions[key] = pd.concat(
+                    [prediction[key] for prediction in self._running_predictions]
+                )
             else:
-                stacked_predictions[key] = torch.cat([prediction[key] for prediction in self._running_predictions], dim=0).cpu().numpy()
+                stacked_predictions[key] = (
+                    torch.cat(
+                        [prediction[key] for prediction in self._running_predictions],
+                        dim=0,
+                    )
+                    .cpu()
+                    .numpy()
+                )
 
         for key in stacked_predictions:
             if RK.METADATA in key:
@@ -313,6 +322,10 @@ class BaseModel(pl.LightningModule):
             self.save_latent_predictions(
                 embeddings=stacked_predictions[key],
                 metadata=stacked_predictions[f"{key}_{RK.METADATA}"],
-                embeddings_path=os.path.join(self.predict_dir, f"{key}_embeddings_{self._curr_save_idx}.npz"),
-                metadata_path=os.path.join(self.predict_dir, f"{key}_metadata_{self._curr_save_idx}.pkl"),
+                embeddings_path=os.path.join(
+                    self.predict_dir, f"{key}_embeddings_{self._curr_save_idx}.npz"
+                ),
+                metadata_path=os.path.join(
+                    self.predict_dir, f"{key}_metadata_{self._curr_save_idx}.pkl"
+                ),
             )

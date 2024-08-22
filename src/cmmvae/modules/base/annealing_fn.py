@@ -1,5 +1,4 @@
 class KLAnnealingFn:
-
     def __init__(self, kl_weight: float):
         self.kl_weight = kl_weight
 
@@ -16,7 +15,6 @@ class KLAnnealingFn:
 
 
 class LinearKLAnnealingFn(KLAnnealingFn):
-
     def __init__(
         self,
         min_kl_weight: float = 1e-7,
@@ -36,7 +34,6 @@ class LinearKLAnnealingFn(KLAnnealingFn):
         self.x = -warmup_steps
 
     def step(self) -> None:
-
         self.x += 1
 
         if self.x < 0:

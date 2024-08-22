@@ -8,14 +8,12 @@ import re
 import time
 
 SUBMISSION_REGEX = (
-    r'rule (\w+):.*?'
-    r'Submitted job (\d+)'
-    r' with external jobid \'(\d+)\''
+    r"rule (\w+):.*?" r"Submitted job (\d+)" r" with external jobid \'(\d+)\'"
 )
 
 
 def scan_file(out_file: str):
-    with open(out_file, 'r') as f:
+    with open(out_file, "r") as f:
         while True:
             line = f.readline()
             if line:
@@ -36,7 +34,7 @@ def _parse_submission_file(log_file):
         dict[str, int]: Dictionary of rules and their respective job ids.
     """
     rules = {}
-    with open(log_file, 'r') as f:
+    with open(log_file, "r") as f:
         content = f.read()
         # Regex to find all rule blocks
         rule_blocks = re.findall(SUBMISSION_REGEX, content, re.DOTALL)
@@ -52,7 +50,6 @@ def default_quit_callback():
 
 
 class Prompts:
-
     @classmethod
     def prompt_with_callbacks(
         cls,
@@ -85,14 +82,15 @@ class Prompts:
 
     @classmethod
     def prompt_file(cls):
-        return click.prompt("Select file type to monitor (out/err)",
-                            type=str, default="err")
+        return click.prompt(
+            "Select file type to monitor (out/err)", type=str, default="err"
+        )
 
 
 def display_job_tree(job_id: str, rules: dict):
-    click.echo(f'Job: {job_id}')
+    click.echo(f"Job: {job_id}")
     for i, (rule, rule_job_id) in enumerate(rules.items()):
-        click.echo(f'  └── Rule: {rule} (Job ID: {rule_job_id})')
+        click.echo(f"  └── Rule: {rule} (Job ID: {rule_job_id})")
 
 
 def record_view_history():
@@ -103,13 +101,16 @@ def record_view_history():
             self._view_history.append((func.__name__, (args, kwargs)))
             # Call the original method
             return func(self, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
-def get_files(rule_dir, starts_with: str = 'job.', ends_with: str = '.err'):
+def get_files(rule_dir, starts_with: str = "job.", ends_with: str = ".err"):
     return [
-        f for f in os.listdir(rule_dir)
+        f
+        for f in os.listdir(rule_dir)
         if f.startswith(starts_with) and f.endswith(ends_with)
     ]
 
@@ -117,14 +118,13 @@ def get_files(rule_dir, starts_with: str = 'job.', ends_with: str = '.err'):
 def get_job_numbers(err_files: list[str]):
     job_numbers = []
     for f in err_files:
-        matches = re.search(r'job\.(\d+)\.err', f)
+        matches = re.search(r"job\.(\d+)\.err", f)
         if matches:
             job_numbers.append(matches.group(1))
     return job_numbers
 
 
 def get_last_job_id(rule_dir: str) -> Optional[str]:
-
     err_files = get_files(rule_dir)
     if not err_files:
         return None
@@ -144,13 +144,11 @@ def get_last_n_job_ids(rule_dir: str, n: int):
 
 
 class Logger:
-
     def __init__(self, log_dir):
         self.log_dir = log_dir
         self._view_history = []
 
     def invoke_last_view(self):
-
         if not self._view_history:
             exit(1)
 
@@ -159,7 +157,6 @@ class Logger:
         self._invoke_view(view_info[0], *view_info[1][0], **view_info[1][1])
 
     def _invoke_view(self, view: str, *args, **kwargs):
-
         view_fn = getattr(self, view)
         view_fn(*args, **kwargs)
 
@@ -167,7 +164,7 @@ class Logger:
         self,
         rule: Optional[str] = None,
         job_id: Optional[int] = None,
-        file_type: Optional[Union[Literal['err'], Literal['out']]] = None
+        file_type: Optional[Union[Literal["err"], Literal["out"]]] = None,
     ):
         if file_type and not (job_id and rule):
             raise ValueError(
@@ -175,21 +172,21 @@ class Logger:
                 " with either no job_id or rule."
             )
         elif job_id and not rule:
-            raise ValueError(
-                f"Attempting to acces job_id {job_id} with no rule"
-            )
+            raise ValueError(f"Attempting to acces job_id {job_id} with no rule")
 
-        return os.path.join(self.log_dir, *(
-            rule if rule else "",
-            f'job.{job_id}.{file_type}'
-            if job_id and file_type and rule else ""
-        ))
+        return os.path.join(
+            self.log_dir,
+            *(
+                rule if rule else "",
+                f"job.{job_id}.{file_type}" if job_id and file_type and rule else "",
+            ),
+        )
 
     def get_submission_log_file(self, job_id):
-        return self.get_path('submission', job_id, 'err')
+        return self.get_path("submission", job_id, "err")
 
     def parse_submission_file(self, submission_jobid: Optional[str] = None):
-        submission_dir = self.get_path('submission')
+        submission_dir = self.get_path("submission")
         submission_jobid = submission_jobid or get_last_job_id(submission_dir)
         log_file = self.get_submission_log_file(submission_jobid)
         rules = _parse_submission_file(log_file)
@@ -204,22 +201,22 @@ class Logger:
 
     def prompt_user(self, callback, *args, **kwargs):
         return Prompts.prompt_with_callbacks(
-            prompt_callback=callback,
-            back_callback=self.back_callback,
-            *args, **kwargs
+            prompt_callback=callback, back_callback=self.back_callback, *args, **kwargs
         )
 
     def prompt_back(self):
         while self._view_history:
-            prev_view_name = str(self._view_history[-1][0]).replace('_', ' ')
-            if click.confirm(f"Would you like to return to {prev_view_name}?", default=False):
+            prev_view_name = str(self._view_history[-1][0]).replace("_", " ")
+            if click.confirm(
+                f"Would you like to return to {prev_view_name}?", default=False
+            ):
                 self.invoke_last_view()
             else:
                 self._view_history.pop()
 
     @record_view_history()
     def view_history(self, n: int):
-        submission_dir = self.get_path('submission')
+        submission_dir = self.get_path("submission")
         submission_jobs = get_last_n_job_ids(submission_dir, n)
 
         submission_job_rules = {}
@@ -231,9 +228,7 @@ class Logger:
             valid_results.extend(valids)
             display_job_tree(submission_jobid, rules)
 
-        result = self.prompt_user(
-            Prompts.prompt_jobid, valid_results=valid_results
-        )
+        result = self.prompt_user(Prompts.prompt_jobid, valid_results=valid_results)
 
         if result in submission_jobs:
             self.view_submission(result)
@@ -246,7 +241,7 @@ class Logger:
 
     @record_view_history()
     def view_submission(self, submission_jobid: Optional[str] = None):
-        submission_dir = self.get_path('submission')
+        submission_dir = self.get_path("submission")
         submission_jobid = submission_jobid or get_last_job_id(submission_dir)
         if not submission_jobid:
             raise RuntimeError("submission_jobid is None!")
@@ -255,35 +250,24 @@ class Logger:
         self.view_navigate_submission_rules(rules)
 
     def view_navigate_submission_rules(self, rules: dict):
-
         valid_results = []
-        jobids_to_rule = {
-            value: key
-            for key, value, in rules.items()
-        }
+        jobids_to_rule = {value: key for key, value, in rules.items()}
 
         valid_results = list(rules.keys()) + list(rules.values())
-        result = self.prompt_user(
-            Prompts.prompt_jobid, valid_results=valid_results
-        )
+        result = self.prompt_user(Prompts.prompt_jobid, valid_results=valid_results)
 
         rule = result if result in rules else jobids_to_rule[result]
         rule_jobid = result if result in jobids_to_rule else rules[result]
 
-        file_type = self.prompt_user(
-            Prompts.prompt_file, valid_results=('out', 'err')
-        )
+        file_type = self.prompt_user(Prompts.prompt_file, valid_results=("out", "err"))
         self.view_rule_files(rule, rule_jobid, file_type)
 
     @record_view_history()
     def view_file_type(self, rule, rule_jobid):
-        file_type = self.prompt_user(
-            Prompts.prompt_file, valid_results=('out', 'err')
-        )
+        file_type = self.prompt_user(Prompts.prompt_file, valid_results=("out", "err"))
         self.view_rule_files(rule, rule_jobid, file_type)
 
     def view_rule_files(self, rule, rule_jobid, file_type):
-
         out_file = self.get_path(rule, rule_jobid, file_type)
 
         if os.path.exists(out_file):
@@ -313,31 +297,46 @@ def logger():
 
 
 @logger.command()
-@click.option('--log_dir', type=click.Path(), default="./.cmmvae/logs",
-              show_default=True, help="Directory where logs are stored.")
+@click.option(
+    "--log_dir",
+    type=click.Path(),
+    default="./.cmmvae/logs",
+    show_default=True,
+    help="Directory where logs are stored.",
+)
 def last(log_dir):
     """View the last job or a specified job."""
     Logger(log_dir).view_submission()
 
 
 @logger.command()
-@click.option('--log_dir', type=click.Path(), default="./.cmmvae/logs",
-              show_default=True, help="Directory where logs are stored.")
-@click.option('--job-id', type=str, default=None,
-              help='Specify a job ID to view details.')
+@click.option(
+    "--log_dir",
+    type=click.Path(),
+    default="./.cmmvae/logs",
+    show_default=True,
+    help="Directory where logs are stored.",
+)
+@click.option(
+    "--job-id", type=str, default=None, help="Specify a job ID to view details."
+)
 def job(log_dir, job_id):
     Logger(log_dir).view_submission(job_id)
 
 
 @logger.command()
-@click.option('-n', type=int, default=3,
-              help='Number of jobs to display in history.')
-@click.option('--log_dir', type=click.Path(), default="./.cmmvae/logs",
-              show_default=True, help="Directory where logs are stored.")
+@click.option("-n", type=int, default=3, help="Number of jobs to display in history.")
+@click.option(
+    "--log_dir",
+    type=click.Path(),
+    default="./.cmmvae/logs",
+    show_default=True,
+    help="Directory where logs are stored.",
+)
 def history(**kwargs):
     """Display the last n jobs in history."""
-    Logger(kwargs['log_dir']).view_history(kwargs['n'])
+    Logger(kwargs["log_dir"]).view_history(kwargs["n"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logger()

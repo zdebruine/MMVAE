@@ -14,18 +14,18 @@ repos:
     hooks:
       - id: black
         stages: [commit, manual]
-        args: [--include, src, --diff]
+        args: [--include, src]
 
   - repo: https://github.com/PyCQA/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
         stages: [commit, manual]
-        args: [src, --ignore, E501]
+        args: [src]
 
   - repo: https://github.com/pre-commit/mirrors-pylint
     rev: v2.7.4
     hooks:
       - id: pylint
-        stages: [commit, manual]
+        stages: [manual]
         args: [src]

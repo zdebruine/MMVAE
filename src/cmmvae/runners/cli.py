@@ -11,24 +11,22 @@ class CMMVAECli(plcli.LightningCLI):
     LightningCLI meant to ease in setting default arguments and
     logging parameters. All Models of subclass BaseVAEModel should use this
     """
-    def __init__(
-        self,
-        extra_parser_kwargs: dict = {},
-        **kwargs
-    ):
+
+    def __init__(self, extra_parser_kwargs: dict = {}, **kwargs):
         """
         Handles loading trainer, model, and data modules from config file,
         while linking common arguments for ease of access.
         """
-        self.is_run = not kwargs.get('run', False)
+        self.is_run = not kwargs.get("run", False)
 
         super().__init__(
             parser_kwargs={
                 "default_env": True,
                 "parser_mode": "omegaconf",
-                **extra_parser_kwargs
+                **extra_parser_kwargs,
             },
-            **kwargs)
+            **kwargs
+        )
 
     def add_arguments_to_parser(self, parser):
         """
@@ -40,37 +38,38 @@ class CMMVAECli(plcli.LightningCLI):
         predict_dir (str): The name of the directory to save predictions
         """
         # Add arguments for logging and ease of access
-        parser.add_argument('--default_root_dir', required=True,
-                            help="Default root directory")
-        parser.add_argument('--experiment_name', required=True,
-                            help="Name of experiment directory")
-        parser.add_argument('--run_name', required=True,
-                            help="Name of the experiment run")
-        parser.add_argument('--predict_dir', required=True,
-                            help="Where to store predictions after fit")
+        parser.add_argument(
+            "--default_root_dir", required=True, help="Default root directory"
+        )
+        parser.add_argument(
+            "--experiment_name", required=True, help="Name of experiment directory"
+        )
+        parser.add_argument(
+            "--run_name", required=True, help="Name of the experiment run"
+        )
+        parser.add_argument(
+            "--predict_dir", required=True, help="Where to store predictions after fit"
+        )
 
         if not self.is_run:
-            parser.add_argument('--ckpt_path', required=True,
-                                help="Ckpt path to be passed to model")
+            parser.add_argument(
+                "--ckpt_path", required=True, help="Ckpt path to be passed to model"
+            )
 
         # Link ease of access arguments to their respective targets
+        parser.link_arguments("default_root_dir", "trainer.default_root_dir")
+        parser.link_arguments("default_root_dir", "trainer.logger.init_args.save_dir")
+        parser.link_arguments("experiment_name", "trainer.logger.init_args.name")
+        parser.link_arguments("run_name", "trainer.logger.init_args.version")
         parser.link_arguments(
-            'default_root_dir', 'trainer.default_root_dir')
-        parser.link_arguments(
-            'default_root_dir', 'trainer.logger.init_args.save_dir')
-        parser.link_arguments(
-            'experiment_name', 'trainer.logger.init_args.name')
-        parser.link_arguments(
-            'run_name', 'trainer.logger.init_args.version')
-        parser.link_arguments(
-            'predict_dir', 'model.init_args.module.init_args.predict_dir')
-        parser.link_arguments(
-            'data.init_args.batch_size', 'model.init_args.batch_size')
+            "predict_dir", "model.init_args.module.init_args.predict_dir"
+        )
+        parser.link_arguments("data.init_args.batch_size", "model.init_args.batch_size")
 
     def before_fit(self):
         """Save model parameters and prints model configuration before fit"""
         print(self.model)
-        self.model.predict_dir = self.config['fit']['predict_dir']
+        self.model.predict_dir = self.config["fit"]["predict_dir"]
         self.trainer.logger.log_hyperparams(self.config)
 
     def after_fit(self):
@@ -78,14 +77,16 @@ class CMMVAECli(plcli.LightningCLI):
         self.trainer.predict(
             model=self.model,
             datamodule=self.datamodule,
-            ckpt_path='best',
+            ckpt_path="best",
         )
 
 
-@click.command(context_settings=dict(
-    ignore_unknown_options=True,
-    allow_extra_args=True,
-))
+@click.command(
+    context_settings=dict(
+        ignore_unknown_options=True,
+        allow_extra_args=True,
+    )
+)
 @click.pass_context
 def cli(ctx: click.Context):
     """Run using the LightningCli."""

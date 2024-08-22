@@ -35,7 +35,6 @@ def extract_index(filename, pattern):
 
 
 def merge(directory, keys, save_dir):
-
     assert os.path.exists(directory), f"Directory does not exist: {directory}"
 
     if not save_dir:
@@ -49,8 +48,8 @@ def merge(directory, keys, save_dir):
         embedding_files = []
         metadata_files = []
 
-        embedding_pattern = re.compile(rf'{key}_embeddings_(\d+)\.npz')
-        metadata_pattern = re.compile(rf'{key}_metadata_(\d+)\.pkl')
+        embedding_pattern = re.compile(rf"{key}_embeddings_(\d+)\.npz")
+        metadata_pattern = re.compile(rf"{key}_metadata_(\d+)\.pkl")
 
         for file in files:
             if embedding_pattern.search(file):
@@ -69,10 +68,9 @@ def merge(directory, keys, save_dir):
         embedding_files.sort(key=lambda x: extract_index(x, embedding_pattern))
         metadata_files.sort(key=lambda x: extract_index(x, metadata_pattern))
 
-        embeddings = np.concatenate([
-            np.load(file)['embeddings']
-            for file in embedding_files
-        ])
+        embeddings = np.concatenate(
+            [np.load(file)["embeddings"] for file in embedding_files]
+        )
         metadata = pd.concat([pd.read_pickle(file) for file in metadata_files])
         embeddings_path = os.path.join(save_dir, f"{key}_embeddings.npz")
         np.savez(embeddings_path, embeddings=embeddings)
@@ -80,13 +78,27 @@ def merge(directory, keys, save_dir):
 
 
 @click.command()
-@click.option('--directory', type=click.Path(exists=True),
-              required=True, show_default=True,
-              help="Directory containing the embeddings and metadata.")
-@click.option('--save_dir', type=click.Path(), default=None, show_default=True,
-              help="Directory to store merged predictions. Defaults to the input directory.")
-@click.option('--keys', multiple=True, required=True, show_default=True,
-              help="List of prefix keys for embeddings and metadata paths.")
+@click.option(
+    "--directory",
+    type=click.Path(exists=True),
+    required=True,
+    show_default=True,
+    help="Directory containing the embeddings and metadata.",
+)
+@click.option(
+    "--save_dir",
+    type=click.Path(),
+    default=None,
+    show_default=True,
+    help="Directory to store merged predictions. Defaults to the input directory.",
+)
+@click.option(
+    "--keys",
+    multiple=True,
+    required=True,
+    show_default=True,
+    help="List of prefix keys for embeddings and metadata paths.",
+)
 def merge_predictions(**kwargs):
     """
     Merge saved embeddings and metadata into one npz and pkl file.
@@ -100,5 +112,5 @@ def merge_predictions(**kwargs):
     merge(**kwargs)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     merge_predictions()

@@ -43,9 +43,12 @@ class MultiModalDataLoader:
             Warning: If __next__ is called without initialized iterators.
         """
         # Warn user if next is called when no iterators are present
-        if not hasattr(self, 'iterators') or not self.iterators:
+        if not hasattr(self, "iterators") or not self.iterators:
             import warnings
-            warnings.warn("'__next__' called on MultiModalDataLoader when iterators are empty")
+
+            warnings.warn(
+                "'__next__' called on MultiModalDataLoader when iterators are empty"
+            )
             raise StopIteration
 
         # Get a random iterator from the available iterators

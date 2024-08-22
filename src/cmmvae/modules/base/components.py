@@ -5,7 +5,7 @@ import torch.nn as nn
 from torch.distributions import Normal
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def is_iterable(obj):
@@ -26,12 +26,11 @@ def is_iterable(obj):
 
 
 _BLOCK_CONFIG = {
-    'dropout_rate': (float,),
-    'use_batch_norm': (bool,),
-    'use_layer_norm': (bool,),
-    'activation_fn': (nn.Module,
-                      {'comparison_fn': issubclass, 'optional': True}),
-    'return_hidden': (bool,)
+    "dropout_rate": (float,),
+    "use_batch_norm": (bool,),
+    "use_layer_norm": (bool,),
+    "activation_fn": (nn.Module, {"comparison_fn": issubclass, "optional": True}),
+    "return_hidden": (bool,),
 }
 
 
@@ -70,8 +69,9 @@ class FCBlockConfig:
         use_batch_norm: Union[bool, List[bool]] = False,
         use_layer_norm: Union[bool, List[bool]] = False,
         return_hidden: Union[bool, List[bool]] = False,
-        activation_fn: Union[Optional[Type[nn.Module]],
-                             List[Optional[Type[nn.Module]]]] = None,
+        activation_fn: Union[
+            Optional[Type[nn.Module]], List[Optional[Type[nn.Module]]]
+        ] = None,
     ):
         r"""
 
@@ -109,13 +109,10 @@ class FCBlockConfig:
         try:
             assert isinstance(layers, list)
         except AssertionError:
-            raise ValueError(
-                f"layers must be a list found type: {type(layers)}")
+            raise ValueError(f"layers must be a list found type: {type(layers)}")
         # Assert all values are integer objects greater than 0
         try:
-            assert all(
-                isinstance(layer, int) and layer > 0
-                for layer in layers)
+            assert all(isinstance(layer, int) and layer > 0 for layer in layers)
         except AssertionError:
             raise ValueError("layers must be positive integers")
         if len(layers) == 1:
@@ -133,7 +130,7 @@ class FCBlockConfig:
 
     @property
     def n_layers(self):
-        if not hasattr(self, 'layers'):
+        if not hasattr(self, "layers"):
             raise RuntimeError("n_layers called before layers initialized")
         n_layers = len(self.layers)
         # Since layers will be paired into n_in and n_out
@@ -156,14 +153,16 @@ class FCBlockConfig:
         if len(obj) != self.n_layers:
             raise ValueError(
                 f"Length of '{name}' must match the length of 'layers':"
-                f"{len(obj)} != {self.n_layers}")
+                f"{len(obj)} != {self.n_layers}"
+            )
         try:
             assert all(
                 val is not None and comparison_fn(val, types)
-                for val in obj if not (optional and val is None))
+                for val in obj
+                if not (optional and val is None)
+            )
         except (AssertionError, TypeError):
-            raise ValueError(
-                f"All elements in '{name}' must be a {str(req_type)}")
+            raise ValueError(f"All elements in '{name}' must be a {str(req_type)}")
 
     def validate(self):
         """Run validation over current configuration"""
@@ -188,6 +187,7 @@ class FCBlock(nn.Module):
         can_bypass (bool): Whether we can rely on Sequential forward
             if not returning hidden states.
     """
+
     def __init__(self, config: FCBlockConfig):
         """Initilize Fully Connected Block from configuration."""
         super().__init__()
@@ -197,16 +197,19 @@ class FCBlock(nn.Module):
         self.config.validate()
         layers = zip(self.config.layers[:-1], self.config.layers[1:])
         # Create fully connected layers
-        self.fc_layers = nn.Sequential(*[
-            self._make_layer(
-                n_in=n_in,
-                n_out=n_out,
-                use_batch_norm=config.use_batch_norm[i],
-                use_layer_norm=config.use_layer_norm[i],
-                activation_fn=config.activation_fn[i],
-                dropout_rate=config.dropout_rate[i])
-            for i, (n_in, n_out) in enumerate(layers)
-        ])
+        self.fc_layers = nn.Sequential(
+            *[
+                self._make_layer(
+                    n_in=n_in,
+                    n_out=n_out,
+                    use_batch_norm=config.use_batch_norm[i],
+                    use_layer_norm=config.use_layer_norm[i],
+                    activation_fn=config.activation_fn[i],
+                    dropout_rate=config.dropout_rate[i],
+                )
+                for i, (n_in, n_out) in enumerate(layers)
+            ]
+        )
 
     @property
     def input_dim(self) -> int:
@@ -230,7 +233,7 @@ class FCBlock(nn.Module):
         use_batch_norm: bool,
         use_layer_norm: bool,
         activation_fn: Optional[Type[nn.Module]],
-        dropout_rate: float
+        dropout_rate: float,
     ) -> nn.Sequential:
         """
         Create a single fully connected layer.
@@ -283,7 +286,7 @@ class FCBlock(nn.Module):
         for i, layer in enumerate(self.fc_layers):
             for name, sublayer in layer.named_children():
                 x = sublayer(x)
-                if name == '2' and self.config.return_hidden[i]:
+                if name == "2" and self.config.return_hidden[i]:
                     hidden_representations.append(x)
         return x, hidden_representations
 
@@ -308,11 +311,9 @@ class ConditionalLayer(nn.Module):
         fc_block_config (`FCBlockConfig`):
             Configuration to be used for each condition module.
     """
+
     def __init__(
-        self,
-        batch_key: str,
-        conditions_path: str,
-        fc_block_config: FCBlockConfig
+        self, batch_key: str, conditions_path: str, fc_block_config: FCBlockConfig
     ):
         """Initialize condition modules from condition paths"""
         super(ConditionalLayer, self).__init__()
@@ -323,10 +324,12 @@ class ConditionalLayer(nn.Module):
             for condition in pd.read_csv(conditions_path, header=None)[0]
         }
 
-        self.conditions = nn.ModuleDict({
-            condition: FCBlock(fc_block_config)
-            for condition in self.unique_conditions
-        })
+        self.conditions = nn.ModuleDict(
+            {
+                condition: FCBlock(fc_block_config)
+                for condition in self.unique_conditions
+            }
+        )
 
     def format_condition_key(self, condition: str) -> str:
         """
@@ -338,13 +341,10 @@ class ConditionalLayer(nn.Module):
         Returns:
             str: Condition key with all '.' replaced with '_'
         """
-        return condition.replace('.', '_')
+        return condition.replace(".", "_")
 
     def forward(
-        self,
-        x: torch.Tensor,
-        metadata: pd.DataFrame,
-        condition: Optional[str] = None
+        self, x: torch.Tensor, metadata: pd.DataFrame, condition: Optional[str] = None
     ):
         """
         Run forward pass through each metadata label specific condition
@@ -427,13 +427,17 @@ class ConditionalLayers(nn.Module):
             self.shuffle_selection_order = False
 
         self.selection_order = torch.arange(
-            0, len(selection_order), dtype=torch.int32, requires_grad=False)
+            0, len(selection_order), dtype=torch.int32, requires_grad=False
+        )
 
-        self.layers = nn.ModuleList([
-            ConditionalLayer(
-                batch_key, conditional_paths[batch_key], fc_block_config)
-            for batch_key in selection_order
-        ])
+        self.layers = nn.ModuleList(
+            [
+                ConditionalLayer(
+                    batch_key, conditional_paths[batch_key], fc_block_config
+                )
+                for batch_key in selection_order
+            ]
+        )
 
     def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
         """
@@ -488,7 +492,7 @@ class Encoder(nn.Module):
         self,
         latent_dim: int,
         fc_block_config: FCBlockConfig,
-        distribution: Union[Literal['ln'], Literal['normal']] = 'normal',
+        distribution: Union[Literal["ln"], Literal["normal"]] = "normal",
         return_dist: bool = False,
         var_eps: float = 1e-4,  # numerical stability
     ):
@@ -596,6 +600,7 @@ class Expert(nn.Module):
         encoder (`FCBlock`): encoder network
         decoder (`FCBlock`): decoder network
     """
+
     def __init__(
         self,
         id: str,

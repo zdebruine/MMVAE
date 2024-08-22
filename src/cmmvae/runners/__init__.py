@@ -15,5 +15,5 @@ __all__ = [
     "merge_predictions",
     "submit",
     "logger",
-    "autodoc"
+    "autodoc",
 ]

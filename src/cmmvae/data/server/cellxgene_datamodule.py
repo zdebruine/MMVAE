@@ -5,7 +5,7 @@ from .cellxgene_manager import (
     CellxgeneManager,
     OBS_COL_NAMES,
     OBS_QUERY_VALUE_FILTER,
-    DEFAULT_WEIGHTS
+    DEFAULT_WEIGHTS,
 )
 
 
@@ -27,7 +27,7 @@ class CellxgeneDataModule(L.LightningDataModule):
         obs_column_names: Sequence[str] = OBS_COL_NAMES,
         split_weights: dict[str, float] = DEFAULT_WEIGHTS,
         soma_chunk_size: int = None,
-        num_workers: int = 3
+        num_workers: int = 3,
     ):
         """
         Initialize the CellxgeneDataModule with dataset parameters.
@@ -43,8 +43,12 @@ class CellxgeneDataModule(L.LightningDataModule):
         """
         super(CellxgeneDataModule, self).__init__()
         self.cellx_manager = CellxgeneManager(
-            batch_size, seed, split_weights, obs_query_value_filter,
-            obs_column_names, soma_chunk_size
+            batch_size,
+            seed,
+            split_weights,
+            obs_query_value_filter,
+            obs_column_names,
+            soma_chunk_size,
         )
         self.save_hyperparameters(logger=True)
 
@@ -73,7 +77,7 @@ class CellxgeneDataModule(L.LightningDataModule):
         Returns:
             Any: A data loader for training data, configured with the specified number of workers.
         """
-        return self.cellx_manager.create_dataloader('train', self.hparams.num_workers)
+        return self.cellx_manager.create_dataloader("train", self.hparams.num_workers)
 
     def val_dataloader(self) -> Any:
         """
@@ -82,7 +86,7 @@ class CellxgeneDataModule(L.LightningDataModule):
         Returns:
             Any: A data loader for validation data, using 2 workers.
         """
-        return self.cellx_manager.create_dataloader('val', 2)
+        return self.cellx_manager.create_dataloader("val", 2)
 
     def test_dataloader(self) -> Any:
         """
@@ -91,7 +95,7 @@ class CellxgeneDataModule(L.LightningDataModule):
         Returns:
             Any: A data loader for test data, using 2 workers.
         """
-        return self.cellx_manager.create_dataloader('test', 2)
+        return self.cellx_manager.create_dataloader("test", 2)
 
     def predict_dataloader(self) -> Any:
         """
@@ -100,7 +104,7 @@ class CellxgeneDataModule(L.LightningDataModule):
         Returns:
             Any: A data loader for prediction data, using the test set configuration.
         """
-        return self.cellx_manager.create_dataloader('test', 2)
+        return self.cellx_manager.create_dataloader("test", 2)
 
     def on_before_batch_transfer(self, batch: Any, dataloader_idx: int) -> Any:
         """
@@ -117,4 +121,4 @@ class CellxgeneDataModule(L.LightningDataModule):
 
         metadata = self.cellx_manager.metadata_to_df(labels)
 
-        return x_batch, metadata, 'human'
+        return x_batch, metadata, "human"

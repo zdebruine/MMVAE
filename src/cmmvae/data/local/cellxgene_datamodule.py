@@ -100,7 +100,9 @@ class SpeciesDataModule(LightningDataModule):
             DataLoader: A DataLoader for the training data pipeline.
         """
         dps = list(self.train_datapipe())
-        return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.num_workers)
+        return self.create_dataloader(
+            *dps, pin_memory=self.can_pin_memory, num_workers=self.num_workers
+        )
 
     def val_dataloader(self):
         """
@@ -110,7 +112,9 @@ class SpeciesDataModule(LightningDataModule):
             DataLoader: A DataLoader for the validation data pipeline.
         """
         dps = list(self.val_datapipe())
-        return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_val_workers)
+        return self.create_dataloader(
+            *dps, pin_memory=self.can_pin_memory, num_workers=self.n_val_workers
+        )
 
     def test_dataloader(self):
         """
@@ -120,7 +124,9 @@ class SpeciesDataModule(LightningDataModule):
             DataLoader: A DataLoader for the test data pipeline.
         """
         dps = list(self.test_datapipe())
-        return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers)
+        return self.create_dataloader(
+            *dps, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers
+        )
 
     def predict_dataloader(self):
         """
@@ -130,7 +136,9 @@ class SpeciesDataModule(LightningDataModule):
             DataLoader: A DataLoader for the prediction data pipeline.
         """
         dps = list(self.test_datapipe())
-        return self.create_dataloader(*dps, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers)
+        return self.create_dataloader(
+            *dps, pin_memory=self.can_pin_memory, num_workers=self.n_test_workers
+        )
 
     def create_dataloader(self, *species: SpeciesDataPipe, **kwargs):
         """
@@ -151,7 +159,8 @@ class SpeciesDataModule(LightningDataModule):
                 shuffle=False,
                 collate_fn=lambda x: x,
                 persistent_workers=False,
-                **kwargs)
+                **kwargs
+            )
             for dp in species
         ]
         if len(dataloaders) == 1:

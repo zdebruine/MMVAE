@@ -1,0 +1,4 @@
+# .pylintrc
+
+[MESSAGES CONTROL]
+disable = C0103, C0301, E0401, C0114, C0116, C0415

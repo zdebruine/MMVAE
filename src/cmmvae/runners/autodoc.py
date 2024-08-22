@@ -14,6 +14,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 class _QuietHTTPRequestHandler(SimpleHTTPRequestHandler):
     """Custom handler to silence logging for HTTP requests."""
+
     def log_message(self, format, *args):
         pass
 
@@ -30,14 +31,18 @@ def _rebuild_pdoc(source_dir, output_dir):
     try:
         subprocess.run(
             [
-                "pdoc", source_dir, "--output", output_dir,
-                "--docformat", "google",
+                "pdoc",
+                source_dir,
+                "--output",
+                output_dir,
+                "--docformat",
+                "google",
                 "--show-source",
                 "--no-include-undocumented",
                 "-e",
-                "cmmvae=https://github.com/zdebruine/MMVAE/"
+                "cmmvae=https://github.com/zdebruine/MMVAE/",
             ],
-            check=True
+            check=True,
         )
         print(f"Successfully rebuilt pdoc documentation in {output_dir}")
     except subprocess.CalledProcessError as e:
@@ -45,9 +50,7 @@ def _rebuild_pdoc(source_dir, output_dir):
 
 
 def _start_server(
-    source_dir: str,
-    output_dir: str,
-    port: Union[Literal['auto'], int] = 8000
+    source_dir: str, output_dir: str, port: Union[Literal["auto"], int] = 8000
 ):
     """Start an HTTP server serving files from the specified directory."""
 
@@ -56,7 +59,9 @@ def _start_server(
         httpd = HTTPServer(
             server_address=("", port),
             RequestHandlerClass=lambda *args, **kwargs: handler(
-                *args, directory=output_dir, **kwargs))
+                *args, directory=output_dir, **kwargs
+            ),
+        )
         print(f"Serving HTTP on port {port} from directory {output_dir}...")
     except OSError as e:
         if e.errno == 98:
@@ -77,10 +82,10 @@ def _start_server(
                 "(C|clean): remove all files in .cmmvae/docs"
             )
             command = input(input_msg).lower()
-            if command in ('r', 'build', 'rebuild'):
+            if command in ("r", "build", "rebuild"):
                 print("Rebuilding pdoc documentation...")
                 _rebuild_pdoc(source_dir, output_dir)
-            elif command in ('c', 'clean'):
+            elif command in ("c", "clean"):
                 print(f"Cleaning {output_dir}")
                 _clean_directory(output_dir)
     except KeyboardInterrupt:
@@ -96,20 +101,30 @@ def autodoc():
 
 @autodoc.command()
 @click.option("--port", default=8000, help="Port to open http.server")
-@click.option("--source_dir", default="./cmmvae", show_default=True,
-              help="Directory of module")
-@click.option("--output_dir", default="./.cmmvae/docs", show_default=True,
-              help="Directory to store documentation")
+@click.option(
+    "--source_dir", default="./cmmvae", show_default=True, help="Directory of module"
+)
+@click.option(
+    "--output_dir",
+    default="./.cmmvae/docs",
+    show_default=True,
+    help="Directory to store documentation",
+)
 def serve(source_dir, output_dir, port):
     """Serve documention with http server."""
     _start_server(source_dir, output_dir, port=port)
 
 
 @autodoc.command()
-@click.option("--source_dir", default="./cmmvae", show_default=True,
-              help="Directory of module")
-@click.option("--output_dir", default="./.cmmvae/docs", show_default=True,
-              help="Directory to store documentation")
+@click.option(
+    "--source_dir", default="./cmmvae", show_default=True, help="Directory of module"
+)
+@click.option(
+    "--output_dir",
+    default="./.cmmvae/docs",
+    show_default=True,
+    help="Directory to store documentation",
+)
 def build(source_dir, output_dir):
     """Build module documentation to directory with pdoc."""
     _rebuild_pdoc(source_dir, output_dir)

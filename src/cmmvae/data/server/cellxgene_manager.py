@@ -15,7 +15,7 @@ OBS_COL_NAMES = (
 
 
 OBS_QUERY_VALUE_FILTER = (
-    'is_primary_data == True and assay in '
+    "is_primary_data == True and assay in "
     '["microwell-seq", "10x 3\' v1", "10x 3\' v2", "10x 3\' v3", "10x 3\' '
     'transcription profiling", "10x 5\' transcription profiling", "10x 5\' '
     'v1", "10x 5\' v2"]'
@@ -49,7 +49,7 @@ class CellxgeneManager:
         obs_query_value_filter: str = OBS_QUERY_VALUE_FILTER,
         obs_column_names: tuple[str] = OBS_COL_NAMES,
         soma_chunk_size: int = None,
-        census_version: str = "2023-12-15"
+        census_version: str = "2023-12-15",
     ):
         """
         Initialize the CellxgeneManager with the specified parameters.
@@ -93,22 +93,27 @@ class CellxgeneManager:
             batch_size=self.batch_size,
             seed=self.seed,
             soma_chunk_size=self.soma_chunk_size,
-            use_eager_fetch=False)
+            use_eager_fetch=False,
+        )
 
         if not self.split_weights:
-            self.datapipes = {k: self.experiment_datapipe for k in DEFAULT_WEIGHTS.keys()}
+            self.datapipes = {
+                k: self.experiment_datapipe for k in DEFAULT_WEIGHTS.keys()
+            }
         else:
             datapipes = self.experiment_datapipe.random_split(
-                seed=self.seed,
-                weights=self.split_weights)
+                seed=self.seed, weights=self.split_weights
+            )
 
-            self.datapipes = dict((k, v) for k, v in zip(self.split_weights.keys(), datapipes))
+            self.datapipes = dict(
+                (k, v) for k, v in zip(self.split_weights.keys(), datapipes)
+            )
 
     def teardown(self):
         """
         Tear down the data manager by closing any open resources held by the cellxgene census.
         """
-        if self.census and hasattr(self.census, 'close'):
+        if self.census and hasattr(self.census, "close"):
             self.census.close()
 
     def create_dataloader(self, target: str, num_workers: int):
@@ -137,7 +142,8 @@ class CellxgeneManager:
             num_workers=num_workers,
             # causes OOM error
             # persistent_workers=self.trainer.training and self.hparams.num_workers > 0,
-            prefetch_factor=1)
+            prefetch_factor=1,
+        )
 
     def metadata_to_df(self, metadata: Any) -> pd.DataFrame:
         """
@@ -151,9 +157,12 @@ class CellxgeneManager:
         """
         obs_encoders = self.experiment_datapipe.obs_encoders
         return pd.DataFrame(
-            np.stack([
-                obs_encoders[key].inverse_transform(metadata[:, i])
-                for i, key in enumerate(obs_encoders, start=1)
-            ], axis=1),
-            columns=list(obs_encoders.keys())
+            np.stack(
+                [
+                    obs_encoders[key].inverse_transform(metadata[:, i])
+                    for i, key in enumerate(obs_encoders, start=1)
+                ],
+                axis=1,
+            ),
+            columns=list(obs_encoders.keys()),
         )

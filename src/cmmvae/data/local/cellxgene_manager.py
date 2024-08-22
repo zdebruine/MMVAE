@@ -73,9 +73,11 @@ class SpeciesManager:
         Returns:
             function: A generator function that processes source data and appends the species name.
         """
+
         def generator(source):
             tensor, metadata = source
             return tensor, metadata, self.name
+
         return generator
 
     def train_datapipe(self):
@@ -93,7 +95,8 @@ class SpeciesManager:
             shuffle=True,
             verbose=self.verbose,
             return_dense=self.return_dense,
-            transform_fn=self.transform_fn())
+            transform_fn=self.transform_fn(),
+        )
 
     def val_datapipe(self):
         """
@@ -110,7 +113,8 @@ class SpeciesManager:
             shuffle=False,
             verbose=self.verbose,
             return_dense=self.return_dense,
-            transform_fn=self.transform_fn())
+            transform_fn=self.transform_fn(),
+        )
 
     def test_datapipe(self):
         """
@@ -127,7 +131,8 @@ class SpeciesManager:
             verbose=self.verbose,
             shuffle=False,
             return_dense=self.return_dense,
-            transform_fn=self.transform_fn())
+            transform_fn=self.transform_fn(),
+        )
 
     def predict_datapipe(self):
         """
@@ -144,4 +149,5 @@ class SpeciesManager:
             verbose=self.verbose,
             shuffle=False,
             return_dense=self.return_dense,
-            transform_fn=self.transform_fn())
+            transform_fn=self.transform_fn(),
+        )

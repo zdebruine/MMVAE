@@ -8,7 +8,7 @@ from cmmvae.constants import REGISTRY_KEYS as RK
 class AnnDataDataset(Dataset):
     def __init__(self, adata):
         self.data = adata.X
-        self.labels = adata.obs['labels'] if 'labels' in adata.obs else None
+        self.labels = adata.obs["labels"] if "labels" in adata.obs else None
 
     def __len__(self):
         return self.data.shape[0]
@@ -21,14 +21,12 @@ class AnnDataDataset(Dataset):
 
 
 def collate_fn(data):
-
     sp_mats = [row[0] for row in data]
     labels = [row[1] for row in data]
 
     sp_mats = sp.vstack(sp_mats)
-    tensor = torch.sparse_csr_tensor(sp_mats.indptr, sp_mats.indices, sp_mats.data, sp_mats.shape)
+    tensor = torch.sparse_csr_tensor(
+        sp_mats.indptr, sp_mats.indices, sp_mats.data, sp_mats.shape
+    )
 
-    return {
-        RK.X: tensor,
-        RK.METADATA: labels
-    }
+    return {RK.X: tensor, RK.METADATA: labels}

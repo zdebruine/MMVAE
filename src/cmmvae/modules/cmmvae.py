@@ -45,9 +45,9 @@ class CMMVAE(nn.Module):
         super().__init__()
         self.vae = vae
         self.experts = experts
-        self.adversarials = nn.ModuleList([
-            FCBlock(config) for config in adversarials if config
-        ])
+        self.adversarials = nn.ModuleList(
+            [FCBlock(config) for config in adversarials if config]
+        )
 
     def forward(
         self,
@@ -88,8 +88,7 @@ class CMMVAE(nn.Module):
         shared_x = self.experts[expert_id].encode(x)
 
         # Pass through the VAE
-        qz, pz, z, shared_xhat, hidden_representations \
-            = self.vae(shared_x, metadata)
+        qz, pz, z, shared_xhat, hidden_representations = self.vae(shared_x, metadata)
 
         xhats = {}
         cg_xhats = {}
@@ -111,11 +110,9 @@ class CMMVAE(nn.Module):
             for xhat_expert_id in xhats:
                 if xhat_expert_id == expert_id:
                     continue
-                shared_x = self.experts[xhat_expert_id].encode(
-                    xhats[xhat_expert_id])
+                shared_x = self.experts[xhat_expert_id].encode(xhats[xhat_expert_id])
                 _, _, _, shared_xhat, _ = self.vae(shared_x, metadata)
-                cg_xhats[xhat_expert_id] = self.experts[expert_id].decode(
-                    shared_xhat)
+                cg_xhats[xhat_expert_id] = self.experts[expert_id].decode(shared_xhat)
         else:
             # Decode using the specified expert
             xhats[expert_id] = self.experts[expert_id].decode(shared_xhat)
@@ -146,7 +143,4 @@ class CMMVAE(nn.Module):
         # Encode using the VAE
         qz, z, hidden_representations = self.vae.encode(x)
 
-        return {
-            RK.Z: z,
-            f"{RK.Z}_{RK.METADATA}": metadata
-        }
+        return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}

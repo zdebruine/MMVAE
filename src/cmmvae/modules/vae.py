@@ -60,9 +60,7 @@ class BaseVAE(nn.Module):
         return xhat
 
     def after_reparameterize(
-        self,
-        z: torch.Tensor,
-        metadata: pd.DataFrame
+        self, z: torch.Tensor, metadata: pd.DataFrame
     ) -> torch.Tensor:
         """
         Optional processing after reparameterization.
@@ -80,9 +78,7 @@ class BaseVAE(nn.Module):
         """
         return z
 
-    def forward(
-        self, x: torch.Tensor, metadata: pd.DataFrame
-    ):
+    def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
         """
         Forward pass through the VAE.
 
@@ -107,9 +103,12 @@ class BaseVAE(nn.Module):
         return qz, pz, z, xhat, hidden_representations
 
     def elbo(
-        self, qz: Distribution, pz: Distribution,
-        x: torch.Tensor, xhat: torch.Tensor,
-        kl_weight: float
+        self,
+        qz: Distribution,
+        pz: Distribution,
+        x: torch.Tensor,
+        xhat: torch.Tensor,
+        kl_weight: float,
     ) -> dict[str, torch.Tensor]:
         """
         Compute the Evidence Lower Bound (ELBO) loss.
@@ -139,22 +138,20 @@ class BaseVAE(nn.Module):
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
-        recon_loss = F.mse_loss(xhat, x, reduction='sum')
+        recon_loss = F.mse_loss(xhat, x, reduction="sum")
 
-        loss = (recon_loss + kl_weight * z_kl_div.mean())
+        loss = recon_loss + kl_weight * z_kl_div.mean()
 
         return {
             RK.RECON_LOSS: recon_loss / x.numel(),
             RK.KL_LOSS: z_kl_div.mean(),
             RK.LOSS: loss,
-            RK.KL_WEIGHT: kl_weight
+            RK.KL_WEIGHT: kl_weight,
         }
 
     @torch.no_grad()
     def get_latent_embeddings(
-        self,
-        x: torch.Tensor,
-        metadata: pd.DataFrame
+        self, x: torch.Tensor, metadata: pd.DataFrame
     ) -> dict[str, torch.Tensor]:
         """
         Obtain latent embeddings from the input data.
@@ -173,10 +170,7 @@ class BaseVAE(nn.Module):
         """
         _, z, _ = self.encode(x)
 
-        return {
-            RK.Z: z,
-            f"{RK.Z}_{RK.METADATA}": metadata
-        }
+        return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}
 
 
 class VAE(BaseVAE):
@@ -203,8 +197,7 @@ class VAE(BaseVAE):
     ):
         super(VAE, self).__init__(
             encoder=base.Encoder(
-                fc_block_config=encoder_config,
-                return_dist=True,
-                **encoder_kwargs),
-            decoder=base.FCBlock(decoder_config)
+                fc_block_config=encoder_config, return_dist=True, **encoder_kwargs
+            ),
+            decoder=base.FCBlock(decoder_config),
         )

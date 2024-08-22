@@ -46,7 +46,8 @@ class CLVAE(VAE):
             self.conditionals = ConditionalLayers(
                 conditional_paths=conditional_paths,
                 fc_block_config=conditional_config,
-                selection_order=selection_order)
+                selection_order=selection_order,
+            )
         else:
             self.conditionals = None
 

@@ -45,7 +45,6 @@ class LoadIndexMatchedCSRMatrixAndDataFrameDataPipe(IterDataPipe):
             Exception: If there is an error loading the files.
         """
         for npz_path, metadata_path in self.source_dp:
-
             if self.verbose:
                 print(f"Loading file path: {npz_path}, {metadata_path}", flush=True)
 
@@ -53,11 +52,11 @@ class LoadIndexMatchedCSRMatrixAndDataFrameDataPipe(IterDataPipe):
             metadata = None
 
             try:
-                with open(npz_path, 'rb') as npz_file:
+                with open(npz_path, "rb") as npz_file:
                     sparse_matrix = sp.load_npz(npz_file)
 
-                with open(metadata_path, 'rb') as metadata_file:
-                    if '.pkl' in metadata_path:
+                with open(metadata_path, "rb") as metadata_file:
+                    if ".pkl" in metadata_path:
                         metadata = pickle.load(metadata_file)
             except Exception as e:
                 print(f"Error loading files: {e}")
@@ -96,7 +95,6 @@ class ShuffleCSRMatrixAndDataFrameDataPipe(IterDataPipe):
             tuple: A tuple containing a shuffled scipy sparse matrix and DataFrame.
         """
         for sparse_matrix, dataframe in self.source_dp:
-
             permutation = np.random.permutation(sparse_matrix.shape[0])
 
             dataframe = dataframe.iloc[permutation].reset_index(drop=True)
@@ -118,12 +116,13 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
         allow_partials (bool): Whether to allow partial batches.
         return_dense (bool): Whether to return dense tensors.
     """
+
     def __init__(
         self,
         source_datapipe,
         batch_size: int,
         allow_partials: bool = False,
-        return_dense: bool = False
+        return_dense: bool = False,
     ):
         """
         Initializes the DataPipe with a source DataPipe and batch settings.
@@ -149,11 +148,10 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
             tuple: A tuple containing a torch sparse tensor and metadata DataFrame.
         """
         for sparse_matrix, dataframe in self.source_datapipe:
-
             n_samples = sparse_matrix.shape[0]
 
             for i in range(0, n_samples, self.batch_size):
-                data_batch = sparse_matrix[i:i + self.batch_size]
+                data_batch = sparse_matrix[i : i + self.batch_size]
 
                 if self.allow_partials and not data_batch.shape[0] == self.batch_size:
                     continue
@@ -162,10 +160,13 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
                     crow_indices=data_batch.indptr,
                     col_indices=data_batch.indices,
                     values=data_batch.data,
-                    size=data_batch.shape)
+                    size=data_batch.shape,
+                )
 
                 if isinstance(dataframe, pd.DataFrame):
-                    metadata = dataframe.iloc[i:i + self.batch_size].reset_index(drop=True)
+                    metadata = dataframe.iloc[i : i + self.batch_size].reset_index(
+                        drop=True
+                    )
 
                 if self.return_dense:
                     tensor = tensor.to_dense()
@@ -258,7 +259,7 @@ class SpeciesDataPipe(IterDataPipe):
             masks=npz_masks,
             recursive=False,
             abspath=True,
-            non_deterministic=False
+            non_deterministic=False,
         )
 
         # Create file lister datapipe for all metadata files
@@ -267,7 +268,7 @@ class SpeciesDataPipe(IterDataPipe):
             masks=metadata_masks,
             recursive=False,
             abspath=True,
-            non_deterministic=False
+            non_deterministic=False,
         )
 
         self.zipped_paths_dp = Zipper(npz_paths_dp, metadata_paths_dp)
@@ -303,7 +304,9 @@ class SpeciesDataPipe(IterDataPipe):
         if self._shuffle:
             dp = dp.shuffle_matrix_and_dataframe()
 
-        dp = dp.batch_csr_matrix_and_dataframe(self.batch_size, return_dense=self.return_dense)
+        dp = dp.batch_csr_matrix_and_dataframe(
+            self.batch_size, return_dense=self.return_dense
+        )
 
         # thought process on removal
         # the matrix is already completely shuffled before batching
@@ -359,6 +362,7 @@ class RandomSelectDataPipe(IterDataPipe):
     Attributes:
         datapipes (list[IterDataPipe]): A list of source DataPipes to select from.
     """
+
     def __init__(self, *datapipes):
         """
         Initializes the RandomSelectDataPipe with multiple source DataPipes.
@@ -399,7 +403,11 @@ class MultiSpeciesDataPipe(IterDataPipe):
         datapipe (IterDataPipe): The combined DataPipe for multiple species.
     """
 
-    def __init__(self, *species: SpeciesDataPipe, selection_fn: Union[Literal["random"], Literal["sequential"]] = 'random'):
+    def __init__(
+        self,
+        *species: SpeciesDataPipe,
+        selection_fn: Union[Literal["random"], Literal["sequential"]] = "random",
+    ):
         """
         Initializes the MultiSpeciesDataPipe with species data pipelines and a selection function.
 
