@@ -172,10 +172,12 @@ class Logger:
         if file_type and not (job_id and rule):
             raise ValueError(
                 f"Attempting to access file_type '{file_type}'"
-                " with either no job_id or rule.")
+                " with either no job_id or rule."
+            )
         elif job_id and not rule:
             raise ValueError(
-                f"Attempting to acces job_id {job_id} with no rule")
+                f"Attempting to acces job_id {job_id} with no rule"
+            )
 
         return os.path.join(self.log_dir, *(
             rule if rule else "",
@@ -204,13 +206,13 @@ class Logger:
         return Prompts.prompt_with_callbacks(
             prompt_callback=callback,
             back_callback=self.back_callback,
-            *args, **kwargs)
+            *args, **kwargs
+        )
 
     def prompt_back(self):
         while self._view_history:
             prev_view_name = str(self._view_history[-1][0]).replace('_', ' ')
-            confirm_msg = f"Would you like to return to {prev_view_name}?"
-            if click.confirm(confirm_msg, default=False):
+            if click.confirm(f"Would you like to return to {prev_view_name}?", default=False):
                 self.invoke_last_view()
             else:
                 self._view_history.pop()
@@ -229,8 +231,9 @@ class Logger:
             valid_results.extend(valids)
             display_job_tree(submission_jobid, rules)
 
-        result = self.prompt_user(Prompts.prompt_jobid,
-                                  valid_results=valid_results)
+        result = self.prompt_user(
+            Prompts.prompt_jobid, valid_results=valid_results
+        )
 
         if result in submission_jobs:
             self.view_submission(result)
@@ -260,20 +263,23 @@ class Logger:
         }
 
         valid_results = list(rules.keys()) + list(rules.values())
-        result = self.prompt_user(Prompts.prompt_jobid,
-                                  valid_results=valid_results)
+        result = self.prompt_user(
+            Prompts.prompt_jobid, valid_results=valid_results
+        )
 
         rule = result if result in rules else jobids_to_rule[result]
         rule_jobid = result if result in jobids_to_rule else rules[result]
 
-        file_type = self.prompt_user(Prompts.prompt_file,
-                                     valid_results=('out', 'err'))
+        file_type = self.prompt_user(
+            Prompts.prompt_file, valid_results=('out', 'err')
+        )
         self.view_rule_files(rule, rule_jobid, file_type)
 
     @record_view_history()
     def view_file_type(self, rule, rule_jobid):
-        file_type = self.prompt_user(Prompts.prompt_file,
-                                     valid_results=('out', 'err'))
+        file_type = self.prompt_user(
+            Prompts.prompt_file, valid_results=('out', 'err')
+        )
         self.view_rule_files(rule, rule_jobid, file_type)
 
     def view_rule_files(self, rule, rule_jobid, file_type):

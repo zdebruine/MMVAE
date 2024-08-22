@@ -255,7 +255,8 @@ class CMMVAEModel(BaseModel):
             if isinstance(mapping, dict):
                 return {
                     key: replace_indices_with_optimizers(value, optimizer_list)
-                    for key, value in mapping.items()}
+                    for key, value in mapping.items()
+                }
             else:
                 return optimizer_list[mapping]
 
