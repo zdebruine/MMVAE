@@ -1,17 +1,61 @@
 
-# cmmvae.pipeline CLI and Snakemake Workflow
+# cmmvae.runners CLI and Snakemake Workflow
 
-This README provides comprehensive instructions on using the command line interface (CLI) included in the `cmmvae.pipeline` module, along with details on the Snakemake workflow that manages execution depending on necessary resources per rule.
+This README provides instructions on using the command line interface (CLI) included in the `cmmvae` module, along with details on the Snakemake workflow that manages execution depending on necessary resources per rule.
 
-## Command Line Interface (CLI) for cmmvae.pipeline
+## Command Line Interface (CLI) for cmmvae.runners
 
 ### Running the CLI
 
-To invoke the CLI, use the following command:
+To invoke the cmmvae CLI, use one the following commands:
 
 ```bash
-python -m cmmvae.pipeline.cli
+cmmvae --help
+Usage: cmmvae [OPTIONS] COMMAND [ARGS]...
+
+  Main entry point for cmmvae CLI
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  autodoc            Build or serve documention automatically using pdoc.
+  cli                Run using the LightningCli.
+  logger             Logger command group.
+  merge-predictions  Merge saved embeddings and metadata into one npz and...
+  submit             Submit experiments using configurations from a YAML...
+  umap-predictions   Plot UMAP embeddings and optionally log images to...
 ```
+
+### CLI Commands
+
+## autodoc
+
+```bash
+cmmvae autodoc --help
+Usage: cmmvae autodoc [OPTIONS] COMMAND [ARGS]...
+
+  Build or serve documention automatically using pdoc.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  build  Build module documentation to directory with pdoc.
+  serve  Serve documention with http server
+```
+### **:build:**
+
+Builds the module documentation with pdoc placing the output in .cmmvae/docs
+
+After building the documentation all references of '<GIT_REPO_OWNER>' and '<GIT_REPO_NAME>'
+are replaced with their respective environemnt variable defenititions.
+
+### **:serve:**
+
+Starts a server http server on port 8000 and starts a command line interface that accepts the following commands:
+- `c`|`clean`: Removes all files in .cmmvae/docs
+- `b`|`build`: Rebuilds documention
 
 ### CLI Features
 
