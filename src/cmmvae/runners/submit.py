@@ -196,7 +196,7 @@ def experiment():
     "-m",
     "--max_job_limit",
     type=int,
-    default=3,
+    default=10,
     show_default=True,
     help="Max number of jobs capable of outputting without failure.",
 )
