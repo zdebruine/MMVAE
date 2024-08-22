@@ -40,6 +40,10 @@ class SpeciesDataModule(LightningDataModule):
         self.n_test_workers = n_test_workers if n_val_workers else num_workers
         self.n_predict_workers = n_predict_workers if n_val_workers else num_workers
 
+        self._train_datapipe = None
+        self._val_datapipe = None
+        self._test_datapipe = None
+
     def setup(self, stage):
         """
         Sets up the data pipelines based on the current stage of the training process.

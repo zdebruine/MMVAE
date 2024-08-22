@@ -3,7 +3,7 @@ import warnings
 
 import pandas as pd
 import torch
-import torch.nn as nn
+from torch import nn
 
 from cmmvae.modules.base import Experts, FCBlock, FCBlockConfig
 from cmmvae.modules import CLVAE
@@ -108,10 +108,10 @@ class CMMVAE(nn.Module):
             for expert in self.experts:
                 xhats[expert] = self.experts[expert].decode(shared_xhat)
 
-            for xhat_expert_id in xhats:
+            for xhat_expert_id, xhat_expert in xhats.items():
                 if xhat_expert_id == expert_id:
                     continue
-                shared_x = self.experts[xhat_expert_id].encode(xhats[xhat_expert_id])
+                shared_x = self.experts[xhat_expert_id].encode(xhat_expert)
                 _, _, _, shared_xhat, _ = self.vae(shared_x, metadata)
                 cg_xhats[xhat_expert_id] = self.experts[expert_id].decode(shared_xhat)
         else:
@@ -142,6 +142,6 @@ class CMMVAE(nn.Module):
         x = self.experts[expert_id].encode(x)
 
         # Encode using the VAE
-        qz, z, hidden_representations = self.vae.encode(x)
+        _, z, _ = self.vae.encode(x)
 
         return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}

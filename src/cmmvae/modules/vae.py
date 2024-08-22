@@ -1,6 +1,6 @@
 import pandas as pd
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Normal, kl_divergence, Distribution
 
@@ -194,7 +194,7 @@ class VAE(BaseVAE):
         decoder_config: base.FCBlockConfig,
         **encoder_kwargs,
     ):
-        super(VAE, self).__init__(
+        super().__init__(
             encoder=base.Encoder(
                 fc_block_config=encoder_config, return_dist=True, **encoder_kwargs
             ),
