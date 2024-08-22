@@ -6,10 +6,29 @@ import click
 import os
 import re
 import time
+import subprocess
 
 SUBMISSION_REGEX = (
     r"rule (\w+):.*?" r"Submitted job (\d+)" r" with external jobid \'(\d+)\'"
 )
+
+
+def job_status(jobid: int):
+    output = str(
+        subprocess.check_output(
+            "sacct -j %s --format State --noheader | head -1 | awk '{print $1}'"
+            % jobid,
+            shell=True,
+        ).strip()
+    )
+
+    running_status = ["PENDING", "CONFIGURING", "COMPLETING", "RUNNING", "SUSPENDED"]
+    if "COMPLETED" in output:
+        return "success"
+    elif any(r in output for r in running_status):
+        return "running"
+    else:
+        return "failed"
 
 
 def scan_file(out_file: str):
@@ -56,11 +75,11 @@ class Prompts:
         prompt_callback: Callable,
         quit_callback: Callable = default_quit_callback,
         back_callback: Optional[Callable] = None,
+        refresh_callback: Optional[Callable[[int], None]] = None,
         valid_results: list = [],
     ):
         assert isinstance(valid_results, (list, tuple))
         assert all(isinstance(result, (str)) for result in valid_results)
-
         valid = False
         while not valid:
             result = prompt_callback()
@@ -69,6 +88,8 @@ class Prompts:
                 quit_callback and quit_callback()
             elif back_callback and lower_result in ("b", "back"):
                 back_callback()
+            elif refresh_callback and lower_result in ("r", "refresh"):
+                refresh_callback()
             elif not valid_results or result in valid_results:
                 valid = True
             else:
@@ -87,10 +108,16 @@ class Prompts:
         )
 
 
-def display_job_tree(job_id: str, rules: dict):
-    click.echo(f"Job: {job_id}")
-    for i, (rule, rule_job_id) in enumerate(rules.items()):
-        click.echo(f"  └── Rule: {rule} (Job ID: {rule_job_id})")
+def job_tree(job_id: str, rules: dict, excluded: list[str] = ["submission"]):
+    return (
+        f"Job {job_id}: {job_status(job_id)}\n"
+        + "\n".join(
+            f"  └── Rule: {rule} (Job ID: {rule_job_id}): {job_status(rule_job_id)}"
+            for rule, rule_job_id in rules.items()
+            if rule not in excluded
+        )
+        + "\n"
+    )
 
 
 def record_view_history():
@@ -189,6 +216,7 @@ class Logger:
         submission_jobid = submission_jobid or get_last_job_id(submission_dir)
         log_file = self.get_submission_log_file(submission_jobid)
         rules = _parse_submission_file(log_file)
+        rules["submission"] = submission_jobid
         return rules
 
     def back_callback(self):
@@ -200,14 +228,19 @@ class Logger:
 
     def prompt_user(self, callback, *args, **kwargs):
         return Prompts.prompt_with_callbacks(
-            prompt_callback=callback, back_callback=self.back_callback, *args, **kwargs
+            prompt_callback=callback,
+            back_callback=kwargs.get("back_callback") or self.back_callback,
+            refresh_callback=self.invoke_last_view,
+            *args,
+            **kwargs,
         )
 
     def prompt_back(self):
         while self._view_history:
             prev_view_name = str(self._view_history[-1][0]).replace("_", " ")
             if click.confirm(
-                f"Would you like to return to {prev_view_name}?", default=False
+                f"Would you like to return to {prev_view_name}?",
+                default=len(self._view_history) <= 1,
             ):
                 self.invoke_last_view()
             else:
@@ -220,14 +253,20 @@ class Logger:
 
         submission_job_rules = {}
         valid_results = list(submission_jobs)
+        tree = ""
         for submission_jobid in submission_jobs:
             rules = self.parse_submission_file(submission_jobid)
             submission_job_rules[submission_jobid] = rules
             valids = list(submission_job_rules[submission_jobid].values())
             valid_results.extend(valids)
-            display_job_tree(submission_jobid, rules)
+            tree += job_tree(submission_jobid, rules)
 
-        result = self.prompt_user(Prompts.prompt_jobid, valid_results=valid_results)
+        click.echo(tree)
+
+        result = self.prompt_user(
+            Prompts.prompt_jobid,
+            valid_results=valid_results,
+        )
 
         if result in submission_jobs:
             self.view_submission(result)
@@ -245,16 +284,12 @@ class Logger:
         if not submission_jobid:
             raise RuntimeError("submission_jobid is None!")
         rules = self.parse_submission_file(submission_jobid)
-        display_job_tree(submission_jobid, rules)
-        self.view_navigate_submission_rules(rules)
-
-    def view_navigate_submission_rules(self, rules: dict):
+        tree = job_tree(submission_jobid, rules)
+        click.echo(tree)
         valid_results = []
         jobids_to_rule = {value: key for key, value, in rules.items()}
-
         valid_results = list(rules.keys()) + list(rules.values())
         result = self.prompt_user(Prompts.prompt_jobid, valid_results=valid_results)
-
         rule = result if result in rules else jobids_to_rule[result]
         rule_jobid = result if result in jobids_to_rule else rules[result]
 
@@ -269,7 +304,7 @@ class Logger:
     def view_rule_files(self, rule, rule_jobid, file_type):
         out_file = self.get_path(rule, rule_jobid, file_type)
 
-        if os.path.exists(out_file):
+        if not os.path.exists(out_file):
             click.echo(
                 f"File for rule '{rule}'"
                 f" with job ID {rule_jobid}"

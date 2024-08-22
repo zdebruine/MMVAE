@@ -44,7 +44,7 @@ PREDICT_SUBDIR = config.get("predict_dir", "predictions")
 ## Define the full directory path for storing predictions within the run directory.
 PREDICT_DIR = os.path.join(RUN_DIR, PREDICT_SUBDIR)
 
-## Define the directory where UMAP visualizations will be saved. 
+## Define the directory where UMAP visualizations will be saved.
 ## Defaults to "umap" within the run directory.
 UMAP_PATH = config.get("umap_dir", "umap")
 UMAP_DIR = os.path.join(RUN_DIR, UMAP_PATH)
@@ -78,7 +78,7 @@ EVALUATION_FILES = expand(
 )
 
 ## Construct the command to run the CMMVAE training pipeline.
-## If a configuration directory is provided, it is included in the command; otherwise, 
+## If a configuration directory is provided, it is included in the command; otherwise,
 ## individual parameters such as trainer, model, and data are passed explicitly.
 TRAIN_COMMAND = config["train_command"]
 
@@ -90,7 +90,7 @@ TRAIN_COMMAND += str(
 )
 
 
-## Define the final output rule for Snakemake, specifying the target files that should be generated 
+## Define the final output rule for Snakemake, specifying the target files that should be generated
 ## by the end of the workflow.
 rule all:
     input:
@@ -113,7 +113,7 @@ rule train:
 ## Define the rule for merging predictions.
 ## This rule takes the prediction directory as input and outputs the embeddings and metadata files.
 rule merge_predictions:
-    input: 
+    input:
         predict_dir=PREDICT_DIR,
     output:
         embeddings_path=EMBEDDINGS_PATHS,
@@ -137,8 +137,8 @@ rule umap_predictions:
     params:
         predict_dir=MERGED_DIR,
         save_dir=UMAP_DIR,
-        categories=" ".join(f"--category {category}" for category in CATEGORIES),
-        merge_keys=" ".join(f"--key {merge_key}" for merge_key in MERGE_KEYS),
+        categories=" ".join(f"--categories {category}" for category in CATEGORIES),
+        merge_keys=" ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS),
     shell:
         """
         cmmvae umap-predictions --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}

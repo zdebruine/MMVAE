@@ -1,6 +1,6 @@
 class_path: cmmvae.models.CMMVAEModel
 init_args:
-  kl_annealing_fn: 
+  kl_annealing_fn:
     class_path: cmmvae.modules.base.KLAnnealingFn
     init_args:
       kl_weight: 1.0
@@ -8,8 +8,8 @@ init_args:
   gradient_record_cap: 20
   module:
     class_path: cmmvae.modules.CMMVAE
-    init_args: 
-      vae: 
+    init_args:
+      vae:
         class_path: cmmvae.modules.CLVAE
         init_args:
           latent_dim: 128
@@ -40,12 +40,12 @@ init_args:
               use_layer_norm: True
               activation_fn: null
           conditional_paths:
-            assay: "/mnt/projects/debruinz_project/denhofja/cmmvae/cmmvae/data/conditional_layers/unique_assays.csv"
+            assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
           selection_order: null
       experts:
         class_path: cmmvae.modules.base.Experts
         init_args:
-          experts: 
+          experts:
           - class_path: cmmvae.modules.base.Expert
             init_args:
               id: human
@@ -86,7 +86,7 @@ init_args:
                   activation_fn: torch.nn.ReLU
       adversarials:
       - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args: 
+        init_args:
           layers: [ 256, 32, 2 ]
           dropout_rate: 0.0
           use_batch_norm: False

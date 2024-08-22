@@ -58,7 +58,7 @@ def key_to_command(command_key: str):
     if command_key.startswith("_"):
         key = "---"
     else:
-        key = "-" if len(command_key) == 1 else "---"
+        key = "-" if len(command_key) == 1 else "--"
     return f"{key}{command_key}"
 
 

@@ -239,10 +239,14 @@ def generate_umap(
     help="Directory where embeddings and metadata stored.",
 )
 @click.option(
-    "--category", type=str, multiple=True, required=True, help="Categories to color by."
+    "--categories",
+    type=str,
+    multiple=True,
+    required=True,
+    help="Categories to color by.",
 )  # Multiple positional arguments
 @click.option(
-    "--key",
+    "--keys",
     type=str,
     multiple=True,
     required=True,

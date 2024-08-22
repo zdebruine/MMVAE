@@ -1,5 +1,5 @@
 # lightning.pytorch==2.2.5
-class_path: cmmvae.data.CellxgeneDataModule
+class_path: cmmvae.data.server.CellxgeneDataModule
 init_args:
   batch_size: 128
   seed: 42
@@ -10,6 +10,7 @@ init_args:
   - dataset_id
   - assay
   - donor_id
+  - cell_type
   split_weights:
     train: 0.8
     val: 0.1
