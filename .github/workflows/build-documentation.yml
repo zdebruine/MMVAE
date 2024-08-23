@@ -28,14 +28,13 @@ jobs:
         with:
           python-version: '3.9.18'
 
-      - name: Cache pip dependencies
-        id: cache-python
+      - name: Cache pip packages
         uses: actions/cache@v3
         with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml', '**/setup.cfg') }}
           restore-keys: |
-            venv-${{ runner.os }}-
+            ${{ runner.os }}-pip-
 
       - name: Set up virtual environment
         if: steps.cache-python.outputs.cache-hit != 'True'
