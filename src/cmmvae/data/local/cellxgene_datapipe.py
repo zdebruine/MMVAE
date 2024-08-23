@@ -10,7 +10,25 @@ from torchdata.datapipes.iter import FileLister, IterDataPipe, Zipper, Multiplex
 from torch.utils.data import functional_datapipe
 
 
-@functional_datapipe("load_matrix_and_dataframe")
+class safe_functional_datapipe(functional_datapipe):
+    """
+    Wraps functional_datapipe registration in try/except.
+    When module gets reloaded the datapipes are reregistered and this causes
+    pytorch to throw "Unable to add DataPipe function name
+    {function_name} as it is already taken" exception.
+    """
+
+    def __call__(self, cls):
+        res = None
+        try:
+            res = super().__call__(cls)
+        except Exception as e:
+            if "already taken" not in str(e):
+                raise e
+        return res
+
+
+@safe_functional_datapipe("load_matrix_and_dataframe")
 class LoadIndexMatchedCSRMatrixAndDataFrameDataPipe(IterDataPipe):
     """
     A DataPipe for loading a CSR matrix and its corresponding DataFrame from file paths.
@@ -66,7 +84,7 @@ class LoadIndexMatchedCSRMatrixAndDataFrameDataPipe(IterDataPipe):
             yield (sparse_matrix, metadata)
 
 
-@functional_datapipe("shuffle_matrix_and_dataframe")
+@safe_functional_datapipe("shuffle_matrix_and_dataframe")
 class ShuffleCSRMatrixAndDataFrameDataPipe(IterDataPipe):
     """
     A DataPipe for shuffling rows of a CSR matrix and a corresponding DataFrame.
@@ -104,7 +122,7 @@ class ShuffleCSRMatrixAndDataFrameDataPipe(IterDataPipe):
             yield (sparse_matrix, dataframe)
 
 
-@functional_datapipe("batch_csr_matrix_and_dataframe")
+@safe_functional_datapipe("batch_csr_matrix_and_dataframe")
 class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
     """
     A DataPipe for batching a CSR matrix and corresponding DataFrame.
@@ -175,7 +193,7 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
                 yield tensor, metadata
 
 
-@functional_datapipe("transform")
+@safe_functional_datapipe("transform")
 class TransformDataPipe(IterDataPipe):
     """
     A DataPipe for applying a transformation function to each element of the input DataPipe.

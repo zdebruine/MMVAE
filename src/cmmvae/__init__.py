@@ -1,5 +1,5 @@
 """
-.. include:: ../../README.md
-.. include:: README.md
+.. include:: ../../INSTALLATION.md
+.. include:: ../../USAGE.md
 .. include:: ../../CONTRIBUTING.md
 """
