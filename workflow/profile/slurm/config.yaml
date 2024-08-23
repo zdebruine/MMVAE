@@ -1,0 +1,47 @@
+cluster:
+  mkdir -p .cmmvae/logs/{rule} &&
+  sbatch
+    --partition={resources.partition}
+    --qos={resources.qos}
+    --cpus-per-task={resources.cpus_per_task}
+    --mem={resources.mem}
+    --job-name={rule}-smk
+    --output=.cmmvae/logs/{rule}/job.%j.out
+    --error=.cmmvae/logs/{rule}/job.%j.err
+    --gpus-per-node={resources.gpus_per_node}
+    --account=account
+    --ntasks=1
+    --nodes=1
+    --time={resources.runtime}
+    --parsable
+cluster-status: workflow/profile/slurm/status.py
+cluster-cancel: scancel
+default-resources:
+  - partition='bigmem'
+  - qos=sbatch
+  - mem='1GB'
+  - runtime=2880
+jobs: 10
+
+set-resources:
+  train:
+    partition: gpu
+    mem: 179GB
+    gpus_per_node: tesla_v100s:1
+    cpus_per_task: 12
+  predict:
+    partition: gpu
+    mem: 179GB
+    gpus_per_node: tesla_v100s:1
+    cpus_per_task: 12
+  merge_predictions:
+    partition: all
+    mem: 179GB
+    gpus_per_node: ""
+    cpus_per_task: 1
+  umap_predictions:
+    partition: all
+    mem: 179GB
+    gpus_per_node: ""
+    cpus_per_task: 40
+  

@@ -1,0 +1,71 @@
+# Workflow for building and deploying static content to GitHub Pages
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9.18'
+
+      - name: Cache pip dependencies
+        id: cache-python
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'setup.cfg') }}
+          restore-keys: |
+            venv-${{ runner.os }}-
+
+      - name: Set up virtual environment
+        if: steps.cache-python.outputs.cache-hit != 'True'
+        run: python -m venv .venv
+
+      - name: Activate virtual environment
+        run: |
+          ls .venv
+          source .venv/bin/activate
+
+      - name: Install all project dependencies
+        if: steps.cache-python.outputs.cache-hit != 'True'
+        run: |
+          pip install --upgrade pip
+          pip install -e .[test,doc]
+
+      - name: Generate HTML documentation with pdoc
+        env:
+            GITHUB_REPO_OWNER: ${{ github.repository_owner }}
+            GITHUB_REPO_NAME: ${{ github.event.repository.name }}
+        run: ./build-documentation
+
+      - name: Upload artifact to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .cmmvae/docs
+          name: gh-pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: gh-pages

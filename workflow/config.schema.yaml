@@ -1,0 +1,44 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+type: object
+properties:
+  root_dir:
+    type: string
+    description: The root directory for all experiments.
+  experiment_name:
+    type: string
+    description: The name of the experiment.
+  run_name:
+    type: string
+    description: The name of the specific run within the experiment.
+  config_name:
+    type: string
+    description: The name of the configuration file.
+    default: config.yaml
+  config_dir:
+    type: string
+    description: Directory where additional configuration files are located.
+  merge_keys:
+    type: array
+    items:
+      type: string
+    description: A list of keys used for merging predictions.
+  categories:
+    type: array
+    items:
+      type: string
+    description: A list of categories used in the analysis.
+  predict_dir:
+    type: string
+    description: Subdirectory where predictions are stored.
+    default: predictions
+  umap_dir:
+    type: string
+    description: Directory for storing UMAP results.
+    default: umap
+  seed:
+    type: integer
+    description: Random seed for reproducibility.
+required:
+  - root_dir
+  - experiment_name
+  - merge_keys

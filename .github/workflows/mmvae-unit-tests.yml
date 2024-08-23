@@ -1,0 +1,43 @@
+name: CMMVAE Unit Tests
+run-name: Running tests on modules in the CMMVAE package
+on:
+  push:
+    branches:
+      - main
+      - feature/*
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9.18'
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml', '**/setup.cfg') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Set up virtual environment
+        run: python -m venv .venv 
+
+      - name: Activate virtual environment
+        run: source .venv/bin/activate
+
+      - name: Install all project dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .[test,doc]
+
+      - name: Run unit tests with coverage
+        run: |
+          source .venv/bin/activate
+          pytest --cov=cmmvae tests
