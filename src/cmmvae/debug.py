@@ -3,7 +3,7 @@ import logging
 import os
 
 
-DEBUG = os.getenv("CMMVAE_LOGGING_STATUS", "").upper() == "DEBUG"
+DEBUG = os.getenv("CMMVAE_LOGGING_STATUS", False)
 
 
 def debug():
@@ -46,5 +46,5 @@ def debug():
         )  # Set to debug to capture all messages for these modules
 
 
-if logging.DEBUG:
+if isinstance(DEBUG, bool) and DEBUG:
     debug()
