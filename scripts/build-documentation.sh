@@ -12,8 +12,8 @@ replace_placeholders() {
 
   find "$root_dir" -type f | while read -r file; do
     # Replace placeholders
-    sed -i "s|<GIT_REPO_OWNER>|$GIT_REPO_OWNER|g" "$file"
-    sed -i "s|<GIT_REPO_NAME>|$GIT_REPO_NAME|g" "$file"
+    sed -i "s|&lt;GIT_REPO_OWNER&gt;|$GIT_REPO_OWNER|g" "$file"
+    sed -i "s|&lt;GIT_REPO_NAME&gt;|$GIT_REPO_NAME|g" "$file"
   done
 }
 
