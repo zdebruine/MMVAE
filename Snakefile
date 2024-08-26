@@ -96,9 +96,26 @@ rule all:
     input:
         EVALUATION_FILES
 
+## Define the rule for finding unique expressions for conditional layers
+## The output includes paths to the conditional layer expressions used.
+rule diff_expression:
+    output:
+        expressions=[
+            os.path.join(config["conditional_layer_dir"], f"unique_expression_{key}.csv")
+            for key in config["conditional_layer_keys"]
+        ]
+    params:
+        command=TRAIN_COMMAND.lstrip('fit')
+    shell:
+    """
+    cmmvae workflow expression {params.command}
+    """
+
 ## Define the rule for training the CMMVAE model.
 ## The output includes the configuration file, the checkpoint path, and the directory for predictions.
 rule train:
+    input:
+        expressions=rule.diff_expression.output.expressions
     output:
         config_file=TRAIN_CONFIG_FILE,
         ckpt_path=CKPT_PATH,

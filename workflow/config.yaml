@@ -3,11 +3,9 @@ root_dir: lightning_logs
 
 config_name: config.yaml
 experiment_name: experiment
-run_name: version000
+run_name: ""
 
 predict_dir: samples
-
-train_command: fit --trainer configs/trainer/config.test.yaml --model configs/model/config.yaml --data configs/data/local.yaml
 
 categories:
 - 'donor_id'

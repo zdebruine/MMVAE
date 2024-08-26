@@ -24,6 +24,11 @@ default-resources:
 jobs: 10
 
 set-resources:
+  diff_expression:
+    partition: bigmem
+    mem: 179GB
+    gpus_per_node: ""
+    cpus_per_task: 1
   train:
     partition: gpu
     mem: 179GB
@@ -44,4 +49,3 @@ set-resources:
     mem: 179GB
     gpus_per_node: ""
     cpus_per_task: 40
-  
