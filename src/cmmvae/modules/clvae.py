@@ -33,7 +33,7 @@ class CLVAE(VAE):
         encoder_config: FCBlockConfig,
         decoder_config: FCBlockConfig,
         conditional_config: Optional[FCBlockConfig],
-        conditional_paths: Dict[str, str],
+        conditional_paths: Dict[str, str] = None,
         selection_order: Optional[List[str]] = None,
         **encoder_kwargs
     ):
@@ -43,7 +43,7 @@ class CLVAE(VAE):
             **encoder_kwargs,
         )
 
-        if conditional_config:
+        if conditional_config and conditional_paths:
             self.conditionals = ConditionalLayers(
                 conditional_paths=conditional_paths,
                 fc_block_config=conditional_config,

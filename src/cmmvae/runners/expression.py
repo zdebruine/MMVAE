@@ -42,7 +42,6 @@ def gather_unique_metadata(dfs, keys=None):
 
 def record_expression(
     datamodule: SpeciesDataModule,
-    batch_keys: list[str],
     log_dir="",
 ):
     dfs = []
@@ -52,6 +51,7 @@ def record_expression(
             *species.val_metadata_masks,
             *species.test_metadata_masks,
         ]:
+            file = os.path.join(species.directory_path, file)
             dfs.append(pd.read_pickle(file))
 
     for key, unique in gather_unique_metadata(dfs).items():
@@ -79,9 +79,7 @@ def expression(ctx: click.Context):
         sys.argv = [sys.argv[0]] + ctx.args
 
     cli = CMMVAECli(run=False)
-    record_expression(
-        datamodule=cli.datamodule,
-    )
+    record_expression(datamodule=cli.datamodule)
 
 
 if __name__ == "__main__":

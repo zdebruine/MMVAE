@@ -89,6 +89,10 @@ TRAIN_COMMAND += str(
     f"--predict_dir {PREDICT_SUBDIR} "
 )
 
+EXPRESSION_OUTPUT = [
+    os.path.join(config.get("conditional_layer_dir", ""), f"unique_expression_{key}.csv")
+    for key in config["conditional_layer_keys"]
+]
 
 ## Define the final output rule for Snakemake, specifying the target files that should be generated
 ## by the end of the workflow.
@@ -100,22 +104,19 @@ rule all:
 ## The output includes paths to the conditional layer expressions used.
 rule diff_expression:
     output:
-        expressions=[
-            os.path.join(config["conditional_layer_dir"], f"unique_expression_{key}.csv")
-            for key in config["conditional_layer_keys"]
-        ]
+        EXPRESSION_OUTPUT
     params:
         command=TRAIN_COMMAND.lstrip('fit')
     shell:
-    """
-    cmmvae workflow expression {params.command}
-    """
+        """
+        cmmvae workflow expression {params.command}
+        """
 
 ## Define the rule for training the CMMVAE model.
 ## The output includes the configuration file, the checkpoint path, and the directory for predictions.
 rule train:
     input:
-        expressions=rule.diff_expression.output.expressions
+        EXPRESSION_OUTPUT
     output:
         config_file=TRAIN_CONFIG_FILE,
         ckpt_path=CKPT_PATH,
