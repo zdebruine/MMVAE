@@ -20,7 +20,6 @@ class SpeciesDataModule(LightningDataModule):
         n_val_workers (int): Number of workers for validation data loading.
         n_test_workers (int): Number of workers for test data loading.
         n_predict_workers (int): Number of workers for prediction data loading.
-
     """
 
     def __init__(

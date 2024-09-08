@@ -46,9 +46,14 @@ class CMMVAE(nn.Module):
         super().__init__()
         self.vae = vae
         self.experts = experts
-        self.adversarials = nn.ModuleList(
-            [FCBlock(config) for config in adversarials if config]
-        )
+        self.adversarials = None
+
+        if adversarials:
+            if not isinstance(adversarials, list):
+                adversarials = [adversarials]
+            self.adversarials = nn.ModuleList(
+                [FCBlock(config) for config in adversarials if config]
+            )
 
     def forward(
         self,
@@ -89,7 +94,9 @@ class CMMVAE(nn.Module):
         shared_x = self.experts[expert_id].encode(x)
 
         # Pass through the VAE
-        qz, pz, z, shared_xhat, hidden_representations = self.vae(shared_x, metadata)
+        qz, pz, z, shared_xhat, hidden_representations = self.vae(
+            shared_x, metadata, species=expert_id
+        )
 
         xhats = {}
         cg_xhats = {}
@@ -123,7 +130,7 @@ class CMMVAE(nn.Module):
     @torch.no_grad()
     def get_latent_embeddings(
         self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str
-    ) -> dict[str, torch.Tensor]:
+    ) -> dict[str, Union[torch.Tensor, pd.DataFrame]]:
         """
         Obtain latent embeddings from the input data
             using the specified expert network.

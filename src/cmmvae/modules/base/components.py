@@ -1,3 +1,4 @@
+import os
 from typing import List, Literal, Optional, Type, TypeVar, Union
 
 import pandas as pd
@@ -320,6 +321,7 @@ class ConditionalLayer(nn.Module):
         super(ConditionalLayer, self).__init__()
 
         self.batch_key = batch_key
+        self.active_condition_modules = set()
         self.unique_conditions = {
             self.format_condition_key(condition)
             for condition in pd.read_csv(conditions_path, header=None)[0]
@@ -396,7 +398,8 @@ class ConditionalLayers(nn.Module):
 
     def __init__(
         self,
-        conditional_paths: dict[str, str],
+        directory: str,
+        conditionals: list[str],
         fc_block_config: FCBlockConfig,
         selection_order: Optional[list[str]] = None,
     ):
@@ -421,8 +424,33 @@ class ConditionalLayers(nn.Module):
         """
         super(ConditionalLayers, self).__init__()
 
+        conditional_paths = {}
+        for currdir, _, files in os.walk(directory):
+            if currdir == directory:
+                continue
+            species = os.path.basename(currdir)
+            for conditional in conditionals:
+                file_name = f"unique_expression_{conditional}.csv"
+                if file_name in files:
+                    species_dict = conditional_paths.get(species)
+                    if not species_dict:
+                        species_dict = {}
+                        conditional_paths[species] = species_dict
+                    species_dict[conditional] = os.path.join(currdir, file_name)
+
+        try:
+            for species in conditional_paths:
+                assert all(
+                    conditional in conditional_paths[species]
+                    for conditional in conditionals
+                )
+        except AssertionError:
+            raise ValueError(
+                "Not all conditonals have a correlated unique_expression_{condtional}.csv for each species!"
+            )
+
         if not selection_order:
-            selection_order = list(conditional_paths.keys())
+            selection_order = conditionals
             self.shuffle_selection_order = True
         else:
             self.shuffle_selection_order = False
@@ -431,16 +459,25 @@ class ConditionalLayers(nn.Module):
             0, len(selection_order), dtype=torch.int32, requires_grad=False
         )
 
-        self.layers = nn.ModuleList(
-            [
-                ConditionalLayer(
-                    batch_key, conditional_paths[batch_key], fc_block_config
+        self.layers = nn.ModuleDict(
+            {
+                species: nn.ModuleList(
+                    [
+                        ConditionalLayer(
+                            batch_key,
+                            conditional_paths[species][batch_key],
+                            fc_block_config,
+                        )
+                        for batch_key in selection_order
+                    ]
                 )
-                for batch_key in selection_order
-            ]
+                for species in conditional_paths
+            }
         )
 
-    def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
+    def forward(
+        self, x: torch.Tensor, metadata: pd.DataFrame, species: Optional[str] = None
+    ):
         """
         Run forward pass through each :class:`ConditionLayer`
             either shuffled or in-order.
@@ -452,6 +489,13 @@ class ConditionalLayers(nn.Module):
         Returns:
             torch.Tensor: Resulting torch.Tensor
         """
+        if not species and len(self.layers) == 1:
+            species = next(iter(self.layers))
+        elif not species:
+            raise ValueError(
+                "forward pass: `species` not defined more than one species present."
+            )
+
         order = self.selection_order
 
         if self.shuffle_selection_order:
@@ -459,7 +503,7 @@ class ConditionalLayers(nn.Module):
             order = order[permutation]
 
         for idx in order:
-            x = self.layers[idx](x, metadata)
+            x = self.layers[species][idx](x, metadata)
 
         return x
 

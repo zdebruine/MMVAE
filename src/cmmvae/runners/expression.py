@@ -54,15 +54,17 @@ def record_expression(
             file = os.path.join(species.directory_path, file)
             dfs.append(pd.read_pickle(file))
 
-    for key, unique in gather_unique_metadata(dfs).items():
-        with open(
-            os.path.join(log_dir, f"unique_expression_{key}.csv", "w", newline="")
-        ) as file:
-            writer = csv.writer(file)
+        species_dir = os.path.join(log_dir, species.name)
+        os.makedirs(species_dir)
+        for key, unique in gather_unique_metadata(dfs).items():
+            with open(
+                f"{species_dir}/unique_expression_{key}.csv", "w", newline=""
+            ) as file:
+                writer = csv.writer(file)
 
-            # Write each set element as a new row in the CSV
-            for item in unique:
-                writer.writerow([item])
+                # Write each set element as a new row in the CSV
+                for item in unique:
+                    writer.writerow([item])
 
 
 @click.command(
@@ -71,15 +73,22 @@ def record_expression(
         allow_extra_args=True,
     )
 )
+@click.option(
+    "--log_dir",
+    type=click.Path(),
+    default="expressions",
+    show_default=True,
+    help="Directory to store expression information.",
+)
 @click.pass_context
-def expression(ctx: click.Context):
+def expression(ctx: click.Context, log_dir):
     """Run using the LightningCli."""
     if ctx.args:
         # Ensure `args` is passed as the command-line arguments
         sys.argv = [sys.argv[0]] + ctx.args
 
     cli = CMMVAECli(run=False)
-    record_expression(datamodule=cli.datamodule)
+    record_expression(datamodule=cli.datamodule, log_dir=log_dir)
 
 
 if __name__ == "__main__":

@@ -89,10 +89,8 @@ TRAIN_COMMAND += str(
     f"--predict_dir {PREDICT_SUBDIR} "
 )
 
-EXPRESSION_OUTPUT = [
-    os.path.join(config.get("conditional_layer_dir", ""), f"unique_expression_{key}.csv")
-    for key in config["conditional_layer_keys"]
-]
+CATEGORIES_COMMAND = " ".join(f"--categories {category}" for category in CATEGORIES)
+MERGE_KEY_COMMAND = " ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS)
 
 ## Define the final output rule for Snakemake, specifying the target files that should be generated
 ## by the end of the workflow.
@@ -100,23 +98,26 @@ rule all:
     input:
         EVALUATION_FILES
 
+
 ## Define the rule for finding unique expressions for conditional layers
 ## The output includes paths to the conditional layer expressions used.
 rule diff_expression:
     output:
-        EXPRESSION_OUTPUT
+        os.path.join(config["expression_log_dir"], "expression_complete.log")
     params:
-        command=TRAIN_COMMAND.lstrip('fit')
+        command=TRAIN_COMMAND.lstrip('fit'),
+        log_dir=config["expression_log_dir"]
     shell:
         """
-        cmmvae workflow expression {params.command}
+        cmmvae workflow expression {params.command} --log_dir {params.log_dir}
+        touch {output}
         """
 
 ## Define the rule for training the CMMVAE model.
 ## The output includes the configuration file, the checkpoint path, and the directory for predictions.
 rule train:
     input:
-        EXPRESSION_OUTPUT
+        rules.diff_expression.output
     output:
         config_file=TRAIN_CONFIG_FILE,
         ckpt_path=CKPT_PATH,
@@ -137,11 +138,11 @@ rule merge_predictions:
         embeddings_path=EMBEDDINGS_PATHS,
         metadata_path=METADATA_PATHS,
     params:
-        merge_keys=" ".join(MERGE_KEYS),
+        merge_keys=MERGE_KEY_COMMAND,
     shell:
         """
         mkdir -p {MERGED_DIR}
-        cmmvae workflow merge-predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
+        cmmvae workflow merge-predictions --directory {input.predict_dir} {params.merge_keys} --save_dir {MERGED_DIR}
         """
 
 ## Define the rule for generating UMAP visualizations from the merged predictions.
@@ -155,8 +156,8 @@ rule umap_predictions:
     params:
         predict_dir=MERGED_DIR,
         save_dir=UMAP_DIR,
-        categories=" ".join(f"--categories {category}" for category in CATEGORIES),
-        merge_keys=" ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS),
+        categories=CATEGORIES_COMMAND,
+        merge_keys=MERGE_KEY_COMMAND,
     shell:
         """
         cmmvae workflow umap-predictions --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}

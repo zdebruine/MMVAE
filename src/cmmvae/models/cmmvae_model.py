@@ -88,6 +88,35 @@ class CMMVAEModel(BaseModel):
         )  # Criterion for adversarial loss
         self.init_weights()
 
+    def shared_adverserial_loss(
+        self, hidden_representations: list[torch.Tensor], expert_label: int
+    ):
+        assert self.module.adversarials
+        losses = []
+        for i, (hidden_rep, adv) in enumerate(
+            zip(hidden_representations, self.module.adversarials)
+        ):
+            # Create expert labels
+            expert_labels = torch.full(
+                (self.batch_size,),
+                expert_label,
+                dtype=torch.long,
+                device=hidden_rep.device,
+            )
+
+            # Apply gradient reversal
+            reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
+
+            # Get adversarial predictions
+            adv_output = adv(reversed_hidden_rep)
+
+            # Calculate adversarial loss
+            loss = self.adversarial_criterion(adv_output, expert_labels)
+
+            losses.append(loss)
+
+        return torch.stack(losses)
+
     def training_step(
         self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
     ) -> None:
@@ -107,11 +136,11 @@ class CMMVAEModel(BaseModel):
         optims = self.get_optimizers(zero_all=True)
         expert_optimizer = optims["experts"][expert_id]
         vae_optimizer = optims["vae"]
-        adversarial_optimizers = optims["adversarials"]
+        adversarial_optimizers = optims.get("adverserials")
 
         # Perform forward pass and compute the loss
         qz, pz, z, xhats, cg_xhats, hidden_representations = self.module(
-            x, metadata, expert_id
+            x=x, metadata=metadata, expert_id=expert_id
         )
 
         if x.layout == torch.sparse_csr:
@@ -123,35 +152,17 @@ class CMMVAEModel(BaseModel):
         )
 
         # Train adversarial networks
-        adversarial_loss = None
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            # Create expert labels
-            expert_labels = torch.full(
-                (self.batch_size,), expert_label, dtype=torch.long, device=x.device
+        if self.module.adversarials:
+            adv_losses = self.shared_adverserial_loss(
+                hidden_representations, expert_label
             )
-
-            # Apply gradient reversal
-            reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
-
-            # Get adversarial predictions
-            adv_output = adv(reversed_hidden_rep)
-
-            # Calculate adversarial loss
-            current_adversarial_loss = self.adversarial_criterion(
-                adv_output, expert_labels
-            )
-            if adversarial_loss is None:
-                adversarial_loss = current_adversarial_loss
-            else:
-                adversarial_loss += current_adversarial_loss
+            loss_dict["adversarial_loss"] = torch.sum(adv_losses)
 
             # Backpropagation for the adversarial
-            self.manual_backward(current_adversarial_loss, retain_graph=True)
-            adversarial_optimizers[i].step()
+            self.manual_backward(loss_dict["adversarial_loss"], retain_graph=True)
+            for optim in adversarial_optimizers.values():
+                optim.step()
 
-        loss_dict["adversarial_loss"] = adversarial_loss
         loss = loss_dict[RK.LOSS]
 
         # Backpropagation for encoder and decoder
@@ -166,18 +177,20 @@ class CMMVAEModel(BaseModel):
         )
 
         # Handle inactive conditional modules
-        inactive_modules = []
-        if self.module.vae.conditionals:
-            for cl in self.module.vae.conditionals.layers:
-                inactive = cl.unique_conditions - cl.active_condition_modules
-                inactive_modules.extend(
-                    [cl.conditions[key] for key in cl.conditions if key in inactive]
-                )
+        # inactive_modules = []
+        # if self.module.vae.conditionals:
+        #     for species, conditional_list in self.module.vae.conditionals.layers.items():
+        #         for cl in conditional_list:
+        #             print(cl)
+        #             inactive = cl.unique_conditions - cl.active_condition_modules
+        #             inactive_modules.extend(
+        #                 [cl.conditions[key] for key in cl.conditions if key in inactive]
+        #             )
 
-        for module in inactive_modules:
-            for param in module.parameters():
-                if param.grad is not None:
-                    param.grad.zero_()
+        # for module in inactive_modules:
+        #     for param in module.parameters():
+        #         if param.grad is not None:
+        #             param.grad.zero_()
 
         # Update the weights
         vae_optimizer.step()
@@ -212,34 +225,12 @@ class CMMVAEModel(BaseModel):
             qz, pz, x, xhats[expert_id], self.kl_annealing_fn.kl_weight
         )
 
-        # Calculate adversarial loss
-        adversarial_loss = None
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            # Create expert labels
-            expert_labels = torch.full(
-                (self.batch_size,), expert_label, dtype=torch.long, device=x.device
+        if self.module.adversarials:
+            adv_losses = self.shared_adverserial_loss(
+                hidden_representations, expert_label
             )
-
-            # Apply gradient reversal
-            reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
-
-            # Get adversarial predictions
-            adv_output = adv(reversed_hidden_rep)
-
-            # Calculate adversarial loss
-            current_adversarial_loss = self.adversarial_criterion(
-                adv_output, expert_labels
-            )
-            loss_dict[f"adv_{i}"] = current_adversarial_loss
-
-            if adversarial_loss is None:
-                adversarial_loss = current_adversarial_loss
-            else:
-                adversarial_loss += current_adversarial_loss
-
-        loss_dict[RK.LOSS] += adversarial_loss
+            for i, loss in enumerate(adv_losses):
+                loss_dict[f"adv_{i}"] = loss
 
         self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
 
@@ -258,8 +249,9 @@ class CMMVAEModel(BaseModel):
             batch (tuple): Batch of data containing inputs, metadata, and expert ID.
             batch_idx (int): Index of the batch.
         """
-        embeddings = self.module.get_latent_embeddings(*batch)
-        self.save_predictions(embeddings, batch_idx)
+        x, metadata, expert_id = batch
+        embeddings = self.module.get_latent_embeddings(x, metadata, expert_id)
+        self.save_predictions(embeddings, batch_idx, expert_id)
 
     def get_optimizers(self, zero_all: bool = False):
         """
@@ -302,18 +294,17 @@ class CMMVAEModel(BaseModel):
         """
         optimizers = {}
         optimizers["experts"] = {
-            expert_id: torch.optim.Adam(
-                self.module.experts[expert_id].parameters(), lr=1e-3, weight_decay=1e-6
-            )
-            for expert_id in self.module.experts
+            expert_id: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
+            for expert_id, module in self.module.experts.items()
         }
         optimizers["vae"] = torch.optim.Adam(
-            self.module.vae.encoder.parameters(), lr=1e-3, weight_decay=1e-6
+            self.module.vae.parameters(), lr=1e-3, weight_decay=1e-6
         )
-        optimizers["adversarials"] = {
-            i: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
-            for i, module in enumerate(self.module.adversarials)
-        }
+        if self.module.adversarials:
+            optimizers["adversarials"] = {
+                i: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
+                for i, module in enumerate(self.module.adversarials)
+            }
 
         optimizer_list = []
         self.optimizer_map = convert_to_flat_list_and_map(optimizers, optimizer_list)

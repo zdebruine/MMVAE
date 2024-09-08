@@ -39,9 +39,6 @@ init_args:
               use_batch_norm: False
               use_layer_norm: True
               activation_fn: null
-          conditional_paths:
-            assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-          selection_order: null
       experts:
         class_path: cmmvae.modules.base.Experts
         init_args:
@@ -85,10 +82,10 @@ init_args:
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
       adversarials:
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [ 256, 32, 2 ]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.Softmax
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 256, 32, 2 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.Softmax
