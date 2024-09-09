@@ -44,4 +44,9 @@ set-resources:
     mem: 179GB
     gpus_per_node: ""
     cpus_per_task: 40
+  meta_discriminators:
+    partition: gpu
+    mem: 179GB
+    gpus_per_node: tesla_v100s:1
+    cpus_per_task: 12
   

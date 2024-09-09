@@ -77,16 +77,18 @@ class CMMVAEModel(BaseModel):
         kl_annealing_fn (cmmvae.modules.base.KLAnnealingFn): KLAnnealingFn for weighting KL Divergence. Defaults to KLAnnealingFn(1.0).
     """
 
-    def __init__(self, module: CMMVAE, *args, **kwargs):
+    def __init__(self, module: CMMVAE, adv_weight: float, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.module = module
         self.automatic_optimization = (
             False  # Disable automatic optimization for manual control
         )
+        # Criterion for adversarial loss
         self.adversarial_criterion = (
-            nn.CrossEntropyLoss()
-        )  # Criterion for adversarial loss
+            nn.BCELoss(reduction="sum")
+        )
         self.init_weights()
+        self.adv_weight = adv_weight
 
     def training_step(
         self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
@@ -102,6 +104,12 @@ class CMMVAEModel(BaseModel):
         """
         x, metadata, expert_id = batch
         expert_label = self.module.experts.labels[expert_id]
+
+        human_label = torch.zeros(self.batch_size, 1, device=self.device)
+        mouse_label = torch.ones(self.batch_size, 1, device=self.device)
+
+        expert_labels = human_label if expert_id == "human" else mouse_label
+        trick_labels = human_label if expert_id == "mouse" else mouse_label
 
         # Retrieve optimizers
         optims = self.get_optimizers(zero_all=True)
@@ -127,32 +135,38 @@ class CMMVAEModel(BaseModel):
         for i, (hidden_rep, adv) in enumerate(
             zip(hidden_representations, self.module.adversarials)
         ):
-            # Create expert labels
-            expert_labels = torch.full(
-                (self.batch_size,), expert_label, dtype=torch.long, device=x.device
+            # Get adversarial predictions
+            adv_output = adv(hidden_rep)
+
+            # Calculate adversarial loss
+            current_discriminator_loss = self.adversarial_criterion(
+                adv_output, expert_labels
             )
 
-            # Apply gradient reversal
-            reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
+            loss_dict[f"adv_{i}"] = current_discriminator_loss
 
+            # Backpropagation for the adversarial
+            self.manual_backward(current_discriminator_loss, retain_graph=True)
+            adversarial_optimizers[i].step()
+
+        for i, (hidden_rep, adv) in enumerate(
+            zip(hidden_representations, self.module.adversarials)
+        ):
             # Get adversarial predictions
-            adv_output = adv(reversed_hidden_rep)
+            adv_output = adv(hidden_rep)
 
             # Calculate adversarial loss
             current_adversarial_loss = self.adversarial_criterion(
-                adv_output, expert_labels
+                adv_output, trick_labels
             )
+            # print(current_adversarial_loss)
             if adversarial_loss is None:
                 adversarial_loss = current_adversarial_loss
             else:
                 adversarial_loss += current_adversarial_loss
 
-            # Backpropagation for the adversarial
-            self.manual_backward(current_adversarial_loss, retain_graph=True)
-            adversarial_optimizers[i].step()
-
         loss_dict["adversarial_loss"] = adversarial_loss
-        loss = loss_dict[RK.LOSS]
+        loss = loss_dict[RK.LOSS] + self.adv_weight * adversarial_loss
 
         # Backpropagation for encoder and decoder
         self.manual_backward(loss)
@@ -212,34 +226,6 @@ class CMMVAEModel(BaseModel):
             qz, pz, x, xhats[expert_id], self.kl_annealing_fn.kl_weight
         )
 
-        # Calculate adversarial loss
-        adversarial_loss = None
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            # Create expert labels
-            expert_labels = torch.full(
-                (self.batch_size,), expert_label, dtype=torch.long, device=x.device
-            )
-
-            # Apply gradient reversal
-            reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
-
-            # Get adversarial predictions
-            adv_output = adv(reversed_hidden_rep)
-
-            # Calculate adversarial loss
-            current_adversarial_loss = self.adversarial_criterion(
-                adv_output, expert_labels
-            )
-            loss_dict[f"adv_{i}"] = current_adversarial_loss
-
-            if adversarial_loss is None:
-                adversarial_loss = current_adversarial_loss
-            else:
-                adversarial_loss += current_adversarial_loss
-
-        loss_dict[RK.LOSS] += adversarial_loss
 
         self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
 
