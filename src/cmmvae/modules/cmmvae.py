@@ -136,4 +136,7 @@ class CMMVAE(nn.Module):
         # Encode using the VAE
         _, z, _ = self.vae.encode(x)
 
+        # Tag the metadata with the expert_id
+        metadata['species'] = expert_id
+
         return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}

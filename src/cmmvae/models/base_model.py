@@ -338,3 +338,4 @@ class BaseModel(pl.LightningModule):
                     self.predict_dir, f"{key}_metadata_{self._curr_save_idx}.pkl"
                 ),
             )
+        self._running_predictions.clear()
