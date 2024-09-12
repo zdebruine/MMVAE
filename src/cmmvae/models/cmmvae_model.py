@@ -118,7 +118,7 @@ class CMMVAEModel(BaseModel):
         adversarial_optimizers = optims["adversarials"]
 
         # Perform forward pass and compute the loss
-        qz, pz, z, xhats, cg_xhats, hidden_representations = self.module(
+        qz, pz, z, xhats, hidden_representations = self.module(
             x, metadata, expert_id
         )
 
@@ -214,7 +214,7 @@ class CMMVAEModel(BaseModel):
         expert_label = self.module.experts.labels[expert_id]
 
         # Perform forward pass and compute the loss
-        qz, pz, z, xhats, cg_xhats, hidden_representations = self.module(
+        qz, pz, z, xhats, hidden_representations = self.module(
             x, metadata, expert_id
         )
 
