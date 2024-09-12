@@ -294,7 +294,7 @@ class CMMVAEModel(BaseModel):
             for expert_id in self.module.experts
         }
         optimizers["vae"] = torch.optim.Adam(
-            self.module.vae.encoder.parameters(), lr=1e-3, weight_decay=1e-6
+            self.module.vae.parameters(), lr=1e-3, weight_decay=1e-6
         )
         optimizers["adversarials"] = {
             i: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
