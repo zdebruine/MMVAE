@@ -36,6 +36,7 @@ class CLVAE(VAE):
         conditionals_directory: Optional[str] = None,
         conditionals: Optional[list[str]] = None,
         selection_order: Optional[list[str]] = None,
+        use_species_conditionals: bool = False,
         **encoder_kwargs
     ):
         super().__init__(
@@ -50,9 +51,13 @@ class CLVAE(VAE):
                 conditionals=conditionals,
                 fc_block_config=conditional_config,
                 selection_order=selection_order,
+                use_species_conditionals=use_species_conditionals,
             )
         else:
             self.conditionals = None
+            import warnings
+
+            warnings.warn("No conditionals found for vae")
 
     def after_reparameterize(
         self, z: torch.Tensor, metadata: pd.DataFrame, **kwargs

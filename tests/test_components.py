@@ -5,6 +5,7 @@ import os
 import pytest
 import torch
 import torch.nn as nn
+import shutil
 
 import pandas as pd
 from cmmvae.modules.base.components import (
@@ -12,7 +13,6 @@ from cmmvae.modules.base.components import (
     FCBlock,
     FCBlockConfig,
     ConditionalLayer,
-    ConditionalLayers,
     Encoder,
     Expert,
     Experts,
@@ -127,38 +127,38 @@ def test_conditional_layer_forward_pass():
     assert output.shape == x.shape
 
 
-def test_conditional_layers_initialization():
-    config = FCBlockConfig(layers=[10])
-    conditional_paths = {
-        "assay": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
-        "sex": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_sex.csv",
-    }
-    layers = ConditionalLayers(conditional_paths, fc_block_config=config)
-    assert len(layers.layers) == 2
+# def test_conditional_layers_initialization():
+#     config = FCBlockConfig(layers=[10])
+#     conditional_paths = {
+#         "assay": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
+#         "sex": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_sex.csv",
+#     }
+#     layers = ConditionalLayers(conditional_paths, fc_block_config=config)
+#     assert len(layers.layers) == 2
 
 
-def test_conditional_layers_forward_pass():
-    config = FCBlockConfig(layers=[10])
-    conditional_paths = {
-        "assay": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
-        "sex": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_sex.csv",
-    }
-    layers = ConditionalLayers(conditional_paths, fc_block_config=config)
-    x = torch.randn(5, 10)
-    metadata = pd.DataFrame(
-        {
-            "assay": [
-                "10x 5' v1",
-                "10x 3' v3",
-                "microwell-seq",
-                "microwell-seq",
-                "10x 5' transcription profiling",
-            ],
-            "sex": ["male", "female", "male", "female", "male"],
-        }
-    )
-    output = layers(x, metadata)
-    assert output.shape == x.shape
+# def test_conditional_layers_forward_pass():
+#     config = FCBlockConfig(layers=[10])
+#     conditional_paths = {
+#         "assay": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_assays.csv",
+#         "sex": f"{os.getcwd()}/src/cmmvae/data/conditional_layers/unique_sex.csv",
+#     }
+#     layers = ConditionalLayers(conditional_paths, fc_block_config=config)
+#     x = torch.randn(5, 10)
+#     metadata = pd.DataFrame(
+#         {
+#             "assay": [
+#                 "10x 5' v1",
+#                 "10x 3' v3",
+#                 "microwell-seq",
+#                 "microwell-seq",
+#                 "10x 5' transcription profiling",
+#             ],
+#             "sex": ["male", "female", "male", "female", "male"],
+#         }
+#     )
+#     output = layers(x, metadata)
+#     assert output.shape == x.shape
 
 
 # 5. Class: Encoder
@@ -231,3 +231,175 @@ def test_experts_labels():
     experts = Experts([expert1, expert2])
     assert experts.labels["expert1"] == 0
     assert experts.labels["expert2"] == 1
+
+
+def create_test_environment(structure):
+    import tempfile
+
+    """
+    Creates a temporary directory structure based on the provided dictionary.
+    The dictionary should map directory paths to lists of filenames.
+    """
+    test_dir = tempfile.mkdtemp()
+    for dir_path, files in structure.items():
+        full_dir_path = os.path.join(test_dir, dir_path)
+        os.makedirs(full_dir_path, exist_ok=True)
+        for file_name, content in files.items():
+            with open(os.path.join(full_dir_path, file_name), "w") as f:
+                f.write(content)
+    return test_dir
+
+
+def test_collect_species_files():
+    from cmmvae.modules.base.components import collect_species_files
+
+    # Define the directory structure and files
+    structure = {
+        "shared": {
+            "unique_expression_assay.csv": "assay data",
+            "unique_expression_other.csv": "other data",
+        },
+        "species1": {
+            "unique_expression_donor_id.csv": "donor_id data",
+            "unique_expression_extra.csv": "extra data",
+        },
+        "species2": {
+            "unique_expression_donor_id.csv": "donor_id data",
+            "unique_expression_extra.csv": "extra data",
+        },
+    }
+
+    # Create the test environment
+    test_dir = create_test_environment(structure)
+
+    try:
+        batch_keys = ["assay", "donor_id"]
+        result = collect_species_files(test_dir, batch_keys)
+
+        expected_output = {
+            "shared": {
+                "assay": os.path.join(test_dir, "shared", "unique_expression_assay.csv")
+            },
+            "species1": {
+                "donor_id": os.path.join(
+                    test_dir, "species1", "unique_expression_donor_id.csv"
+                )
+            },
+            "species2": {
+                "donor_id": os.path.join(
+                    test_dir, "species2", "unique_expression_donor_id.csv"
+                )
+            },
+        }
+
+        assert result == expected_output
+    finally:
+        # Clean up the temporary directory
+        shutil.rmtree(test_dir)
+
+
+def test_no_shared_files():
+    from cmmvae.modules.base.components import collect_species_files
+
+    # Define the directory structure and files
+    structure = {
+        "shared": {},
+        "species1": {
+            "unique_expression_assay.csv": "assay data",
+            "unique_expression_donor_id.csv": "donor_id data",
+        },
+        "species2": {
+            "unique_expression_assay.csv": "assay data",
+            "unique_expression_donor_id.csv": "donor_id data",
+        },
+    }
+
+    # Create the test environment
+    test_dir = create_test_environment(structure)
+
+    try:
+        batch_keys = ["assay", "donor_id"]
+        result = collect_species_files(test_dir, batch_keys)
+
+        expected_output = {
+            "shared": {},
+            "species1": {
+                "assay": os.path.join(
+                    test_dir, "species1", "unique_expression_assay.csv"
+                ),
+                "donor_id": os.path.join(
+                    test_dir, "species1", "unique_expression_donor_id.csv"
+                ),
+            },
+            "species2": {
+                "assay": os.path.join(
+                    test_dir, "species2", "unique_expression_assay.csv"
+                ),
+                "donor_id": os.path.join(
+                    test_dir, "species2", "unique_expression_donor_id.csv"
+                ),
+            },
+        }
+
+        assert result == expected_output
+    finally:
+        # Clean up the temporary directory
+        shutil.rmtree(test_dir)
+
+
+def test_batch_key_in_shared_and_species():
+    from cmmvae.modules.base.components import collect_species_files
+
+    # Define the directory structure and files
+    structure = {
+        "shared": {"unique_expression_assay.csv": "assay data"},
+        "species1": {
+            "unique_expression_assay.csv": "species assay data",
+            "unique_expression_donor_id.csv": "donor_id data",
+        },
+    }
+
+    # Create the test environment
+    test_dir = create_test_environment(structure)
+
+    try:
+        batch_keys = ["assay", "donor_id"]
+        result = collect_species_files(test_dir, batch_keys)
+
+        expected_output = {
+            "shared": {
+                "assay": os.path.join(test_dir, "shared", "unique_expression_assay.csv")
+            },
+            "species1": {
+                "donor_id": os.path.join(
+                    test_dir, "species1", "unique_expression_donor_id.csv"
+                )
+            },
+        }
+
+        assert result == expected_output
+    finally:
+        # Clean up the temporary directory
+        shutil.rmtree(test_dir)
+
+
+def test_no_batch_keys():
+    from cmmvae.modules.base.components import collect_species_files
+
+    # Define the directory structure and files
+    structure = {
+        "shared": {"unique_expression_other.csv": "other data"},
+        "species1": {"unique_expression_extra.csv": "extra data"},
+    }
+
+    # Create the test environment
+    test_dir = create_test_environment(structure)
+
+    try:
+        batch_keys = ["assay", "donor_id"]
+        result = collect_species_files(test_dir, batch_keys)
+
+        assert result == {"shared": {}}
+    finally:
+        # Clean up the temporary directory
+        shutil.rmtree(test_dir)

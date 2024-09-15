@@ -53,6 +53,8 @@ class REGISTRY_KEYS_NT(NamedTuple):
     """Key for the expert identifier."""
     ADV_LOSS: str = "adversarial_loss"
     """Key for the total adversarial loss."""
+    ADV_WEIGHT: str = "adverserial_weight"
+    """Key for the adversarial weight."""
 
 
 # Instance of _REGISTRY_KEYS_NT for use in the application

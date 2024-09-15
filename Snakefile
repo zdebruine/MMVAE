@@ -28,9 +28,6 @@ RUN_DIR = os.path.join(ROOT_DIR, EXPERIMENT_NAME, RUN_NAME)
 ## Define the name of the configuration file specific to this run. Defaults to "config.yaml" if not specified.
 CONFIG_NAME = config.get("config_name", "config.yaml")
 
-## Define the directory containing the configuration file. If not provided, assumes the default structure.
-CONFIG_DIR = config.get("config_dir", None)
-
 ## Define the keys that are used for merging results from different experiments.
 MERGE_KEYS = config["merge_keys"]
 
@@ -38,28 +35,11 @@ MERGE_KEYS = config["merge_keys"]
 ## This is optional, and if not provided, defaults to an empty list.
 CATEGORIES = config.get("categories", [])
 
-## Define the subdirectory where prediction results will be stored. Defaults to "predictions".
-PREDICT_SUBDIR = config.get("predict_dir", "predictions")
-
-## Define the full directory path for storing predictions within the run directory.
-PREDICT_DIR = os.path.join(RUN_DIR, PREDICT_SUBDIR)
-
 ## Define the directory where UMAP visualizations will be saved.
 ## Defaults to "umap" within the run directory.
 UMAP_PATH = config.get("umap_dir", "umap")
 UMAP_DIR = os.path.join(RUN_DIR, UMAP_PATH)
 
-## Define the directory where meta discriminator tensorboard files will be saved.
-## Defaults to "meta_disc" within the run directory.
-META_DISC_PATH = config.get("meta_disc_dir", "meta_disc")
-META_DISC_DIR = os.path.join(RUN_DIR, META_DISC_PATH)
-
-## Define a separate directory for merged outputs to avoid conflicts between different merge operations.
-MERGED_DIR = os.path.join(RUN_DIR, "merged")
-
-## Generate the paths for the embeddings and metadata files based on the merge keys.
-EMBEDDINGS_PATHS = [os.path.join(MERGED_DIR, f"{key}_embeddings.npz") for key in MERGE_KEYS]
-METADATA_PATHS = [os.path.join(MERGED_DIR, f"{key}_metadata.pkl") for key in MERGE_KEYS]
 
 ## Define the path to the training configuration file within the run directory.
 TRAIN_CONFIG_FILE = os.path.join(RUN_DIR, CONFIG_NAME)
@@ -82,46 +62,54 @@ EVALUATION_FILES = expand(
     key=MERGE_KEYS,
 )
 
-MD_FILES = expand(
-    "{md_logs}/events.out.tfevents.*",
-    md_logs=META_DISC_DIR
-
-)
 
 ## Construct the command to run the CMMVAE training pipeline.
 ## If a configuration directory is provided, it is included in the command; otherwise,
 ## individual parameters such as trainer, model, and data are passed explicitly.
 TRAIN_COMMAND = config["train_command"]
 
+# TODO: Avoid automatic conditionals
 TRAIN_COMMAND += str(
     f" --default_root_dir {ROOT_DIR} "
     f"--experiment_name {EXPERIMENT_NAME} --run_name {RUN_NAME} "
     f"--seed_everything {SEED} "
-    f"--predict_dir {PREDICT_SUBDIR} "
 )
 
 CATEGORIES_COMMAND = " ".join(f"--categories {category}" for category in CATEGORIES)
 MERGE_KEY_COMMAND = " ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS)
+
+## Allow for easy reuse of configurations depending on the run directory
+# Optional flag "override" to override previous configurations
+# The config dictionary is stored in the run directory so this needs
+# to be the last step to make sure any changes to the config are store in configuration
+# and reflected in the rules. The only modifications to the configuration values
+# that are acceptable is to configure them for passing as arguments to the rule commands
+# SNAKEMAKE_CONFIG_PATH = os.path.join(RUN_DIR, "snakemake.config")
+# OVERRIDE_CONFIG = config.get(" override", None)
+
+# if os.path.exists(SNAKEMAKE_CONFIG_PATH):
+
+# need to check this before parsing all the rules to set config.
+# need to move all default values to live in configuration as well so that they are picked up in
+# config file
 
 ## Define the final output rule for Snakemake, specifying the target files that should be generated
 ## by the end of the workflow.
 rule all:
     input:
         EVALUATION_FILES,
-        MD_FILES
-
+        # MD_FILES
 
 ## Define the rule for finding unique expressions for conditional layers
 ## The output includes paths to the conditional layer expressions used.
 rule diff_expression:
     output:
-        os.path.join(config["expression_log_dir"], "expression_complete.log")
+        os.path.join(RUN_DIR, "expression_complete.log")
     params:
-        command=TRAIN_COMMAND.lstrip('fit'),
-        log_dir=config["expression_log_dir"]
+        cli=TRAIN_COMMAND.lstrip('fit'),
     shell:
         """
-        cmmvae workflow expression {params.command} --log_dir {params.log_dir}
+        cmmvae workflow expression {params.cli}
         touch {output}
         """
 
@@ -133,7 +121,7 @@ rule train:
     output:
         config_file=TRAIN_CONFIG_FILE,
         ckpt_path=CKPT_PATH,
-        predict_dir=directory(PREDICT_DIR)
+        predictions=os.path.join(RUN_DIR, "predictions.h5")
     params:
         command=TRAIN_COMMAND
     shell:
@@ -141,50 +129,18 @@ rule train:
         cmmvae workflow cli {params.command}
         """
 
-## Define the rule for merging predictions.
-## This rule takes the prediction directory as input and outputs the embeddings and metadata files.
-rule merge_predictions:
-    input:
-        predict_dir=PREDICT_DIR,
-    output:
-        embeddings_path=EMBEDDINGS_PATHS,
-        metadata_path=METADATA_PATHS,
-    params:
-        merge_keys=MERGE_KEY_COMMAND,
-    shell:
-        """
-        mkdir -p {MERGED_DIR}
-        cmmvae workflow merge-predictions --directory {input.predict_dir} {params.merge_keys} --save_dir {MERGED_DIR}
-        """
-
 ## Define the rule for generating UMAP visualizations from the merged predictions.
 ## This rule produces UMAP images for each combination of category and merge key.
 rule umap_predictions:
     input:
-        embeddings_path=EMBEDDINGS_PATHS,
-        metadata_path=METADATA_PATHS,
+        rules.train.output.predictions
     output:
         EVALUATION_FILES,
     params:
-        predict_dir=MERGED_DIR,
         save_dir=UMAP_DIR,
         categories=CATEGORIES_COMMAND,
         merge_keys=MERGE_KEY_COMMAND,
     shell:
         """
-        cmmvae workflow umap-predictions --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
-        """
-
-rule meta_discriminators:
-    input:
-        CKPT_PATH
-    output:
-        MD_FILES,
-    params:
-        log_dir=META_DISC_DIR,
-        ckpt=CKPT_PATH,
-        config=TRAIN_CONFIG_FILE
-    shell:
-        """
-        cmmvae workflow meta-discriminator --log_dir {params.log_dir} --ckpt {params.ckpt} --config {params.config}
+        cmmvae workflow umap-predictions --directory {input} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
         """
