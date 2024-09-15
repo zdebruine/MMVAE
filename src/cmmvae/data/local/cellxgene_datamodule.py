@@ -1,3 +1,4 @@
+from typing import Optional
 from torch.utils.data import DataLoader
 from lightning import LightningDataModule
 from lightning.pytorch.trainer.states import TrainerFn
@@ -29,6 +30,8 @@ class SpeciesDataModule(LightningDataModule):
         n_val_workers: int = None,
         n_test_workers: int = None,
         n_predict_workers: int = None,
+        conditionals_directory: Optional[str] = None,
+        shared_conditionals: Optional[list[str]] = None,
     ):
         super().__init__()
         self.save_hyperparameters(logger=True)
@@ -38,6 +41,9 @@ class SpeciesDataModule(LightningDataModule):
         self.n_val_workers = n_val_workers if n_val_workers else num_workers
         self.n_test_workers = n_test_workers if n_val_workers else num_workers
         self.n_predict_workers = n_predict_workers if n_val_workers else num_workers
+
+        self.shared_conditionals = shared_conditionals
+        self.conditionals_directory = conditionals_directory
 
         self._train_datapipe = None
         self._val_datapipe = None

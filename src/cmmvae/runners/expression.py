@@ -1,94 +1,139 @@
 import os
 import sys
+from typing import Iterable, Optional
 
 import click
 import pandas as pd
 import csv
 
-from cmmvae.runners.cli import CMMVAECli
 from cmmvae.data.local import SpeciesDataModule
+from cmmvae.runners.cli import CMMVAECli, context_settings
 
 
-def gather_unique_metadata(dfs, keys=None):
-    """
-    Gathers unique metadata from a list of DataFrames based on the specified columns (keys).
-    If no keys are specified, all columns will be considered for each DataFrame.
+def get_metadata_files(datamodule: SpeciesDataModule):
+    return {
+        species.name: [
+            os.path.join(species.directory_path, file)
+            for file in [
+                *species.train_metadata_masks,
+                *species.val_metadata_masks,
+                *species.test_metadata_masks,
+            ]
+        ]
+        for species in datamodule.species
+    }
 
-    Parameters:
-    dfs (list): A list of pandas DataFrames.
-    keys (list or None): A list of column names to consider, or None to use all columns.
 
-    Returns:
-    dict: A dictionary where the keys are column names and the values are sets of unique metadata for that column.
-    """
-    metadata_dict = {}
+def accumulate_species_dataframes(pickle_files: dict[str, list[str]]):
+    """Accumlates dataframes by appending 'species'"""
+    dataframes = []
 
-    for df in dfs:
-        # If no specific keys are provided, use all columns in the dataframe
-        columns_to_process = keys if keys else df.columns
+    # Loop through each pickle file, load the DataFrame, and accumulate them
+    for name, files in pickle_files.items():
+        for file in files:
+            try:
+                file = os.path.join(file)
+                df = pd.read_pickle(file)
+                df["species"] = name
+                dataframes.append(df)
+            except Exception as e:
+                print(f"Error loading {file}: {e}")
 
-        for column in columns_to_process:
-            if column in df.columns:
-                # Initialize the set if this column is not yet in the dictionary
-                if column not in metadata_dict:
-                    metadata_dict[column] = set()
+    # Concatenate all DataFrames
+    if dataframes:
+        accumulated_df = pd.concat(dataframes, ignore_index=True)
+    else:
+        accumulated_df = pd.DataFrame()
 
-                # Add unique values from the current dataframe to the set
-                unique_values = df[column].dropna().unique()
-                metadata_dict[column].update(unique_values)
+    return accumulated_df
 
-    return metadata_dict
+
+def differentiate_expression(
+    df: pd.DataFrame, shared_labels: Optional[Iterable] = None
+):
+    # get all labels from the dataset
+    labels = set(df.columns)
+    # initialize all shared_labels as a set
+    shared_labels = set(shared_labels) if shared_labels else set()
+
+    if shared_labels:
+        # get all labels in dataset that are in shared_labels
+        known_labels = labels & shared_labels
+        try:
+            assert len(known_labels) == len(shared_labels)
+        except AssertionError:
+            unknown_labels = shared_labels.difference(known_labels)
+            raise ValueError(f"Found unknown labels: {unknown_labels}")
+        # remove all shared_labels from labels
+        labels.difference_update(shared_labels)
+    return labels, shared_labels
+
+
+def write_lines_to_file(
+    lines: Iterable[str],
+    root_dir: str,
+    label: str,
+    makefilename=lambda label: f"unique_expression_{label}.csv",
+    assert_nonexisting_or_empty: bool = False,
+):
+    file_name = makefilename(label)
+    file_path = os.path.join(root_dir, file_name)
+
+    if assert_nonexisting_or_empty:
+        assert not os.path.exists(file_path) or os.path.getsize(file_path) == 0
+    os.makedirs(root_dir, exist_ok=True)
+    with open(file_path, "w", newline="") as file:
+        writer = csv.writer(file)
+
+        for item in lines:
+            writer.writerow([item])
+
+
+def write_unique_expressions(root_dir: str, column: str, df: pd.DataFrame):
+    unique_values = df[column].dropna().unique()
+    write_lines_to_file(lines=unique_values, root_dir=root_dir, label=column)
 
 
 def record_expression(
-    datamodule: SpeciesDataModule,
-    log_dir="",
+    pickle_files: dict[str, list[str]],
+    root_dir: str,
+    shared_labels: Optional[Iterable[str]] = None,
 ):
-    dfs = []
-    for species in datamodule.species:
-        for file in [
-            *species.train_metadata_masks,
-            *species.val_metadata_masks,
-            *species.test_metadata_masks,
-        ]:
-            file = os.path.join(species.directory_path, file)
-            dfs.append(pd.read_pickle(file))
+    if os.path.exists(root_dir):
+        print("Expressions already generated as directory exists!")
+        return
 
-        species_dir = os.path.join(log_dir, species.name)
-        os.makedirs(species_dir)
-        for key, unique in gather_unique_metadata(dfs).items():
-            with open(
-                f"{species_dir}/unique_expression_{key}.csv", "w", newline=""
-            ) as file:
-                writer = csv.writer(file)
+    df = accumulate_species_dataframes(pickle_files)
+    labels, shared_labels = differentiate_expression(df, shared_labels=shared_labels)
+    species_names = list(pickle_files.keys())
+    shared_dir = os.path.join(root_dir, "shared")
 
-                # Write each set element as a new row in the CSV
-                for item in unique:
-                    writer.writerow([item])
+    for column in shared_labels:
+        write_unique_expressions(shared_dir, column, df)
+
+    for column in labels:
+        for species in species_names:
+            species_dir = os.path.join(root_dir, species)
+            species_df = df[df["species"] == species]
+            write_unique_expressions(species_dir, column, species_df)
 
 
-@click.command(
-    context_settings=dict(
-        ignore_unknown_options=True,
-        allow_extra_args=True,
-    )
-)
-@click.option(
-    "--log_dir",
-    type=click.Path(),
-    default="expressions",
-    show_default=True,
-    help="Directory to store expression information.",
-)
+@click.command(context_settings=context_settings())
 @click.pass_context
-def expression(ctx: click.Context, log_dir):
-    """Run using the LightningCli."""
-    if ctx.args:
-        # Ensure `args` is passed as the command-line arguments
-        sys.argv = [sys.argv[0]] + ctx.args
+def expression(ctx: click.Context):
+    sys.argv = [sys.argv[0]]
+    # Example of further processing with CMMVAECli
+    cli = CMMVAECli(args=ctx.args, only_data=True, run=False)
 
-    cli = CMMVAECli(run=False)
-    record_expression(datamodule=cli.datamodule, log_dir=log_dir)
+    datamodule = cli.datamodule
+
+    pickle_files = get_metadata_files(datamodule)
+
+    record_expression(
+        pickle_files=pickle_files,
+        root_dir=datamodule.conditionals_directory,
+        shared_labels=datamodule.shared_conditionals,
+    )
 
 
 if __name__ == "__main__":

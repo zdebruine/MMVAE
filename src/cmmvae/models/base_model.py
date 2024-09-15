@@ -31,7 +31,7 @@ def tag_log_dict(
     """
 
     if key_pos not in ("last", "first"):
-        raise ValueError("Key position {key_pos} is not supported!")
+        raise ValueError(f"Key position {key_pos} is not supported!")
 
     tags_str = sep.join(tags)
 
@@ -59,7 +59,6 @@ class BaseModel(pl.LightningModule):
 
     def __init__(
         self,
-        batch_size: int = 128,
         record_gradients: bool = False,
         save_gradients_interval: int = 25,
         gradient_record_cap: int = 20,
@@ -89,7 +88,6 @@ class BaseModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore=["module"], logger=False)
 
-        self.batch_size = batch_size
         self.record_gradients = record_gradients
         self.save_gradients_interval: int = save_gradients_interval
         self.gradient_record_cap: int = gradient_record_cap
@@ -163,7 +161,7 @@ class BaseModel(pl.LightningModule):
         else:
             return ""
 
-    def save_gradient(self, tag, grad):
+    def save_gradient(self, tag, grad, use_gradient_label: bool = True):
         """
         Save a gradient to TensorBoard.
 
@@ -171,6 +169,8 @@ class BaseModel(pl.LightningModule):
             tag (str): Tag for the gradient.
             grad (torch.Tensor): The gradient tensor.
         """
+        if use_gradient_label:
+            tag = f"gradients/{tag}"
         self.logger.experiment.add_histogram(
             tag=tag, values=grad, global_step=self.trainer.global_step
         )
@@ -185,7 +185,7 @@ class BaseModel(pl.LightningModule):
             self.record_gradients = False
             return
         for k, v in self.named_parameters():
-            if v.requires_grad:
+            if v.grad is not None:
                 self.save_gradient(k, v.grad)
 
     @property
@@ -280,7 +280,6 @@ class BaseModel(pl.LightningModule):
             on_step=self.trainer.training,
             on_epoch=True,
             logger=True,
-            batch_size=self.batch_size,
         )
 
     def on_predict_epoch_start(self):

@@ -122,7 +122,7 @@ class CMMVAE(nn.Module):
     @torch.no_grad()
     def get_latent_embeddings(
         self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str
-    ) -> dict[str, Union[torch.Tensor, pd.DataFrame]]:
+    ) -> dict[str, tuple[torch.Tensor, pd.DataFrame]]:
         """
         Obtain latent embeddings from the input data
             using the specified expert network.
@@ -146,4 +146,4 @@ class CMMVAE(nn.Module):
         # Tag the metadata with the expert_id
         metadata["species"] = expert_id
 
-        return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}
+        return {RK.Z: (z, metadata)}

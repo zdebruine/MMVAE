@@ -1,12 +1,16 @@
 """
 Generate UMAPs from embeddings and metadata.
 """
-
+from typing import Optional
 import os
-
+import umap
 import numpy as np
 import pandas as pd
 import click
+import h5py
+from pathlib import Path
+
+from cmmvae.callbacks.prediction_writer import load_from_hdf5
 
 
 def load_embeddings(npz_path, meta_path):
@@ -16,10 +20,8 @@ def load_embeddings(npz_path, meta_path):
     return embedding, metadata
 
 
-def plot_umap(
-    directory,
-    keys,
-    categories,
+def umap_embeddings(
+    X,
     n_neighbors=30,
     min_dist=0.3,
     n_components=2,
@@ -27,6 +29,29 @@ def plot_umap(
     low_memory=False,
     n_jobs=40,
     n_epochs=200,
+    **kwargs,
+):
+    print("Fitting umap embeddings...")
+    reducer = umap.UMAP(
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        n_components=n_components,
+        metric=metric,
+        low_memory=low_memory,
+        n_jobs=n_jobs,
+        n_epochs=n_epochs,
+        **kwargs,
+    )
+
+    embedding = reducer.fit_transform(X)
+    print("Done fitting umap embeddings.")
+    return embedding
+
+
+def plot_umap(
+    directory,
+    categories,
+    keys,
     n_largest=15,
     method=None,
     save_dir=None,
@@ -51,7 +76,6 @@ def plot_umap(
         save_dir (str): Directory to save UMAP plots.
         **umap_kwargs: Extra kwargs passed to `umap.UMAP`.
     """
-    import umap
 
     if not save_dir:
         save_dir = directory
@@ -69,18 +93,7 @@ def plot_umap(
             X, metadata = load_embeddings(npz_path, meta_path)
 
             # Fit and transform the data using UMAP
-            reducer = umap.UMAP(
-                n_neighbors=n_neighbors,
-                min_dist=min_dist,
-                n_components=n_components,
-                metric=metric,
-                low_memory=low_memory,
-                n_jobs=n_jobs,
-                n_epochs=n_epochs,
-                **umap_kwargs,
-            )
-
-            embedding = reducer.fit_transform(X)
+            embedding = umap_embeddings(X)
             embedding_file_name = f"{key}_umap_embeddings.npz"
             embedding_path = os.path.join(save_dir, embedding_file_name)
             metadata_file_name = f"{key}_umap_metadata.pkl"
@@ -97,6 +110,49 @@ def plot_umap(
     return image_paths
 
 
+def plot_umap_h5(
+    hdf5_filepath: str,
+    keys,
+    categories,
+    save_dir=None,
+    n_largest=15,
+    method="",
+    **kwargs,
+):
+    if not os.path.exists(hdf5_filepath):
+        raise FileNotFoundError(hdf5_filepath)
+
+    image_paths = []
+    for key in keys:
+        data, metadata, embeddings = load_from_hdf5(hdf5_filepath, key)
+
+        if embeddings is None:
+            embeddings = umap_embeddings(data)
+            with h5py.File(hdf5_filepath, "a") as h5file:
+                if f"{key}/umap_embeddings" in h5file:
+                    del h5file[f"{key}/umap_embeddings"]
+                h5file.create_dataset(
+                    f"{key}/umap_embeddings",
+                    data=embeddings,
+                    shape=embeddings.shape,
+                    maxshape=embeddings.shape,
+                    dtype=embeddings.dtype,
+                )
+
+        save_dir = os.path.dirname(hdf5_filepath) if not save_dir else save_dir
+        print(f"Plotting cateogrys for key {key}")
+        image_paths.extend(
+            [
+                plot_category(
+                    embeddings, metadata, category, save_dir, n_largest, key, method
+                )
+                for category in categories
+            ]
+        )
+    print(f"Plotted images at {image_paths}")
+    return image_paths
+
+
 def plot_category(
     embedding,
     metadata,
@@ -107,7 +163,7 @@ def plot_category(
     method,
     alpha=0.5,
     marker_size=1,
-):
+) -> str:
     """
     Plot UMAP embeddings colored by a specific category.
 
@@ -188,7 +244,11 @@ def plot_category(
     return image_path
 
 
-def add_images_to_tensorboard(log_dir, image_paths):
+def add_images_to_tensorboard(
+    tensorboard_dir,
+    image_paths,
+    tag="",
+):
     """
     Add images to Tensorboard.
 
@@ -196,17 +256,23 @@ def add_images_to_tensorboard(log_dir, image_paths):
         log_dir (str): Path to Tensorboard log directory.
         image_paths (list[str]): Paths to images to load to Tensorboard.
     """
-    from torch.utils.tensorboard import SummaryWriter
+    from torch.utils.tensorboard.writer import SummaryWriter
     from PIL import Image
     from torch import tensor
 
+    log_dir = Path(tensorboard_dir)
     writer = SummaryWriter(log_dir=log_dir)
 
     for image_path in image_paths:
+        image_path = Path(image_path)
         image = Image.open(image_path)
         image = np.array(image)
         image = tensor(image).permute(2, 0, 1)
-        tag = os.path.basename(image_path)
+        if not tag:
+            path = os.path.normpath(image_path)
+            components = path.split(os.sep)
+            tag = os.path.join(*components[-2:])
+        print(f"Adding image to tensorboard -- {image_path}: {tag}")
         writer.add_image(tag, image, global_step=0)
     writer.close()
 
@@ -215,17 +281,23 @@ def generate_umap(
     directory: str,
     categories: tuple[str],
     keys: tuple[str],
-    method: str,
-    save_dir: str,
-    skip_tensorboard: bool,
+    method: str = "",
+    save_dir: Optional[str] = None,
+    skip_tensorboard: bool = True,
 ):
-    image_paths = plot_umap(
-        directory=directory,
-        keys=keys,
-        categories=categories,
-        method=method,
-        save_dir=save_dir,
-    )
+    if directory.endswith(".h5"):
+        image_paths = plot_umap_h5(
+            hdf5_filepath=directory, keys=keys, categories=categories, save_dir=save_dir
+        )
+        directory = os.path.dirname(directory)
+    else:
+        image_paths = plot_umap(
+            directory=directory,
+            keys=keys,
+            categories=categories,
+            method=method,
+            save_dir=save_dir,
+        )
 
     if not skip_tensorboard:
         add_images_to_tensorboard(directory, image_paths)
