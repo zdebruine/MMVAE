@@ -96,7 +96,7 @@ class BaseModel(pl.LightningModule):
         self.predict_dir = predict_dir
         self.predict_save_interval = predict_save_interval
 
-        self._running_predictions: dict[str, list] = {}
+        self._running_predictions = []
         self._curr_save_idx = initial_save_index
 
         if not kl_annealing_fn:
@@ -293,7 +293,7 @@ class BaseModel(pl.LightningModule):
             self._save_paired_predictions()
         self._running_predictions.clear()
 
-    def save_predictions(self, predictions, idx: int, expert_id: str):
+    def save_predictions(self, predictions, idx: int):
         """
         Accumulate predictions and save periodically dicated by :attr:`predict_save_interval`.
 
@@ -301,9 +301,7 @@ class BaseModel(pl.LightningModule):
             predictions (np.ndarray): Predictions to be saved.
             idx (int): Index of save prediction (To keep track of save interval).
         """
-        if expert_id not in self._running_predictions:
-            self._running_predictions[expert_id] = []
-        self._running_predictions[expert_id].append(predictions)
+        self._running_predictions.append(predictions)
 
         div, mod = divmod(idx + 1, self.predict_save_interval)
         if mod == 0:
@@ -311,22 +309,21 @@ class BaseModel(pl.LightningModule):
 
     def _save_paired_predictions(self):
         self._curr_save_idx += 1
-        for species, predictions in self._running_predictions.items():
-            stacked_predictions = {}
-            for key in predictions[0].keys():
-                if isinstance(predictions[0][key], pd.DataFrame):
-                    stacked_predictions[key] = pd.concat(
-                        [prediction[key] for prediction in predictions]
+        stacked_predictions = {}
+        for key in self._running_predictions[0].keys():
+            if isinstance(self._running_predictions[0][key], pd.DataFrame):
+                stacked_predictions[key] = pd.concat(
+                    [prediction[key] for prediction in self._running_predictions]
+                )
+            else:
+                stacked_predictions[key] = (
+                    torch.cat(
+                        [prediction[key] for prediction in self._running_predictions],
+                        dim=0,
                     )
-                else:
-                    stacked_predictions[key] = (
-                        torch.cat(
-                            [prediction[key] for prediction in predictions],
-                            dim=0,
-                        )
-                        .cpu()
-                        .numpy()
-                    )
+                    .cpu()
+                    .numpy()
+                )
 
         for key in stacked_predictions:
             if RK.METADATA in key:

@@ -9,8 +9,8 @@ categories:
 - 'dataset_id'
 - 'cell_type'
 merge_keys:
-- z_human
-- z_mouse
+- z
+- z
 expression_log_dir: /mnt/projects/debruinz_project/denhofja/3m_expressions
 train_command:
   fit
