@@ -5,6 +5,7 @@ init_args:
     init_args:
       kl_weight: 1.0
   record_gradients: false
+  adv_weight: 25
   gradient_record_cap: 20
   module:
     class_path: cmmvae.modules.CMMVAE

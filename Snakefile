@@ -49,6 +49,11 @@ PREDICT_DIR = os.path.join(RUN_DIR, PREDICT_SUBDIR)
 UMAP_PATH = config.get("umap_dir", "umap")
 UMAP_DIR = os.path.join(RUN_DIR, UMAP_PATH)
 
+## Define the directory where meta discriminator tensorboard files will be saved.
+## Defaults to "meta_disc" within the run directory.
+META_DISC_PATH = config.get("meta_disc_dir", "meta_disc")
+META_DISC_DIR = os.path.join(RUN_DIR, META_DISC_PATH)
+
 ## Define a separate directory for merged outputs to avoid conflicts between different merge operations.
 MERGED_DIR = os.path.join(RUN_DIR, "merged")
 
@@ -77,6 +82,12 @@ EVALUATION_FILES = expand(
     key=MERGE_KEYS,
 )
 
+MD_FILES = expand(
+    "{md_logs}/events.out.tfevents.*",
+    md_logs=META_DISC_DIR
+
+)
+
 ## Construct the command to run the CMMVAE training pipeline.
 ## If a configuration directory is provided, it is included in the command; otherwise,
 ## individual parameters such as trainer, model, and data are passed explicitly.
@@ -96,7 +107,8 @@ MERGE_KEY_COMMAND = " ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS)
 ## by the end of the workflow.
 rule all:
     input:
-        EVALUATION_FILES
+        EVALUATION_FILES,
+        MD_FILES
 
 
 ## Define the rule for finding unique expressions for conditional layers
@@ -161,4 +173,18 @@ rule umap_predictions:
     shell:
         """
         cmmvae workflow umap-predictions --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
+        """
+
+rule meta_discriminators:
+    input:
+        CKPT_PATH
+    output:
+        MD_FILES,
+    params:
+        log_dir=META_DISC_DIR,
+        ckpt=CKPT_PATH,
+        config=TRAIN_CONFIG_FILE
+    shell:
+        """
+        cmmvae workflow meta-discriminator --log_dir {params.log_dir} --ckpt {params.ckpt} --config {params.config}
         """

@@ -10,7 +10,7 @@ from cmmvae.modules import CLVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 
 
-ADVERSERIAL_TYP = Union[Optional[FCBlockConfig], list[Optional[FCBlockConfig]]]
+adversarial_TYP = Union[Optional[FCBlockConfig], list[Optional[FCBlockConfig]]]
 
 
 class CMMVAE(nn.Module):
@@ -41,7 +41,7 @@ class CMMVAE(nn.Module):
         self,
         vae: CLVAE,
         experts: Experts,
-        adversarials: ADVERSERIAL_TYP = None,
+        adversarials: adversarial_TYP = None,
     ):
         super().__init__()
         self.vae = vae
@@ -73,7 +73,7 @@ class CMMVAE(nn.Module):
             metadata (pd.DataFrame): Metadata associated with the input data.
             expert_id (str): Identifier for the expert network to use.
             cross_generate (bool, optional):
-                Flag to enable cross-generation between experts.
+                Flag to enable cross-generation across experts.
                     Defaults to False.
 
         Returns:
@@ -85,8 +85,6 @@ class CMMVAE(nn.Module):
                 - z (torch.Tensor): Sampled latent variable.
                 - xhats (Dict[str, torch.Tensor]):
                     Reconstructed outputs for each expert.
-                - cg_xhats (Dict[str, torch.Tensor]):
-                    Cross-generated outputs if cross_generate is True.
                 - hidden_representations (List[torch.Tensor]):
                     Hidden representations from the VAE.
         """
@@ -99,7 +97,6 @@ class CMMVAE(nn.Module):
         )
 
         xhats = {}
-        cg_xhats = {}
 
         # Perform cross-generation if enabled
         if cross_generate:
@@ -112,20 +109,15 @@ class CMMVAE(nn.Module):
                     """
                 )
 
+            # Decode using all avaialble experts
             for expert in self.experts:
                 xhats[expert] = self.experts[expert].decode(shared_xhat)
 
-            for xhat_expert_id, xhat_expert in xhats.items():
-                if xhat_expert_id == expert_id:
-                    continue
-                shared_x = self.experts[xhat_expert_id].encode(xhat_expert)
-                _, _, _, shared_xhat, _ = self.vae(shared_x, metadata)
-                cg_xhats[xhat_expert_id] = self.experts[expert_id].decode(shared_xhat)
         else:
             # Decode using the specified expert
             xhats[expert_id] = self.experts[expert_id].decode(shared_xhat)
 
-        return qz, pz, z, xhats, cg_xhats, hidden_representations
+        return qz, pz, z, xhats, hidden_representations
 
     @torch.no_grad()
     def get_latent_embeddings(
@@ -150,5 +142,8 @@ class CMMVAE(nn.Module):
 
         # Encode using the VAE
         _, z, _ = self.vae.encode(x)
+
+        # Tag the metadata with the expert_id
+        metadata["species"] = expert_id
 
         return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}

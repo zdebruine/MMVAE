@@ -9,49 +9,6 @@ from cmmvae.modules import CMMVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 
 
-# Gradient reversal layer function
-class GradientReversalFunction(torch.autograd.Function):
-    """
-    Implements a gradient reversal layer (GRL) for adversarial training.
-
-    This function inverts the gradients during the backward pass, allowing
-    for adversarial objectives to be optimized in the opposite direction.
-
-    Attributes:
-        lambd (float): The scaling factor for gradient reversal.
-    """
-
-    @staticmethod
-    def forward(ctx, x: torch.Tensor, lambd: float) -> torch.Tensor:
-        """
-        Forward pass for gradient reversal.
-
-        Args:
-            ctx: Context object for storing information for backward computation.
-            x (torch.Tensor): Input tensor.
-            lambd (float): Scaling factor for gradient reversal.
-
-        Returns:
-            torch.Tensor: Output tensor, identical to input.
-        """
-        ctx.lambd = lambd
-        return x.view_as(x)
-
-    @staticmethod
-    def backward(ctx, grad_output: torch.Tensor) -> Tuple[torch.Tensor, None]:
-        """
-        Backward pass with reversed gradients.
-
-        Args:
-            ctx: Context object with stored information from forward computation.
-            grad_output (torch.Tensor): Gradient of the output with respect to input.
-
-        Returns:
-            Tuple[torch.Tensor, None]: Reversed gradient for input and None for lambd.
-        """
-        return grad_output.neg() * ctx.lambd, None
-
-
 class CMMVAEModel(BaseModel):
     r"""
     Conditional Multi-Modal Variational Autoencoder (CMMVAE) model for handling expert-specific data.
@@ -77,45 +34,61 @@ class CMMVAEModel(BaseModel):
         kl_annealing_fn (cmmvae.modules.base.KLAnnealingFn): KLAnnealingFn for weighting KL Divergence. Defaults to KLAnnealingFn(1.0).
     """
 
-    def __init__(self, module: CMMVAE, *args, **kwargs):
+    def __init__(self, module: CMMVAE, adv_weight=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.module = module
         self.automatic_optimization = (
             False  # Disable automatic optimization for manual control
         )
-        self.adversarial_criterion = (
-            nn.CrossEntropyLoss()
-        )  # Criterion for adversarial loss
+        # Criterion for adversarial loss
+        self.adversarial_criterion = nn.BCELoss(reduction="sum")
         self.init_weights()
+        self.adv_weight = adv_weight
 
-    def shared_adverserial_loss(
-        self, hidden_representations: list[torch.Tensor], expert_label: int
+    def shared_adversarial_loss(
+        self,
+        hidden_representations: list[torch.Tensor],
+        expert_id: str,
+        adversarial_optimizers,
     ):
         assert self.module.adversarials
-        losses = []
+
+        loss_dict = {}
+
+        human_label = torch.zeros(self.batch_size, 1, device=self.device)
+        mouse_label = torch.ones(self.batch_size, 1, device=self.device)
+
+        expert_labels = human_label if expert_id == "human" else mouse_label
+        trick_labels = human_label if expert_id == "mouse" else mouse_label
+
         for i, (hidden_rep, adv) in enumerate(
             zip(hidden_representations, self.module.adversarials)
         ):
-            # Create expert labels
-            expert_labels = torch.full(
-                (self.batch_size,),
-                expert_label,
-                dtype=torch.long,
-                device=hidden_rep.device,
-            )
-
-            # Apply gradient reversal
-            reversed_hidden_rep = GradientReversalFunction.apply(hidden_rep, 0.1)
-
             # Get adversarial predictions
-            adv_output = adv(reversed_hidden_rep)
+            adv_output = adv(hidden_rep)
 
             # Calculate adversarial loss
-            loss = self.adversarial_criterion(adv_output, expert_labels)
+            current_discriminator_loss = self.adversarial_criterion(
+                adv_output, expert_labels
+            )
 
-            losses.append(loss)
+            loss_dict[f"adv_{i}"] = current_discriminator_loss
 
-        return torch.stack(losses)
+            # Backpropagation for the adversarial
+            self.manual_backward(current_discriminator_loss, retain_graph=True)
+            adversarial_optimizers[i].step()
+
+        adv_losses = torch.empty((len(self.module.adversarials), 1))
+        for i, (hidden_rep, adv) in enumerate(
+            zip(hidden_representations, self.module.adversarials)
+        ):
+            # Get adversarial predictions
+            adv_output = adv(hidden_rep)
+
+            # Calculate adversarial loss
+            adv_losses[i] = self.adversarial_criterion(adv_output, trick_labels)
+
+        return torch.sum(adv_losses)
 
     def training_step(
         self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
@@ -130,13 +103,13 @@ class CMMVAEModel(BaseModel):
             batch_idx (int): Index of the batch.
         """
         x, metadata, expert_id = batch
-        expert_label = self.module.experts.labels[expert_id]
+        # expert_label = self.module.experts.labels[expert_id]
 
         # Retrieve optimizers
         optims = self.get_optimizers(zero_all=True)
         expert_optimizer = optims["experts"][expert_id]
         vae_optimizer = optims["vae"]
-        adversarial_optimizers = optims.get("adverserials")
+        adversarial_optimizers = optims.get("adversarials")
 
         # Perform forward pass and compute the loss
         qz, pz, z, xhats, cg_xhats, hidden_representations = self.module(
@@ -153,20 +126,13 @@ class CMMVAEModel(BaseModel):
 
         # Train adversarial networks
         if self.module.adversarials:
-            adv_losses = self.shared_adverserial_loss(
-                hidden_representations, expert_label
+            adv_loss = self.shared_adversarial_loss(
+                hidden_representations, expert_id, adversarial_optimizers
             )
-            loss_dict["adversarial_loss"] = torch.sum(adv_losses)
-
-            # Backpropagation for the adversarial
-            self.manual_backward(loss_dict["adversarial_loss"], retain_graph=True)
-            for optim in adversarial_optimizers.values():
-                optim.step()
-
-        loss = loss_dict[RK.LOSS]
+            loss_dict[RK.LOSS] = loss_dict[RK.LOSS] + adv_loss * self.adv_weight
 
         # Backpropagation for encoder and decoder
-        self.manual_backward(loss)
+        self.manual_backward(loss_dict[RK.LOSS])
 
         # Clip gradients for stability
         self.clip_gradients(
@@ -175,22 +141,6 @@ class CMMVAEModel(BaseModel):
         self.clip_gradients(
             expert_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm"
         )
-
-        # Handle inactive conditional modules
-        # inactive_modules = []
-        # if self.module.vae.conditionals:
-        #     for species, conditional_list in self.module.vae.conditionals.layers.items():
-        #         for cl in conditional_list:
-        #             print(cl)
-        #             inactive = cl.unique_conditions - cl.active_condition_modules
-        #             inactive_modules.extend(
-        #                 [cl.conditions[key] for key in cl.conditions if key in inactive]
-        #             )
-
-        # for module in inactive_modules:
-        #     for param in module.parameters():
-        #         if param.grad is not None:
-        #             param.grad.zero_()
 
         # Update the weights
         vae_optimizer.step()
@@ -210,12 +160,10 @@ class CMMVAEModel(BaseModel):
             batch (tuple): Batch of data containing inputs, metadata, and expert ID.
         """
         x, metadata, expert_id = batch
-        expert_label = self.module.experts.labels[expert_id]
+        # expert_label = self.module.experts.labels[expert_id]
 
         # Perform forward pass and compute the loss
-        qz, pz, z, xhats, cg_xhats, hidden_representations = self.module(
-            x, metadata, expert_id
-        )
+        qz, pz, z, xhats, hidden_representations = self.module(x, metadata, expert_id)
 
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
@@ -224,13 +172,6 @@ class CMMVAEModel(BaseModel):
         loss_dict = self.module.vae.elbo(
             qz, pz, x, xhats[expert_id], self.kl_annealing_fn.kl_weight
         )
-
-        if self.module.adversarials:
-            adv_losses = self.shared_adverserial_loss(
-                hidden_representations, expert_label
-            )
-            for i, loss in enumerate(adv_losses):
-                loss_dict[f"adv_{i}"] = loss
 
         self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
 

@@ -328,19 +328,18 @@ class BaseModel(pl.LightningModule):
                         .numpy()
                     )
 
-            for key in stacked_predictions:
-                if RK.METADATA in key:
-                    continue
-                species = "" if not species else f"_{species}"
-                self.save_latent_predictions(
-                    embeddings=stacked_predictions[key],
-                    metadata=stacked_predictions[f"{key}_{RK.METADATA}"],
-                    embeddings_path=os.path.join(
-                        self.predict_dir,
-                        f"{key}{species}_embeddings_{self._curr_save_idx}.npz",
-                    ),
-                    metadata_path=os.path.join(
-                        self.predict_dir,
-                        f"{key}{species}_metadata_{self._curr_save_idx}.pkl",
-                    ),
-                )
+        for key in stacked_predictions:
+            if RK.METADATA in key:
+                continue
+
+            self.save_latent_predictions(
+                embeddings=stacked_predictions[key],
+                metadata=stacked_predictions[f"{key}_{RK.METADATA}"],
+                embeddings_path=os.path.join(
+                    self.predict_dir, f"{key}_embeddings_{self._curr_save_idx}.npz"
+                ),
+                metadata_path=os.path.join(
+                    self.predict_dir, f"{key}_metadata_{self._curr_save_idx}.pkl"
+                ),
+            )
+        self._running_predictions.clear()
