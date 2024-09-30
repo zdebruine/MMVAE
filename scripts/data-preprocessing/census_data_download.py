@@ -10,8 +10,7 @@ from data_processing_functions import normalize_data, save_data_to_disk, verify_
 
 VALUE_FILTER = 'is_primary_data == True and assay in ["microwell-seq", "10x 3\' v1", "10x 3\' v2", "10x 3\' v3", "10x 3\' transcription profiling", "10x 5\' transcription profiling", "10x 5\' v1", "10x 5\' v2"]'
 VALID_SPECIES = ["homo_sapiens", "mus_musculus"]
-SPECIES_MAP = {"homo_sapies": "human", "mus_musculus": "mouse"}
-CHUNK_SIZE = 499968
+SPECIES_MAP = {"homo_sapiens": "human", "mus_musculus": "mouse"}
 
 def process_chunk(census: tdb.Collection, species: str, ids: list[int], chunk_n: int, save_dir: os.PathLike):
     adata = cellxgene_census.get_anndata(census, species, "RNA", "raw", obs_value_filter=VALUE_FILTER, obs_coords=ids)
@@ -21,10 +20,10 @@ def process_chunk(census: tdb.Collection, species: str, ids: list[int], chunk_n:
         data_path=os.path.join(save_dir, f'{SPECIES_MAP[species]}_counts_{chunk_n}.npz'),
         data=adata.X[permutation, :],
         metadata_path=os.path.join(save_dir, f'{SPECIES_MAP[species]}_metadata_{chunk_n}.pkl'),
-        metdata=adata.obs[permutation].reset_index(drop=True)
+        metdata=adata.obs.iloc[permutation].reset_index(drop=True)
     )
 
-def main(directory: os.PathLike, species: str, seed: int):
+def main(directory: os.PathLike, species: str, chunk_size: int, seed: int, sample_size: int):
 
     if species not in VALID_SPECIES:
         raise ValueError(f"Error: Invalid species provided - {species}. Valid values are: {VALID_SPECIES}")
@@ -44,19 +43,31 @@ def main(directory: os.PathLike, species: str, seed: int):
         np.random.seed(seed)
         np.random.shuffle(soma_ids)
 
-        chunk_count = 0
-        for i in range(0, len(soma_ids), CHUNK_SIZE):
-            chunk_count += 1
-            process_chunk(census, species, soma_ids[i:i+CHUNK_SIZE], chunk_count, directory)
+        if sample_size is not None:
+            soma_ids = np.random.choice(soma_ids, sample_size, replace=False)
 
-    verify_data(directory, SPECIES_MAP[species], set_ids, CHUNK_SIZE, chunk_count, num_samples - (CHUNK_SIZE * (chunk_count - 1)))
+        chunk_count = 0
+        for i in range(0, len(soma_ids), chunk_size):
+            chunk_count += 1
+            process_chunk(census, species, soma_ids[i:i+chunk_size], chunk_count, directory)
+
+    verify_data(directory, SPECIES_MAP[species], set_ids, chunk_size, chunk_count, num_samples % chunk_size)
     
 
 if __name__ == "__main__":
     parser = ap.ArgumentParser()
     parser.add_argument("--directory", type=str, required=True, help="Directory to save data in.")
     parser.add_argument("--species", type=str, required=True, help="Species to download data for.")
-    parser.add_argument("--seed", type=int, required=False, default=42)
+    parser.add_argument("--chunk_size", type=int, required=True, help="Number of samples to save in each chunk of data.")
+    parser.add_argument("--seed", type=int, required=False, default=42, help="Seed for the random module")
+    parser.add_argument("--sample_size", type=int, required=False, default=None, help="Number of samples to grab out of total. Omit to get all data.")
 
     args = parser.parse_args()
-    main(args.directory, args.species, args.seed)
+
+    main(
+        directory= args.directory,
+        species= args.species,
+        chunk_size= args.chunk_size,
+        seed= args.seed,
+        sample_size= args.sample_size
+    )
