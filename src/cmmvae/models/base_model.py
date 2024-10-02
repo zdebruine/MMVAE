@@ -31,7 +31,7 @@ def tag_log_dict(
     """
 
     if key_pos not in ("last", "first"):
-        raise ValueError("Key position {key_pos} is not supported!")
+        raise ValueError(f"Key position {key_pos} is not supported!")
 
     tags_str = sep.join(tags)
 
@@ -59,7 +59,6 @@ class BaseModel(pl.LightningModule):
 
     def __init__(
         self,
-        batch_size: int = 128,
         record_gradients: bool = False,
         save_gradients_interval: int = 25,
         gradient_record_cap: int = 20,
@@ -89,8 +88,7 @@ class BaseModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore=["module"], logger=False)
 
-        self.batch_size = batch_size
-        self.record_gradients: bool = record_gradients
+        self.record_gradients = record_gradients
         self.save_gradients_interval: int = save_gradients_interval
         self.gradient_record_cap: int = gradient_record_cap
         self.predict_dir = predict_dir
@@ -131,7 +129,7 @@ class BaseModel(pl.LightningModule):
             metadata_path (str): name of metadata file
         """
         for path in (metadata_path, embeddings_path):
-            if not os.path.isabs(path):
+            if not os.path.isabs(path) and self.logger and self.logger.log_dir:
                 path = os.path.join(self.logger.log_dir, path)
             directory = os.path.dirname(path)
 
@@ -160,8 +158,10 @@ class BaseModel(pl.LightningModule):
             return "prediction"
         elif self.trainer.testing:
             return "test"
+        else:
+            return ""
 
-    def save_gradient(self, tag, grad):
+    def save_gradient(self, tag, grad, use_gradient_label: bool = True):
         """
         Save a gradient to TensorBoard.
 
@@ -169,6 +169,8 @@ class BaseModel(pl.LightningModule):
             tag (str): Tag for the gradient.
             grad (torch.Tensor): The gradient tensor.
         """
+        if use_gradient_label:
+            tag = f"gradients/{tag}"
         self.logger.experiment.add_histogram(
             tag=tag, values=grad, global_step=self.trainer.global_step
         )
@@ -179,11 +181,11 @@ class BaseModel(pl.LightningModule):
 
         This is a no-op if the number of named parameters exceeds gradient_record_cap to prevent clogging TensorBoard.
         """
-        if len(self.named_parameters()) > self.gradient_record_cap:
+        if len(list(self.named_parameters())) > self.gradient_record_cap:
             self.record_gradients = False
             return
         for k, v in self.named_parameters():
-            if v.requires_grad:
+            if v.grad is not None:
                 self.save_gradient(k, v.grad)
 
     @property
@@ -278,7 +280,6 @@ class BaseModel(pl.LightningModule):
             on_step=self.trainer.training,
             on_epoch=True,
             logger=True,
-            batch_size=self.batch_size,
         )
 
     def on_predict_epoch_start(self):
@@ -291,7 +292,7 @@ class BaseModel(pl.LightningModule):
             self._save_paired_predictions()
         self._running_predictions.clear()
 
-    def save_predictions(self, predictions: np.ndarray, idx: int):
+    def save_predictions(self, predictions, idx: int):
         """
         Accumulate predictions and save periodically dicated by :attr:`predict_save_interval`.
 
@@ -308,7 +309,6 @@ class BaseModel(pl.LightningModule):
     def _save_paired_predictions(self):
         self._curr_save_idx += 1
         stacked_predictions = {}
-
         for key in self._running_predictions[0].keys():
             if isinstance(self._running_predictions[0][key], pd.DataFrame):
                 stacked_predictions[key] = pd.concat(
