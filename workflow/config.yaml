@@ -1,19 +1,20 @@
 # Experiment Parameters
 root_dir: lightning_logs
-
 config_name: config.yaml
-experiment_name: experiment
-run_name: version000
-
-predict_dir: samples
-
-train_command: fit --trainer configs/trainer/config.test.yaml --model configs/model/config.yaml --data configs/data/local.yaml
-
+experiment_name: default
 categories:
 - 'donor_id'
 - 'assay'
 - 'dataset_id'
 - 'cell_type'
-
+- 'species'
 merge_keys:
 - z
+expression_log_dir: /mnt/projects/debruinz_project/denhofja/3m_expressions
+train_command:
+  fit
+  --data configs/data/local.yaml
+  --model configs/model/config.yaml
+  --data.init_args.shared_conditionals '['assay']'
+  --data.conditionals_directory /mnt/projects/debruinz_project/3m_expressions
+  --model.init_args.module.init_args.vae.init_args.conditionals '['assay','dataset_id','donor_id','species']'

@@ -1,5 +1,6 @@
-from typing import List, Literal, Optional, Type, TypeVar, Union
-
+import os
+from typing import Callable, List, Literal, Optional, Type, TypeVar, Union
+import random
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -194,8 +195,8 @@ class FCBlock(nn.Module):
         super().__init__()
 
         # Validate config is compatible with FCBlockConfig
+        config.validate()
         self.config = config
-        self.config.validate()
         layers = zip(self.config.layers[:-1], self.config.layers[1:])
         # Create fully connected layers
         self.fc_layers = nn.Sequential(
@@ -320,15 +321,11 @@ class ConditionalLayer(nn.Module):
         super(ConditionalLayer, self).__init__()
 
         self.batch_key = batch_key
-        self.unique_conditions = {
-            self.format_condition_key(condition)
-            for condition in pd.read_csv(conditions_path, header=None)[0]
-        }
 
         self.conditions = nn.ModuleDict(
             {
-                condition: FCBlock(fc_block_config)
-                for condition in self.unique_conditions
+                self.format_condition_key(condition): FCBlock(fc_block_config)
+                for condition in pd.read_csv(conditions_path, header=None)[0]
             }
         )
 
@@ -348,38 +345,102 @@ class ConditionalLayer(nn.Module):
         self, x: torch.Tensor, metadata: pd.DataFrame, condition: Optional[str] = None
     ):
         """
-        Run forward pass through each metadata label specific condition
-        layer. The metadata is grouped by the batch_key and the indices
-        are used to mask the input tensor. The resulting Tensors are
-        summed to form the output batch maintaining original sample order.
+        Run forward pass through each metadata label-specific condition layer.
+        The metadata is used to index the input tensor based on conditions.
+        The resulting tensors are combined to form the output batch,
+        maintaining the original sample order.
 
         Args:
             x (torch.Tensor):
                 Input tensor.
             metadata (pd.DataFrame):
-                Metadata dataframe with corresponding batch_key
+                Metadata dataframe with corresponding batch_key.
             condition (str, optional):
-                If available, all samples passed through this condition.
+                If provided, all samples are passed through this condition.
 
         Returns:
-            torch.Tensor: Output tensor of same shape as input.
+            torch.Tensor: Output tensor of the same shape as the input.
         """
         if condition:
-            return self.conditions[condition](x), metadata
-
-        active_conditions = set()
-        xhat = torch.zeros_like(x)
-
-        for condition, group_df in metadata.groupby(self.batch_key):
             condition = self.format_condition_key(condition)
-            mask = torch.zeros(len(metadata), dtype=int, device=x.device)
-            mask[group_df.index] = 1
-            xhat = xhat + self.conditions[condition](x * mask.unsqueeze(1))
-            active_conditions.add(condition)
+            return self.conditions[condition](x)
 
-        self.active_condition_modules = active_conditions
+        device = x.device
+
+        # Extract condition keys for the batch
+        condition_keys = (
+            metadata[self.batch_key]
+            .astype(str)
+            .apply(self.format_condition_key)
+            .tolist()
+        )
+
+        # Map conditions to sample indices
+        condition_to_indices = {}
+        for idx, cond_key in enumerate(condition_keys):
+            condition_to_indices.setdefault(cond_key, []).append(idx)
+
+        xhat = torch.empty_like(x)
+
+        # Process samples for each condition in a batch
+        for cond_key, indices in condition_to_indices.items():
+            indices_tensor = torch.tensor(indices, device=device)
+            x_cond = x.index_select(0, indices_tensor)
+            x_cond_processed = self.conditions[cond_key](x_cond)
+            xhat.index_copy_(0, indices_tensor, x_cond_processed)
 
         return xhat
+
+
+def _is_valid_file(fname, batch_key):
+    return fname == f"unique_expression_{batch_key}.csv"
+
+
+def collect_species_files(
+    directory,
+    batch_keys,
+    species_files=None,  # Holds species names and their batch_keys with file paths
+    is_valid_file: Optional[Callable[[str, str], bool]] = None,
+):
+    if is_valid_file is None:
+        is_valid_file = _is_valid_file
+
+    if species_files is None:
+        species_files = {}
+
+    # Collect batch_keys present in 'shared' directory
+    shared_dir = os.path.join(directory, "shared")
+    shared_files = {}
+    if os.path.isdir(shared_dir):
+        for fname in os.listdir(shared_dir):
+            file_path = os.path.join(shared_dir, fname)
+            if os.path.isfile(file_path):
+                for batch_key in batch_keys:
+                    if is_valid_file(fname, batch_key):
+                        shared_files[batch_key] = file_path
+                        break  # Stop checking other batch_keys for this file
+
+    species_files["shared"] = shared_files
+
+    # Collect batch_keys for each species excluding 'shared'
+    for entry in os.listdir(directory):
+        species_dir_path = os.path.join(directory, entry)
+        if os.path.isdir(species_dir_path) and entry != "shared":
+            species_name = entry
+            species_specific_files = {}
+            for fname in os.listdir(species_dir_path):
+                file_path = os.path.join(species_dir_path, fname)
+                if os.path.isfile(file_path):
+                    for batch_key in batch_keys:
+                        if is_valid_file(fname, batch_key):
+                            # Only add if batch_key is not in shared
+                            if batch_key not in shared_files:
+                                species_specific_files[batch_key] = file_path
+                            break  # Stop checking other batch_keys for this file
+            if species_specific_files:
+                species_files[species_name] = species_specific_files
+    print(f"Collected species files {species_files}")
+    return species_files
 
 
 class ConditionalLayers(nn.Module):
@@ -396,7 +457,8 @@ class ConditionalLayers(nn.Module):
 
     def __init__(
         self,
-        conditional_paths: dict[str, str],
+        directory: str,
+        conditionals: list[str],
         fc_block_config: FCBlockConfig,
         selection_order: Optional[list[str]] = None,
     ):
@@ -421,45 +483,121 @@ class ConditionalLayers(nn.Module):
         """
         super(ConditionalLayers, self).__init__()
 
+        if not os.path.exists(directory):
+            print(
+                "Could not intialize the conditional layers either due to the directory not existing yet"
+            )
+            return
+        # Prevent parsing the species conditional as no conditional layer is needed
+        conditionals.remove("species")
+        conditional_paths = collect_species_files(directory, conditionals)
+        conditionals.append("species")
+
+        self.shared_conditionals = list(conditional_paths["shared"].keys())
+
+        self.shuffle_selection_order = False
         if not selection_order:
-            selection_order = list(conditional_paths.keys())
+            selection_order = conditionals
             self.shuffle_selection_order = True
-        else:
-            self.shuffle_selection_order = False
 
-        self.selection_order = torch.arange(
-            0, len(selection_order), dtype=torch.int32, requires_grad=False
-        )
+        # Add all shared conditional layers
+        layer_dict = {
+            batch_key: ConditionalLayer(
+                batch_key,
+                conditional_paths["shared"][batch_key],
+                fc_block_config,
+            )
+            for batch_key in conditional_paths["shared"]
+        }
 
-        self.layers = nn.ModuleList(
-            [
-                ConditionalLayer(
-                    batch_key, conditional_paths[batch_key], fc_block_config
+        # Find all species specific conditionals
+        species_specific = {}
+        for species in conditional_paths:
+            if species == "shared":
+                continue
+            for batch_key in conditional_paths[species]:
+                if not species_specific.get(batch_key):
+                    species_specific[batch_key] = {}
+                species_specific[batch_key].update(
+                    {species: conditional_paths[species][batch_key]}
                 )
-                for batch_key in selection_order
-            ]
-        )
 
-    def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
+        for batch_key in species_specific:
+            if batch_key in layer_dict:
+                raise RuntimeError(
+                    f"batch_key '{batch_key}' is shared but attempted to make species specific"
+                )
+
+            layer_dict.update(
+                {
+                    batch_key: nn.ModuleDict(
+                        {
+                            species: ConditionalLayer(
+                                batch_key,
+                                conditions_path,
+                                fc_block_config,
+                            )
+                            for species, conditions_path in species_specific[
+                                batch_key
+                            ].items()
+                        }
+                    )
+                }
+            )
+
+        if "species" in conditionals:
+            assert "species" not in layer_dict
+            layer_dict.update(
+                {
+                    "species": nn.ModuleDict(
+                        {
+                            species: FCBlock(fc_block_config)
+                            for species in conditional_paths
+                            if species != "shared"
+                        }
+                    )
+                }
+            )
+
+        self.layers = nn.ModuleDict(layer_dict)
+        self.selection_order = selection_order
+
+    def forward(
+        self, x: torch.Tensor, metadata: pd.DataFrame, species: Optional[str] = None
+    ):
         """
-        Run forward pass through each :class:`ConditionLayer`
-            either shuffled or in-order.
+        Run forward pass through each ConditionLayer
+        either shuffled or in-order.
 
         Args:
             x (torch.Tensor): Input tensor
             metadata (pd.DataFrame): Input metadata
+            species (Optional[str]): Species identifier for species-specific layers.
 
         Returns:
-            torch.Tensor: Resulting torch.Tensor
+            torch.Tensor: Resulting tensor after applying the layers.
         """
-        order = self.selection_order
 
+        # Determine the selection order
         if self.shuffle_selection_order:
-            permutation = torch.randperm(self.selection_order.size(0))
-            order = order[permutation]
+            # Shuffle the selection order using Python's random module
+            order = random.sample(self.selection_order, len(self.selection_order))
+        else:
+            order = self.selection_order
 
-        for idx in order:
-            x = self.layers[idx](x, metadata)
+        # Apply each layer in the determined order
+        for conditional in order:
+            layer = self.layers[conditional]
+            if isinstance(layer, nn.ModuleDict):
+                if species is None:
+                    raise RuntimeError(
+                        f"'species' must be set to access non-shared conditional layer for batch_key '{conditional}'"
+                    )
+                layer = layer[species]
+            if isinstance(layer, ConditionalLayer):
+                x = layer(x, metadata)
+            else:
+                x = layer(x)
 
         return x
 
@@ -657,3 +795,26 @@ class Experts(nn.ModuleDict):
     def __init__(self, experts: list[Expert]):
         super().__init__({expert.id: expert for expert in experts})
         self.labels = {key: i for i, key in enumerate(self.keys())}
+
+
+class GradientReversalFunction(torch.autograd.Function):
+    """
+    Gradient reversal layer as introduced in [Ganin2016]_.
+
+    Implementation from GitHub: fungtion/DANN
+    Specifically: https://github.com/fungtion/DANN/blob/476147f70bb818a63bb3461a6ecc12f97f7ab15e/models/functions.py
+
+    Reference Source: https://github.com/ohlerlab/liam/blob/main/liam/_mymodule.py#L150
+    """
+
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha
+
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        output = grad_output.neg() * ctx.alpha
+
+        return output, None

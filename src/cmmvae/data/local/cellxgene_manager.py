@@ -3,6 +3,12 @@ from typing import Union
 from cmmvae.data.local.cellxgene_datapipe import SpeciesDataPipe
 
 
+def wrap_in_list(value):
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
 class SpeciesManager:
     """
     SpeciesManager is responsible for managing data pipelines for species data.
@@ -56,12 +62,12 @@ class SpeciesManager:
         """
         super().__init__()
         self.directory_path = directory_path
-        self.train_npz_masks = train_npz_masks
-        self.val_npz_masks = val_npz_masks
-        self.train_metadata_masks = train_metadata_masks
-        self.val_metadata_masks = val_metadata_masks
-        self.test_npz_masks = test_npz_masks
-        self.test_metadata_masks = test_metadata_masks
+        self.train_npz_masks = wrap_in_list(train_npz_masks)
+        self.val_npz_masks = wrap_in_list(val_npz_masks)
+        self.train_metadata_masks = wrap_in_list(train_metadata_masks)
+        self.val_metadata_masks = wrap_in_list(val_metadata_masks)
+        self.test_npz_masks = wrap_in_list(test_npz_masks)
+        self.test_metadata_masks = wrap_in_list(test_metadata_masks)
         self.batch_size = batch_size
         self.return_dense = return_dense
         self.verbose = verbose
