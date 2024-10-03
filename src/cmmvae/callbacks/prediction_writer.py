@@ -1,74 +1,94 @@
 from typing import Any, Optional, Sequence
 import os
+import warnings
 from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import BasePredictionWriter
 import pandas as pd
 import numpy as np
 import h5py
 import torch
-import warnings
+
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 
-def save_to_hdf5(hdf5_filepath, key, data, metadata, strict=True):
+def save_to_hdf5(
+    data: np.ndarray,
+    metadata: pd.DataFrame,
+    hdf5_filepath: str,
+    key: str,
+    strict: bool = True,
+):
     """
     Save numpy array `data` and pandas DataFrame `metadata` to HDF5 file.
     Each column in the metadata DataFrame will be stored as a separate dataset.
     """
+
     with h5py.File(hdf5_filepath, "a") as h5file:
-        if f"{key}/data" in h5file and f"{key}/metadata" in h5file:
-            dataset = h5file[f"{key}/data"]
-            new_size = dataset.shape[0] + data.shape[0]
-            dataset.resize(new_size, axis=0)
-            dataset[-data.shape[0] :] = data  # Append new batch
+        group = h5file[key]
+
+        if RK.PREDICT_SAMPLES in group and RK.METADATA in group:
+            sample_ds = group[RK.PREDICT_SAMPLES]
+            metadata_ds = group[RK.METADATA]
+
+            new_size = sample_ds.shape[0] + data.shape[0]
+            sample_ds.resize(new_size, axis=0)
+            sample_ds[-data.shape[0] :] = data  # Append new batch
 
             # Append metadata column-wise
             for col in metadata.columns:
                 column_data = metadata[col].values
-                if f"{key}/metadata/{col}" not in h5file:
+                if col not in metadata_ds:
                     if strict:
                         raise RuntimeError(
-                            f"metadata column {col} not in h5file for key {key}/metadata/{col}"
+                            f"metadata column {col} not in h5file for group_key {key}/{RK.METADATA}/{col}"
                         )
                     else:
                         continue
 
-                metadata_dataset = h5file[f"{key}/metadata/{col}"]
-                metadata_dataset.resize(new_size, axis=0)
-                metadata_dataset[-len(column_data) :] = column_data
+                metadata_ds[col].resize(new_size, axis=0)
+                metadata_ds[col][-len(column_data) :] = column_data
         else:
             # Create a new dataset for `data`
-            h5file.create_dataset(
-                f"{key}/data", data=data, maxshape=(None,) + data.shape[1:], chunks=True
+            group.create_dataset(
+                RK.PREDICT_SAMPLES,
+                data=data,
+                maxshape=(None,) + data.shape[1:],
+                chunks=True,
             )
 
             # Create metadata datasets, one for each column
-            metadata_group = h5file.create_group(f"{key}/metadata")
+            metadata_group = group.create_group(RK.METADATA)
             for col in metadata.columns:
                 metadata_group.create_dataset(
-                    f"{col}", data=metadata[col].values, maxshape=(None,), chunks=True
+                    col, data=metadata[col].values, maxshape=(None,), chunks=True
                 )
 
 
-def load_from_hdf5(hdf5_filepath, key):
+def load_from_hdf5(hdf5_filepath: str, key: str):
     """
     Load numpy array `data` and pandas DataFrame `metadata` from HDF5 file.
     """
+    data = None
+    metadata = None
+    embedding = None
+
     with h5py.File(hdf5_filepath, "r") as h5file:
-        # Load the data array
-        data = h5file[f"{key}/data"][:]
+        group = h5file[key]
 
-        # Load metadata as individual columns
-        metadata_group = h5file[f"{key}/metadata"]
-        metadata_dict = {col: metadata_group[col][:] for col in metadata_group.keys()}
+        if RK.PREDICT_SAMPLES in group:
+            data = group[RK.PREDICT_SAMPLES][:]
 
-        embedding = None
-        if f"{key}/umap_embedding" in h5file:
-            embedding = h5file[f"{key}/umap_embedding"][:]
+        if RK.METADATA in group:
+            # Load metadata as individual columns
+            metadata_group = group[RK.METADATA]
+            metadata = pd.DataFrame(
+                {col: metadata_group[col][:] for col in metadata_group.keys()}
+            )
 
-        # Rebuild the DataFrame from columns
-        metadata = pd.DataFrame(metadata_dict)
+        if RK.UMAP_EMBEDDINGS in group:
+            embedding = group[RK.UMAP_EMBEDDINGS][:]
 
-        return data, metadata, embedding
+    return data, metadata, embedding
 
 
 class PredictionWriter(BasePredictionWriter):
@@ -127,9 +147,7 @@ class PredictionWriter(BasePredictionWriter):
 
         for key, (data, metadata) in prediction.items():
             data = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
-            save_to_hdf5(
-                hdf5_filepath=self.hdf5_filepath, key=key, data=data, metadata=metadata
-            )
+            save_to_hdf5(data, metadata, self.hdf5_filepath, key)
 
         self._curr_size += list(prediction.values())[0][0].shape[
             0

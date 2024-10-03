@@ -3,6 +3,7 @@ Generate UMAPs from embeddings and metadata.
 """
 from typing import Optional
 import os
+import sys
 import umap
 import numpy as np
 import pandas as pd
@@ -11,6 +12,7 @@ import h5py
 from pathlib import Path
 
 from cmmvae.callbacks.prediction_writer import load_from_hdf5
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 
 def load_embeddings(npz_path, meta_path):
@@ -31,7 +33,7 @@ def umap_embeddings(
     n_epochs=200,
     **kwargs,
 ):
-    print("Fitting umap embeddings...")
+    sys.stderr.write("Fitting umap embeddings...\n")
     reducer = umap.UMAP(
         n_neighbors=n_neighbors,
         min_dist=min_dist,
@@ -44,7 +46,7 @@ def umap_embeddings(
     )
 
     embedding = reducer.fit_transform(X)
-    print("Done fitting umap embeddings.")
+    sys.stderr.write("Done fitting umap embeddings.\n")
     return embedding
 
 
@@ -129,10 +131,16 @@ def plot_umap_h5(
         if embeddings is None:
             embeddings = umap_embeddings(data)
             with h5py.File(hdf5_filepath, "a") as h5file:
-                if f"{key}/umap_embeddings" in h5file:
-                    del h5file[f"{key}/umap_embeddings"]
-                h5file.create_dataset(
-                    f"{key}/umap_embeddings",
+                ds = h5file.get(key)
+
+                if not ds:
+                    raise KeyError("{key} not found in h5py file")
+
+                if RK.UMAP_EMBEDDINGS in ds:
+                    del ds[RK.UMAP_EMBEDDINGS]
+
+                ds.create_dataset(
+                    RK.UMAP_EMBEDDINGS,
                     data=embeddings,
                     shape=embeddings.shape,
                     maxshape=embeddings.shape,
@@ -140,7 +148,8 @@ def plot_umap_h5(
                 )
 
         save_dir = os.path.dirname(hdf5_filepath) if not save_dir else save_dir
-        print(f"Plotting cateogrys for key {key}")
+        os.makedirs(save_dir, exist_ok=True)
+        sys.stderr.write(f"Plotting cateogrys for key {key}\n")
         image_paths.extend(
             [
                 plot_category(
@@ -149,7 +158,7 @@ def plot_umap_h5(
                 for category in categories
             ]
         )
-    print(f"Plotted images at {image_paths}")
+    sys.stderr.write(f"Plotted images at {image_paths}\n")
     return image_paths
 
 
@@ -264,16 +273,19 @@ def add_images_to_tensorboard(
     writer = SummaryWriter(log_dir=log_dir)
 
     for image_path in image_paths:
+        image_tag = tag
         image_path = Path(image_path)
         image = Image.open(image_path)
         image = np.array(image)
         image = tensor(image).permute(2, 0, 1)
-        if not tag:
+
+        if not image_tag:
             path = os.path.normpath(image_path)
             components = path.split(os.sep)
-            tag = os.path.join(*components[-2:])
-        print(f"Adding image to tensorboard -- {image_path}: {tag}")
-        writer.add_image(tag, image, global_step=0)
+            image_tag = os.path.join(*components[-2:])
+
+        writer.add_image(image_tag, image, global_step=0)
+        sys.stderr.write(f"Added image to tensorboard: {image_tag}\n\t{image_path}\n")
     writer.close()
 
 

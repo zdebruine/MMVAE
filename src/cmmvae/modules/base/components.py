@@ -488,8 +488,10 @@ class ConditionalLayers(nn.Module):
                 "Could not intialize the conditional layers either due to the directory not existing yet"
             )
             return
-
+        # Prevent parsing the species conditional as no conditional layer is needed
+        conditionals.remove("species")
         conditional_paths = collect_species_files(directory, conditionals)
+        conditionals.append("species")
 
         self.shared_conditionals = list(conditional_paths["shared"].keys())
 
