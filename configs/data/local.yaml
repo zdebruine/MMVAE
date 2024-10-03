@@ -7,7 +7,7 @@ init_args:
       return_dense: true
       batch_size: 128
       directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
-      train_npz_masks: 
+      train_npz_masks:
       - 3m_human_counts_1.npz
       - 3m_human_counts_2.npz
       - 3m_human_counts_3.npz
@@ -46,7 +46,7 @@ init_args:
       return_dense: true
       batch_size: 128
       directory_path: /mnt/projects/debruinz_project/summer_census_data/3m_subset
-      train_npz_masks: 
+      train_npz_masks:
       - 3m_mouse_counts_1.npz
       - 3m_mouse_counts_2.npz
       - 3m_mouse_counts_3.npz
@@ -82,3 +82,7 @@ init_args:
   num_workers: 2
   n_val_workers: 1
   n_test_workers: 1
+  conditionals_directory: /mnt/projects/debruinz_project/denhofja/3m_expressions
+  shared_conditionals:
+  - species
+  - assay

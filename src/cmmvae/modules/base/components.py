@@ -209,7 +209,9 @@ class FCBlock(nn.Module):
                 dropout_rate=config.dropout_rate[i],
                 return_hidden=config.return_hidden[i],
             )
-            for i, (n_in, n_out) in enumerate(zip(self.config.layers[:-1], self.config.layers[1:]))
+            for i, (n_in, n_out) in enumerate(
+                zip(self.config.layers[:-1], self.config.layers[1:])
+            )
         ]
 
         self.fc_layers = nn.Sequential(*layers)
@@ -487,10 +489,9 @@ class ConditionalLayers(nn.Module):
         super(ConditionalLayers, self).__init__()
 
         if not os.path.exists(directory):
-            print(
-                "Could not intialize the conditional layers either due to the directory not existing yet"
+            raise FileNotFoundError(
+                f"Could not intialize the conditional layers either due to the directory not existing yet\n{directory}"
             )
-            return
         # Prevent parsing the species conditional as no conditional layer is needed
         conditionals.remove("species")
         conditional_paths = collect_species_files(directory, conditionals)
@@ -652,6 +653,8 @@ class Encoder(nn.Module):
             var_eps (float, optional):
                 Small epsilon value for numerical stability
                     in variance calculation. Defaults to 1e-4.
+        @reference: Heavily inspired by scvi-encoder at:
+            https://docs.scvi-tools.org/en/stable/api/reference/scvi.nn.Encoder.html
         """
         super().__init__()
         self.fc = FCBlock(fc_block_config)

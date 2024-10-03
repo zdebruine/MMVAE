@@ -108,6 +108,20 @@ class BaseModel(pl.LightningModule):
         if self._use_he_init_weights:
             init.he_init_weights(self)
 
+    def log_gradient_norms(self, optimizer_dict, tag_prefix="grad_norms"):
+        for name, optimizer in optimizer_dict.items():
+            if isinstance(optimizer, dict):
+                self.log_gradient_norms(optimizer, f"{tag_prefix}/{name}")
+            else:
+                total_norm = 0.0
+                for group in optimizer.param_groups:
+                    for param in group["params"]:
+                        if param.grad is not None:
+                            param_norm = param.grad.data.norm(2)
+                            total_norm += param_norm.item() ** 2
+                total_norm = total_norm**0.5
+                self.log(f"{tag_prefix}/{name}", total_norm)
+
     def save_latent_predictions(
         self,
         embeddings: np.ndarray,
