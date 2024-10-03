@@ -1,5 +1,6 @@
 import os
 from typing import Callable, List, Literal, Optional, Type, TypeVar, Union
+from collections import OrderedDict
 import random
 import pandas as pd
 import torch
@@ -197,21 +198,21 @@ class FCBlock(nn.Module):
         # Validate config is compatible with FCBlockConfig
         config.validate()
         self.config = config
-        layers = zip(self.config.layers[:-1], self.config.layers[1:])
-        # Create fully connected layers
-        self.fc_layers = nn.Sequential(
-            *[
-                self._make_layer(
-                    n_in=n_in,
-                    n_out=n_out,
-                    use_batch_norm=config.use_batch_norm[i],
-                    use_layer_norm=config.use_layer_norm[i],
-                    activation_fn=config.activation_fn[i],
-                    dropout_rate=config.dropout_rate[i],
-                )
-                for i, (n_in, n_out) in enumerate(layers)
-            ]
-        )
+
+        layers = [
+            self._make_layer(
+                n_in=n_in,
+                n_out=n_out,
+                use_batch_norm=config.use_batch_norm[i],
+                use_layer_norm=config.use_layer_norm[i],
+                activation_fn=config.activation_fn[i],
+                dropout_rate=config.dropout_rate[i],
+                return_hidden=config.return_hidden[i],
+            )
+            for i, (n_in, n_out) in enumerate(zip(self.config.layers[:-1], self.config.layers[1:]))
+        ]
+
+        self.fc_layers = nn.Sequential(*layers)
 
     @property
     def input_dim(self) -> int:
@@ -236,6 +237,7 @@ class FCBlock(nn.Module):
         use_layer_norm: bool,
         activation_fn: Optional[Type[nn.Module]],
         dropout_rate: float,
+        return_hidden: bool,
     ) -> nn.Sequential:
         """
         Create a single fully connected layer.
@@ -252,21 +254,22 @@ class FCBlock(nn.Module):
             nn.Sequential: A sequence of layers comprising
                 the fully connected layer.
         """
-        layers: list[nn.Module] = [nn.Linear(n_in, n_out)]
+        layers = OrderedDict()
+        layers["lin"] = nn.Linear(n_in, n_out)
 
         if use_batch_norm:
-            layers.append(nn.BatchNorm1d(n_out, momentum=0.01, eps=0.001))
+            layers["bn"] = nn.BatchNorm1d(n_out, momentum=0.01, eps=0.001)
         if use_layer_norm:
-            layers.append(nn.LayerNorm(n_out, elementwise_affine=False))
+            layers["ln"] = nn.LayerNorm(n_out, elementwise_affine=False)
         if activation_fn is not None:
             if issubclass(activation_fn, nn.Softmax):
-                layers.append(activation_fn(dim=1))
+                layers["af"] = activation_fn(dim=1)
             else:
-                layers.append(activation_fn())
+                layers["af"] = activation_fn()
         if dropout_rate > 0:
-            layers.append(nn.Dropout(p=dropout_rate))
+            layers["dr"] = nn.Dropout(p=dropout_rate)
 
-        return nn.Sequential(*layers)
+        return nn.Sequential(layers)
 
     def forward(
         self, x: torch.Tensor
@@ -288,7 +291,7 @@ class FCBlock(nn.Module):
         for i, layer in enumerate(self.fc_layers):
             for name, sublayer in layer.named_children():
                 x = sublayer(x)
-                if name == "2" and self.config.return_hidden[i]:
+                if name == "af" and self.config.return_hidden[i]:
                     hidden_representations.append(x)
         return x, hidden_representations
 
