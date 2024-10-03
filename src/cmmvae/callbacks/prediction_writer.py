@@ -22,7 +22,6 @@ def save_to_hdf5(
     Save numpy array `data` and pandas DataFrame `metadata` to HDF5 file.
     Each column in the metadata DataFrame will be stored as a separate dataset.
     """
-
     with h5py.File(hdf5_filepath, "a") as h5file:
         if key not in h5file:
             h5file.create_group(key)
@@ -75,6 +74,20 @@ def load_from_hdf5(hdf5_filepath: str, key: str):
     embedding = None
 
     with h5py.File(hdf5_filepath, "r") as h5file:
+        group = h5file[key]
+
+        if RK.PREDICT_SAMPLES in group:
+            data = group[RK.PREDICT_SAMPLES][:]
+
+        if RK.METADATA in group:
+            # Load metadata as individual columns
+            metadata_group = group[RK.METADATA]
+            metadata = pd.DataFrame(
+                {col: metadata_group[col][:] for col in metadata_group.keys()}
+            )
+
+        if RK.UMAP_EMBEDDINGS in group:
+            embedding = group[RK.UMAP_EMBEDDINGS][:]
         group = h5file[key]
 
         if RK.PREDICT_SAMPLES in group:

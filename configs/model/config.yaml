@@ -86,24 +86,24 @@ init_args:
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
       adversarials:
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [ 256, 32, 32, 1 ]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.ReLU
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [ 256, 32, 32, 1 ]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.ReLU
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [ 128, 32, 32, 1 ]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.ReLU
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 256, 32, 32, 1 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.ReLU
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 256, 32, 32, 1 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.ReLU
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 128, 32, 32, 1 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.ReLU
