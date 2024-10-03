@@ -22,8 +22,9 @@ def save_to_hdf5(
     Save numpy array `data` and pandas DataFrame `metadata` to HDF5 file.
     Each column in the metadata DataFrame will be stored as a separate dataset.
     """
-
     with h5py.File(hdf5_filepath, "a") as h5file:
+        if key not in h5file:
+            h5file.create_group(key)
         group = h5file[key]
 
         if RK.PREDICT_SAMPLES in group and RK.METADATA in group:
@@ -87,6 +88,20 @@ def load_from_hdf5(hdf5_filepath: str, key: str):
 
         if RK.UMAP_EMBEDDINGS in group:
             embedding = group[RK.UMAP_EMBEDDINGS][:]
+        group = h5file[key]
+
+        if RK.PREDICT_SAMPLES in group:
+            data = group[RK.PREDICT_SAMPLES][:]
+
+        if RK.METADATA in group:
+            # Load metadata as individual columns
+            metadata_group = group[RK.METADATA]
+            metadata = pd.DataFrame(
+                {col: metadata_group[col][:] for col in metadata_group.keys()}
+            )
+
+        if RK.UMAP_EMBEDDINGS in group:
+            embedding = group[RK.UMAP_EMBEDDINGS][:]
 
     return data, metadata, embedding
 
@@ -106,18 +121,13 @@ class PredictionWriter(BasePredictionWriter):
         self.hdf5_filename = hdf5_filename
         self._curr_size = 0  # Keeps track of total rows written so far
 
-        if os.path.exists(self.hdf5_filepath):
-            warnings.warn(
-                f"PredictionWriter initialized with hdf5_filepath that already exists: {self.hdf5_filepath}"
-            )
+    @property
+    def save_dir(self):
+        return os.path.join(self.root_dir, self.experiment_name, self.run_name)
 
     @property
     def hdf5_filepath(self):
         return os.path.join(self.save_dir, self.hdf5_filename)
-
-    @property
-    def save_dir(self):
-        return os.path.join(self.root_dir, self.experiment_name, self.run_name)
 
     def write_on_batch_end(
         self,
@@ -154,11 +164,17 @@ class PredictionWriter(BasePredictionWriter):
         ]  # Increment by batch size
 
     def on_predict_start(self, trainer: Trainer, pl_module: LightningModule) -> None:
+        n = 0
+        while os.path.exists(self.hdf5_filepath):
+            if n == 0:
+                warnings.warn(
+                    f"PredictionWriter initialized with hdf5_filepath that already exists: {self.hdf5_filepath}"
+                )
+            n += 1
+            self.hdf5_filename = f"{self.hdf5_filename[:1]}{n}"
         os.makedirs(self.save_dir, exist_ok=True)
-        super().on_predict_start(trainer, pl_module)
 
     def on_predict_epoch_end(
         self, trainer: Trainer, pl_module: LightningModule
     ) -> None:
         self._curr_size = 0  # Reset after the epoch ends
-        super().on_predict_epoch_end(trainer, pl_module)

@@ -49,6 +49,8 @@ class CMMVAECli(plcli.LightningCLI):
         super().__init__(**kwargs)
 
     def before_instantiate_classes(self) -> None:
+        if self.subcommand == "predict":
+            self.save_config_callback = None
         if self.only_data:
             if "model" in self.config:
                 del self.config["model"]

@@ -114,14 +114,12 @@ rule diff_expression:
         """
 
 ## Define the rule for training the CMMVAE model.
-## The output includes the configuration file, the checkpoint path, and the directory for predictions.
+## The output includes the configuration file, the checkpoint path.
 rule train:
     input:
         rules.diff_expression.output
     output:
-        config_file=TRAIN_CONFIG_FILE,
         ckpt_path=CKPT_PATH,
-        predictions=os.path.join(RUN_DIR, "predictions.h5")
     params:
         command=TRAIN_COMMAND
     shell:
@@ -129,11 +127,25 @@ rule train:
         cmmvae workflow cli {params.command}
         """
 
+## Define the rule for running predictions if necessary
+## The output includes the predictions path.
+rule predict:
+    input:
+        ckpt_path=CKPT_PATH,
+    output:
+        os.path.join(RUN_DIR, "predictions.h5")
+    params:
+        command=TRAIN_COMMAND.lstrip('fit')
+    shell:
+        """
+        cmmvae workflow cli predict {params.command} --ckpt_path {input.ckpt_path}
+        """
+
 ## Define the rule for generating UMAP visualizations from the merged predictions.
 ## This rule produces UMAP images for each combination of category and merge key.
 rule umap_predictions:
     input:
-        rules.train.output.predictions
+        rules.predict.output
     output:
         EVALUATION_FILES,
     params:
