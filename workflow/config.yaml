@@ -14,7 +14,8 @@ expression_log_dir: /mnt/projects/debruinz_project/denhofja/3m_expressions
 train_command:
   fit
   --data configs/data/local.yaml
-  --model configs/model/config.yaml
+  --model configs/model/configV2.yaml
   --data.init_args.shared_conditionals '['assay']'
   --data.conditionals_directory /mnt/projects/debruinz_project/3m_expressions
   --model.init_args.module.init_args.vae.init_args.conditionals '['assay','dataset_id','donor_id','species']'
+  --trainer.max_epochs 10

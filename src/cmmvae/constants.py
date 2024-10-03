@@ -55,6 +55,10 @@ class REGISTRY_KEYS_NT(NamedTuple):
     """Key for the total adversarial loss."""
     ADV_WEIGHT: str = "adverserial_weight"
     """Key for the adversarial weight."""
+    UMAP_EMBEDDINGS: str = "umap_embeddings"
+    """Key for the h5py file umap embeddings"""
+    PREDICT_SAMPLES: str = "data"
+    """Key for the h5py file predict samples"""
 
 
 # Instance of _REGISTRY_KEYS_NT for use in the application
