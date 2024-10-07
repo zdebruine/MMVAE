@@ -6,7 +6,7 @@ from collections import defaultdict
 import pandas as pd
 import scipy.sparse as sp
 
-from data_processing_functions import extract_file_number, gather_stats, record_stats, DATA_CATEGORIES
+from data_processing_functions import extract_file_number, gather_stats, DATA_CATEGORIES
 
 def main(directory: os.PathLike, species: str):
     """
@@ -61,16 +61,20 @@ def main(directory: os.PathLike, species: str):
                 total_stats[category][value][file] = count
 
     features_df = pd.DataFrame(count_stats)
+    features_df.columns = ["mean", "std"]
     features_df.to_csv(
-        os.path.join(directory,
-        f"{species}_data_distribution.csv")
+        os.path.join(directory, f"{species}_data_distribution.csv"),
+        index_label="file"
     )
 
     for category in DATA_CATEGORIES:
-        df = pd.DataFrame(data[category].T.fillna(0))
+        df = pd.DataFrame(total_stats[category]).T.fillna(0)
         df.columns = filenames
         df["Total"] = df.sum(axis=1)
-        df.to_csv(os.path.join(directory, f"{species}_{category}_distribution.csv"))
+        df.to_csv(
+            os.path.join(directory, f"{species}_{category}_distribution.csv"),
+            index_label=category    
+        )
 
 if __name__ == "__main__":
     parser = ap.ArgumentParser()
