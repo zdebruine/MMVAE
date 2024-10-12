@@ -209,7 +209,9 @@ class FCBlock(nn.Module):
                 dropout_rate=config.dropout_rate[i],
                 return_hidden=config.return_hidden[i],
             )
-            for i, (n_in, n_out) in enumerate(zip(self.config.layers[:-1], self.config.layers[1:]))
+            for i, (n_in, n_out) in enumerate(
+                zip(self.config.layers[:-1], self.config.layers[1:])
+            )
         ]
 
         self.fc_layers = nn.Sequential(*layers)

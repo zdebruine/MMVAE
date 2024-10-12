@@ -1,20 +1,21 @@
 # Experiment Parameters
-root_dir: lightning_logs
+root_dir: /mnt/projects/debruinz_project/forebacj/lightning_logs
 config_name: config.yaml
-experiment_name: default
+experiment_name: Baseline
 categories:
 - 'donor_id'
 - 'assay'
 - 'dataset_id'
 - 'cell_type'
+- 'tissue'
 - 'species'
 merge_keys:
 - z
-expression_log_dir: /mnt/projects/debruinz_project/denhofja/3m_expressions
+expression_log_dir: /mnt/projects/debruinz_project/forebacj/3m_expressions
 train_command:
   fit
   --data configs/data/local.yaml
-  --model configs/model/configV2.yaml
+  --model configs/model/moe_config.yaml
   --data.init_args.shared_conditionals '['assay']'
   --data.conditionals_directory /mnt/projects/debruinz_project/3m_expressions
   --model.init_args.module.init_args.vae.init_args.conditionals '['assay','dataset_id','donor_id','species']'
