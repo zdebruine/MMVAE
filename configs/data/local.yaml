@@ -82,7 +82,6 @@ init_args:
   num_workers: 2
   n_val_workers: 1
   n_test_workers: 1
-  conditionals_directory: /mnt/projects/debruinz_project/denhofja/3m_expressions
+  conditionals_directory: /mnt/projects/debruinz_project/3m_july_expressions
   shared_conditionals:
-  - species
   - assay

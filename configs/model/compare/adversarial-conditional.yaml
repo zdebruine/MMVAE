@@ -40,8 +40,11 @@ init_args:
               use_batch_norm: False
               use_layer_norm: True
               activation_fn: null
-          conditional_paths:
-            assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
+          conditionals:
+          - assay
+          - dataset_id
+          - donor_id
+          - species
           selection_order: null
       experts:
         class_path: cmmvae.modules.base.Experts
