@@ -36,6 +36,7 @@ def extract_index(filename, pattern):
 
 
 def merge(directory, keys, save_dir):
+    print(directory, keys, save_dir)
     assert os.path.exists(directory), f"Directory does not exist: {directory}"
 
     if not save_dir:

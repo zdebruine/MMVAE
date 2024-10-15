@@ -7,7 +7,7 @@ init_args:
       return_dense: true
       batch_size: 128
       directory_path: /mnt/projects/debruinz_project/july2024_census_data/subset
-      train_npz_masks: 
+      train_npz_masks:
       - human_counts_1.npz
       - human_counts_2.npz
       - human_counts_3.npz
@@ -46,7 +46,7 @@ init_args:
       return_dense: true
       batch_size: 128
       directory_path: /mnt/projects/debruinz_project/july2024_census_data/subset
-      train_npz_masks: 
+      train_npz_masks:
       - mouse_counts_1.npz
       - mouse_counts_2.npz
       - mouse_counts_3.npz
@@ -82,3 +82,6 @@ init_args:
   num_workers: 2
   n_val_workers: 1
   n_test_workers: 1
+  conditionals_directory: /mnt/projects/debruinz_project/3m_july_expressions
+  shared_conditionals:
+  - assay

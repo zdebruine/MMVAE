@@ -25,7 +25,7 @@ class BaseVAE(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def encode(self, x: torch.Tensor):
+    def encode(self, x: torch.Tensor, **kwargs):
         """
         Encode the input tensor into a latent representation.
 
@@ -43,7 +43,7 @@ class BaseVAE(nn.Module):
         qz, z, hidden_representations = self.encoder(x)
         return qz, z, hidden_representations
 
-    def decode(self, z: torch.Tensor) -> torch.Tensor:
+    def decode(self, z: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Decode the latent variable to reconstruct the input.
 
@@ -59,7 +59,7 @@ class BaseVAE(nn.Module):
         return xhat
 
     def after_reparameterize(
-        self, z: torch.Tensor, metadata: pd.DataFrame
+        self, z: torch.Tensor, metadata: pd.DataFrame, **kwargs
     ) -> torch.Tensor:
         """
         Optional processing after reparameterization.
@@ -77,7 +77,7 @@ class BaseVAE(nn.Module):
         """
         return z
 
-    def forward(self, x: torch.Tensor, metadata: pd.DataFrame):
+    def forward(self, x: torch.Tensor, metadata: pd.DataFrame, **kwargs):
         """
         Forward pass through the VAE.
 
@@ -95,10 +95,10 @@ class BaseVAE(nn.Module):
                 - hidden_representations (List[torch.Tensor]):
                     Hidden representations from the encoder.
         """
-        qz, z, hidden_representations = self.encode(x)
+        qz, z, hidden_representations = self.encode(x, **kwargs)
         pz = Normal(torch.zeros_like(z), torch.ones_like(z))
-        z = self.after_reparameterize(z, metadata)
-        xhat = self.decode(z)
+        z = self.after_reparameterize(z, metadata, **kwargs)
+        xhat = self.decode(z, **kwargs)
         return qz, pz, z, xhat, hidden_representations
 
     def elbo(
@@ -108,6 +108,7 @@ class BaseVAE(nn.Module):
         x: torch.Tensor,
         xhat: torch.Tensor,
         kl_weight: float,
+        **kwargs,
     ) -> dict[str, torch.Tensor]:
         """
         Compute the Evidence Lower Bound (ELBO) loss.
@@ -150,7 +151,7 @@ class BaseVAE(nn.Module):
 
     @torch.no_grad()
     def get_latent_embeddings(
-        self, x: torch.Tensor, metadata: pd.DataFrame
+        self, x: torch.Tensor, metadata: pd.DataFrame, **kwargs
     ) -> dict[str, torch.Tensor]:
         """
         Obtain latent embeddings from the input data.

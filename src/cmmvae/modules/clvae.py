@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List
+from typing import Optional
 
 import torch
 import pandas as pd
@@ -32,9 +32,10 @@ class CLVAE(VAE):
         self,
         encoder_config: FCBlockConfig,
         decoder_config: FCBlockConfig,
-        conditional_config: Optional[FCBlockConfig],
-        conditional_paths: Dict[str, str],
-        selection_order: Optional[List[str]] = None,
+        conditional_config: Optional[FCBlockConfig] = None,
+        conditionals_directory: Optional[str] = None,
+        conditionals: Optional[list[str]] = None,
+        selection_order: Optional[list[str]] = None,
         **encoder_kwargs
     ):
         super().__init__(
@@ -43,17 +44,21 @@ class CLVAE(VAE):
             **encoder_kwargs,
         )
 
-        if conditional_config:
+        if conditional_config and conditionals and conditionals_directory:
             self.conditionals = ConditionalLayers(
-                conditional_paths=conditional_paths,
+                directory=conditionals_directory,
+                conditionals=conditionals,
                 fc_block_config=conditional_config,
                 selection_order=selection_order,
             )
         else:
             self.conditionals = None
+            import warnings
+
+            warnings.warn("No conditionals found for vae")
 
     def after_reparameterize(
-        self, z: torch.Tensor, metadata: pd.DataFrame
+        self, z: torch.Tensor, metadata: pd.DataFrame, **kwargs
     ) -> torch.Tensor:
         """
         Modify the latent variable after reparameterization
@@ -71,7 +76,7 @@ class CLVAE(VAE):
                 Processed latent variable after applying conditionals, if any.
         """
         if self.conditionals:
-            return self.conditionals(z, metadata)
+            return self.conditionals(z, metadata, **kwargs)
         # Return the unmodified latent variable
         # if no conditionals are present
         return z

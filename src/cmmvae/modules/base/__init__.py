@@ -9,6 +9,7 @@ from cmmvae.modules.base.components import (
     Experts,
     ConditionalLayer,
     ConditionalLayers,
+    GradientReversalFunction,
 )
 
 from cmmvae.modules.base.annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
@@ -21,6 +22,7 @@ __all__ = [
     "Experts",
     "FCBlock",
     "FCBlockConfig",
+    "GradientReversalFunction",
     "KLAnnealingFn",
     "LinearKLAnnealingFn",
 ]

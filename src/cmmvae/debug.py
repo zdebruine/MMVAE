@@ -46,5 +46,5 @@ def debug():
         )  # Set to debug to capture all messages for these modules
 
 
-if isinstance(DEBUG, bool) and DEBUG:
-    debug()
+# if isinstance(DEBUG, bool) and DEBUG:
+#     debug()

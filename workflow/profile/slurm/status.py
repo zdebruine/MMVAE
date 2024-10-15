@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 import subprocess
-import sys
-
-jobid = sys.argv[1]
 
 
 def job_status(jobid: int):
@@ -23,4 +20,11 @@ def job_status(jobid: int):
         return "failed"
 
 
-print(job_status(jobid))
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("jobid", type=int, help="jobid to moniter status")
+    args = parser.parse_args()
+
+    print(job_status(args.jobid))
