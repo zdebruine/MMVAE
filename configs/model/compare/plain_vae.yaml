@@ -7,6 +7,19 @@ init_args:
   record_gradients: false
   adv_weight: 25
   gradient_record_cap: 20
+  autograd_config:
+    class_path: cmmvae.config.AutogradConfig
+    init_args:
+      vae_gradient_clip:
+        class_path: cmmvae.config.GradientClipConfig
+        init_args:
+          val: 10
+          algorithm: norm
+      expert_gradient_clip:
+        class_path: cmmvae.config.GradientClipConfig
+        init_args:
+          val: 10
+          algorithm: norm
   module:
     class_path: cmmvae.modules.CMMVAE
     init_args:

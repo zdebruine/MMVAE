@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List, Tuple
+from typing import Optional
 
 import pandas as pd
 import torch
@@ -9,6 +9,7 @@ from cmmvae.models import BaseModel
 from cmmvae.modules import CMMVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 from cmmvae.modules.base.components import GradientReversalFunction
+from cmmvae.config import AutogradConfig
 
 
 class CMMVAEModel(BaseModel):
@@ -37,7 +38,13 @@ class CMMVAEModel(BaseModel):
     """
 
     def __init__(
-        self, module: CMMVAE, adv_weight=None, adversarial_method="", *args, **kwargs
+        self,
+        module: CMMVAE,
+        adv_weight=None,
+        adversarial_method="",
+        autograd_config: Optional[AutogradConfig] = None,
+        *args,
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.module = module
@@ -54,6 +61,7 @@ class CMMVAEModel(BaseModel):
         self.init_weights()
         self.adv_weight = adv_weight if adv_weight else 1.0
         self.adversarial_method = adversarial_method
+        self.autograd_config = autograd_config or AutogradConfig()
 
     def grf(
         self,
@@ -102,9 +110,10 @@ class CMMVAEModel(BaseModel):
         self.manual_backward(adv_loss)
         # Clip and update adversarial networks
         for optim in adversarial_optimizers.values():
-            self.clip_gradients(
-                optim, gradient_clip_val=5, gradient_clip_algorithm="norm"
-            )
+            if self.autograd_config.adversarial_gradient_clip:
+                self.clip_gradients(
+                    optim, *self.autograd_config.adversarial_gradient_clip
+                )
             optim.step()
 
         # Now compute adversarial loss for main network (with gradient reversal)
@@ -125,6 +134,11 @@ class CMMVAEModel(BaseModel):
         expert_labels = human_label if expert_id == "human" else mouse_label
         trick_labels = human_label if expert_id == "mouse" else mouse_label
 
+        assert (
+            len(hidden_representations)
+            == len(self.module.adversarials)
+            == len(adversarial_optimizers)
+        )
         adversarial_loss = []
         for i, (hidden_rep, adv) in enumerate(
             zip(hidden_representations, self.module.adversarials)
@@ -144,6 +158,13 @@ class CMMVAEModel(BaseModel):
 
             # Backpropagation for the adversarial
             self.manual_backward(current_discriminator_loss, retain_graph=True)
+
+            if self.autograd_config.adversarial_gradient_clip:
+                self.clip_gradients(
+                    adversarial_optimizers[i],
+                    *self.autograd_config.adversarial_gradient_clip,
+                )
+
             adversarial_optimizers[i].step()
 
         for i, (hidden_rep, adv) in enumerate(
@@ -164,7 +185,7 @@ class CMMVAEModel(BaseModel):
         return torch.stack(adversarial_loss).sum()
 
     def training_step(
-        self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
+        self, batch: tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
     ) -> None:
         x, metadata, expert_id = batch
 
@@ -226,12 +247,13 @@ class CMMVAEModel(BaseModel):
             )
 
         # Clip gradients for stability
-        self.clip_gradients(
-            vae_optimizer, gradient_clip_val=1, gradient_clip_algorithm="norm"
-        )
-        self.clip_gradients(
-            expert_optimizer, gradient_clip_val=1, gradient_clip_algorithm="norm"
-        )
+        if self.autograd_config.vae_gradient_clip:
+            self.clip_gradients(vae_optimizer, *self.autograd_config.vae_gradient_clip)
+
+        if self.autograd_config.expert_gradient_clip:
+            self.clip_gradients(
+                expert_optimizer, *self.autograd_config.expert_gradient_clip
+            )
 
         # Update the weights
         vae_optimizer.step()
@@ -241,7 +263,7 @@ class CMMVAEModel(BaseModel):
         # Log the loss
         self.auto_log(main_loss_dict, tags=[self.stage_name, expert_id])
 
-    def validation_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str]):
+    def validation_step(self, batch: tuple[torch.Tensor, pd.DataFrame, str]):
         """
         Perform a single validation step.
 
@@ -273,7 +295,7 @@ class CMMVAEModel(BaseModel):
     test_step = validation_step
 
     def predict_step(
-        self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
+        self, batch: tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
     ):
         """
         Perform a prediction step.
@@ -349,7 +371,7 @@ class CMMVAEModel(BaseModel):
         return optimizers
 
 
-def convert_to_flat_list_and_map(d: Dict, flat_list: Optional[List] = None) -> Dict:
+def convert_to_flat_list_and_map(d: dict, flat_list: Optional[list] = None) -> dict:
     """
     Convert all values in the dictionary to a flat list and return the list and a mapping dictionary.
     Args:
