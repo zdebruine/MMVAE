@@ -21,5 +21,4 @@ fit \
 --trainer.max_epochs 5 \
 "
 
-
 done
