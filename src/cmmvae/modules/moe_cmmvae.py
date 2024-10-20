@@ -206,4 +206,4 @@ class MOE_CMMVAE(nn.Module):
         # Tag the metadata with the expert_id
         metadata["species"] = expert_id
 
-        return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}
+        return {RK.Z: (z, metadata)}
