@@ -108,10 +108,22 @@ class CMMVAECli(plcli.LightningCLI):
         parser.link_arguments("default_root_dir", "prediction_writer.root_dir")
         parser.link_arguments("experiment_name", "prediction_writer.experiment_name")
         parser.link_arguments("run_name", "prediction_writer.run_name")
-        parser.link_arguments(
-            "data.init_args.conditionals_directory",
-            "model.init_args.module.init_args.vae.init_args.conditionals_directory",
-        )
+        # parser.link_arguments(
+        #     "data.init_args.conditionals_directory",
+        #     "model.init_args.module.init_args.vae.init_args.conditionals_directory",
+        # )
+        # parser.link_arguments(
+        #     "data.init_args.conditionals_directory",
+        #     "model.init_args.module.init_args.vaes.shared.conditionals_directory",
+        # )
+        # parser.link_arguments(
+        #     "data.init_args.conditionals_directory",
+        #     "model.init_args.module.init_args.vaes.human.conditionals_directory",
+        # )
+        # parser.link_arguments(
+        #     "data.init_args.conditionals_directory",
+        #     "model.init_args.module.init_args.vaes.mouse.conditionals_directory",
+        # )
 
     def before_fit(self):
         """Save model parameters and prints model configuration before fit"""

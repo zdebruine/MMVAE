@@ -35,17 +35,18 @@ init_args:
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-              conditional_config:
-                class_path: cmmvae.modules.base.FCBlockConfig
-                init_args:
-                  layers: [128]
-                  dropout_rate: 0.0
-                  use_batch_norm: False
-                  use_layer_norm: True
-                  activation_fn: null
-              conditional_paths:
-                assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-              selection_order: null
+              # conditional_config:
+              #   class_path: cmmvae.modules.base.FCBlockConfig
+              #   init_args:
+              #     layers:
+              #     - 128
+              #     dropout_rate: 0.0
+              #     use_batch_norm: False
+              #     use_layer_norm: True
+              #     activation_fn: null
+              # conditional_paths:
+              #   assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
+              # selection_order: null
           - class_path: cmmvae.modules.MOE_CLVAE  # Human VAE
             init_args:
               id: human
@@ -66,9 +67,9 @@ init_args:
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-              conditional_paths:
-                assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-              selection_order: null
+              # conditional_paths:
+              #   assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
+              # selection_order: null
           - class_path: cmmvae.modules.MOE_CLVAE  # Mouse VAE
             init_args:
               id: mouse
@@ -89,9 +90,9 @@ init_args:
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-              conditional_paths:
-                assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-              selection_order: null
+              # conditional_paths:
+              #   assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
+              # selection_order: null
       experts:
         class_path: cmmvae.modules.base.Experts
         init_args:

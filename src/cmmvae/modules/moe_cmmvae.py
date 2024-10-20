@@ -100,15 +100,27 @@ class MOE_CMMVAE(nn.Module):
         shared_x = self.experts[expert_id].encode(x)
 
         # Pass through the VAEs
-        qz_human, pz_human, z_human, human_xhat, hidden_representations = self.vaes[
-            RK.HUMAN
-        ](shared_x, metadata)
-        qz_mouse, pz_mouse, z_mouse, mouse_xhat, hidden_representations = self.vaes[
-            RK.MOUSE
-        ](shared_x, metadata)
-        qz_shared, pz_shared, z_shared, shared_xhat, hidden_representations = self.vaes[
-            RK.SHARED
-        ](shared_x, metadata)
+        (
+            qz_human,
+            pz_human,
+            z_human,
+            human_xhat,
+            hidden_representations_human,
+        ) = self.vaes[RK.HUMAN](shared_x, metadata)
+        (
+            qz_mouse,
+            pz_mouse,
+            z_mouse,
+            mouse_xhat,
+            hidden_representations_mouse,
+        ) = self.vaes[RK.MOUSE](shared_x, metadata)
+        (
+            qz_shared,
+            pz_shared,
+            z_shared,
+            shared_xhat,
+            hidden_representations_shared,
+        ) = self.vaes[RK.SHARED](shared_x, metadata)
 
         # Store outputs in dictionaries
         qz_dict = {
@@ -125,6 +137,11 @@ class MOE_CMMVAE(nn.Module):
             "human": z_human,
             "mouse": z_mouse,
             "shared": z_shared,
+        }
+        hr_dict = {
+            "human": hidden_representations_human,
+            "mouse": hidden_representations_mouse,
+            "shared": hidden_representations_shared,
         }
         xhats = {
             "human": human_xhat,
@@ -160,7 +177,7 @@ class MOE_CMMVAE(nn.Module):
             xhats["cis"] = self.experts[expert_id].decode(mouse_decoder)
             xhats["cross"] = self.experts[RK.HUMAN].decode(human_decoder)
 
-        return qz_dict, pz_dict, z_dict, xhats, hidden_representations
+        return qz_dict, pz_dict, z_dict, xhats, hr_dict
 
     @torch.no_grad()
     def get_latent_embeddings(

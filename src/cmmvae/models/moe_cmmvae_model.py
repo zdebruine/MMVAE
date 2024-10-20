@@ -3,10 +3,12 @@ from typing import Optional, Dict, List, Tuple
 import pandas as pd
 import torch
 import torch.nn as nn
+from torch.optim import Adam, AdamW  # type: ignore
 
 from cmmvae.models import BaseModel
 from cmmvae.modules import MOE_CMMVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
+from cmmvae.modules.base.components import GradientReversalFunction
 
 
 class MOE_CMMVAEModel(BaseModel):
@@ -41,9 +43,78 @@ class MOE_CMMVAEModel(BaseModel):
             False  # Disable automatic optimization for manual control
         )
         # Criterion for adversarial loss
-        self.adversarial_criterion = nn.BCELoss(reduction="sum")
+        self.adversarial_criterion = nn.CrossEntropyLoss(reduction="sum")
         self.init_weights()
-        self.adv_weight = adv_weight
+        self.adv_weight = adv_weight if adv_weight else 1.0
+
+    def shared_adversarial_loss(
+        self,
+        hidden_representations: list[torch.Tensor],
+        expert_id: str,
+    ):
+        assert self.module.adversarials
+
+        batch_size = hidden_representations[0].shape[0]
+
+        _tensor_fn = torch.zeros if expert_id == "human" else torch.ones
+        label = _tensor_fn(batch_size, 1, device=self.device, dtype=torch.float32)
+
+        adv_losses = torch.empty((batch_size, 1), device=self.device)
+        for i, (hidden_rep, adv) in enumerate(
+            zip(hidden_representations, self.module.adversarials)
+        ):
+            reverse_hidden_rep = GradientReversalFunction.apply(hidden_rep, 1)
+            # Get adversarial predictions
+            adv_output = adv(reverse_hidden_rep)
+
+            # Calculate adversarial loss
+            disc_loss = self.adversarial_criterion(adv_output, label)
+            adv_losses[i] = disc_loss
+
+        return torch.sum(adv_losses) / batch_size
+
+    def shared_gan_loss(
+        self, xhat: torch.Tensor, gan: nn.ModuleList, expert_id: str
+    ) -> torch.Tensor:
+        """
+        Calculate GAN loss based on the decoder output (xhat) and the GAN (ganh or ganm).
+
+        Args:
+            xhat: The decoder output (cross or cis generated data).
+            gan: The corresponding GAN module (ganh or ganm) based on expert_id.
+            expert_id: The expert ID (human or mouse) determining whether to use ganh or ganm.
+
+        Returns:
+            gan_loss: The calculated GAN loss for the current batch.
+        """
+        batch_size = xhat.shape[0]
+
+        # Determine the correct label based on expert_id
+        if expert_id == "human":
+            # Human GAN should output zeros (human_label is 0)
+            label = torch.zeros(batch_size, 1, device=self.device, dtype=torch.float32)
+        else:
+            # Mouse GAN should output ones (mouse_label is 1)
+            label = torch.ones(batch_size, 1, device=self.device, dtype=torch.float32)
+
+        gan_loss = None
+
+        # Loop through each GAN in the list (although typically you'd have one)
+        for g in gan:
+            gan_output = g(xhat)  # Pass the decoder output (xhat) to the GAN
+
+            # Calculate the adversarial loss (compare GAN output with correct label)
+            current_gan_loss = self.adversarial_criterion(gan_output, label)
+
+            if gan_loss is None:
+                gan_loss = current_gan_loss * self.adv_weight
+            else:
+                gan_loss += current_gan_loss * self.adv_weight
+
+            # Backpropagate the loss
+            self.manual_backward(current_gan_loss, retain_graph=True)
+
+        return gan_loss
 
     def training_step(
         self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
@@ -59,33 +130,19 @@ class MOE_CMMVAEModel(BaseModel):
         """
         x, metadata, expert_id = batch
 
-        human_label = torch.zeros(self.batch_size, 1, device=self.device)
-        mouse_label = torch.ones(self.batch_size, 1, device=self.device)
-
-        expert_labels = human_label if expert_id == RK.HUMAN else mouse_label
-        trick_labels = human_label if expert_id == RK.MOUSE else mouse_label
-
-        # Retrieve optimizers.
-        optims = self.get_optimizers(zero_all=True)
-        expert_optimizer = optims["experts"][expert_id]
-        human_optimizer = optims[RK.HUMAN]
-        mouse_optimizer = optims[RK.MOUSE]
-        shared_optimizer = optims[RK.SHARED]
-        adversarial_optimizers = optims["adversarials"]
-        human_gan_optimizer = optims["ganh"]
-        mouse_gan_optimizer = optims["ganm"]
-
         # Perform forward pass and compute the loss
-        qz_dict, pz_dict, z_dict, xhats, hidden_representations = self.module(
-            x, metadata, expert_id
+        qz_dict, pz_dict, z_dict, xhats, hr_dict = self.module(
+            x=x, metadata=metadata, expert_id=expert_id
         )
+
+        if x.layout == torch.sparse_csr:
+            x = x.to_dense()
 
         loss_dict = {}
 
-        # Calculate loss for cisgenerated specific VAE and shared. Only need KL-Divergence to be added to shared loss.
-        # Pytorch backprop will send reconstruction to both and correct kl to each.
+        # Calculate loss for human/mouse specific VAE and shared vae. Only need KL-Divergence of specific vae to be added to shared loss.
+        # Pytorch autograd will backprop reconstruction to both and the kl that corresponds to each network.
         if expert_id == RK.HUMAN:
-            # FIXME check if this wrong. Modules or .vaes?
             loss_dict[RK.HUMAN_LOSS] = self.module.vaes[RK.HUMAN].elbo(
                 qz_dict[RK.HUMAN],
                 pz_dict[RK.HUMAN],
@@ -129,199 +186,58 @@ class MOE_CMMVAEModel(BaseModel):
                 * loss_dict[RK.MOUSE_LOSS][RK.KL_LOSS]
             )
 
-        if x.layout == torch.sparse_csr:
-            x = x.to_dense()
+        # Retrieve optimizers.
+        optims = self.get_optimizers(zero_all=True)
+        expert_optimizer = optims["experts"][expert_id]
+        human_optimizer = optims[RK.HUMAN]
+        mouse_optimizer = optims[RK.MOUSE]
+        shared_optimizer = optims[RK.SHARED]
+        adversarial_optimizers = optims.get("adversarials")
+        human_gan_optimizer = optims.get("ganh")
+        mouse_gan_optimizer = optims.get("ganm")
 
         # Train adversarial networks
-        adversarial_loss = None
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            # Get adversarial predictions
-            adv_output = adv(hidden_rep)
-
-            # Calculate adversarial loss
-            current_discriminator_loss = self.adversarial_criterion(
-                adv_output, expert_labels
+        if self.module.adversarials:
+            loss_dict[RK.ADV_LOSS] = self.shared_adversarial_loss(
+                hr_dict[RK.SHARED] + [z_dict[RK.SHARED]], expert_id
             )
-
-            loss_dict[f"adv_{i}"] = current_discriminator_loss
-
-            # Backpropagation for the adversarial
-            self.manual_backward(current_discriminator_loss, retain_graph=True)
-            adversarial_optimizers[i].step()
-
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            # Get adversarial predictions
-            adv_output = adv(hidden_rep)
-
-            # Calculate adversarial loss
-            current_adversarial_loss = self.adversarial_criterion(
-                adv_output, trick_labels
+            loss_dict[RK.SHARED][RK.LOSS] = (
+                loss_dict[RK.SHARED][RK.LOSS] + loss_dict[RK.ADV_LOSS] * self.adv_weight
             )
-            # print(current_adversarial_loss)
-            if adversarial_loss is None:
-                adversarial_loss = current_adversarial_loss
+            loss_dict[RK.ADV_WEIGHT] = self.adv_weight
+
+        # Train gans
+        if self.module.ganh and self.module.ganm:
+            if expert_id == RK.HUMAN:
+                loss_dict["mouse_gan_loss"] = self.shared_gan_loss(
+                    xhats["cross"], self.module.ganm, expert_id
+                )
+                gan_loss = loss_dict["mouse_gan_loss"]
             else:
-                adversarial_loss += current_adversarial_loss
+                loss_dict["human_gan_loss"] = self.shared_gan_loss(
+                    xhats["cross"], self.module.ganh, expert_id
+                )
+                gan_loss = loss_dict["human_gan_loss"]
 
-        loss_dict["adversarial_loss"] = adversarial_loss
-
-        # FIXME right now only does loss for cross generation. IE human cell -> mouse gan loss.
-        # Can also add cis gan loss to vae backprop. IE human loss = recon + adversarial + gan could be loss.
-        # Calculate GAN loss
-        if expert_id == RK.HUMAN:
-            gan_loss = None
-            for i, (hidden_rep, ganm) in enumerate(
-                zip(hidden_representations, self.module.ganm)
-            ):
-                # Get gan predictions
-                gan_output = ganm(xhats["cross"])
-
-                # Calculate gan loss
-                current_gan_loss = self.adversarial_criterion(gan_output, expert_labels)
-
-                loss_dict[f"gan_{i}"] = current_gan_loss
-
-                # Backpropagation for the gans
-                self.manual_backward(current_gan_loss, retain_graph=True)
-                mouse_gan_optimizer[i].step()
-
-            for i, (hidden_rep, ganm) in enumerate(
-                zip(hidden_representations, self.module.ganm)
-            ):
-                # Get adversarial predictions
-                gan_output = ganm(xhats["cross"])
-
-                # Calculate adversarial loss
-                current_gan_loss = self.adversarial_criterion(gan_output, trick_labels)
-                # print(current_adversarial_loss)
-                if gan_loss is None:
-                    gan_loss = current_gan_loss
-                else:
-                    gan_loss += current_gan_loss
-
-            # cis_gan_loss = None
-            # for i, (hidden_rep, ganh) in enumerate(
-            #     zip(hidden_representations, self.module.ganh)
-            # ):
-            #     # Get gan predictions
-            #     cis_gan_output = ganh(xhats["cis"])
-
-            #     # Calculate gan loss
-            #     current_cis_gan_loss = self.adversarial_criterion(
-            #         cis_gan_output, expert_labels
-            #     )
-
-            #     loss_dict[f"cis_gan_{i}"] = current_cis_gan_loss
-
-            #     # Backpropagation for the gans
-            #     self.manual_backward(current_cis_gan_loss, retain_graph=True)
-            #     human_gan_optimizer[i].step()
-
-            # for i, (hidden_rep, ganh) in enumerate(
-            #     zip(hidden_representations, self.module.ganh)
-            # ):
-            #     # Get adversarial predictions
-            #     cis_gan_output = ganh(xhats["cis"])
-
-            #     # Calculate adversarial loss
-            #     current_cis_gan_loss = self.adversarial_criterion(
-            #         cis_gan_output, trick_labels
-            #     )
-            #     # print(current_adversarial_loss)
-            #     if cis_gan_loss is None:
-            #         cis_gan_loss = current_cis_gan_loss
-            #     else:
-            #         cis_gan_loss += current_cis_gan_loss
-        else:
-            gan_loss = None
-            for i, (hidden_rep, ganh) in enumerate(
-                zip(hidden_representations, self.module.ganh)
-            ):
-                # Get gan predictions
-                gan_output = ganh(xhats["cross"])
-
-                # Calculate gan loss
-                current_gan_loss = self.adversarial_criterion(gan_output, expert_labels)
-
-                loss_dict[f"gan_{i}"] = current_gan_loss
-
-                # Backpropagation for the gans
-                self.manual_backward(current_gan_loss, retain_graph=True)
-                human_gan_optimizer[i].step()
-
-            for i, (hidden_rep, ganh) in enumerate(
-                zip(hidden_representations, self.module.ganh)
-            ):
-                # Get adversarial predictions
-                gan_output = ganh(xhats["cross"])
-
-                # Calculate adversarial loss
-                current_gan_loss = self.adversarial_criterion(gan_output, trick_labels)
-                # print(current_adversarial_loss)
-                if gan_loss is None:
-                    gan_loss = current_gan_loss
-                else:
-                    gan_loss += current_gan_loss
-
-            # cis_gan_loss = None
-            # for i, (hidden_rep, ganm) in enumerate(
-            #     zip(hidden_representations, self.module.ganm)
-            # ):
-            #     # Get gan predictions
-            #     cis_gan_output = ganm(xhats["cis"])
-
-            #     # Calculate gan loss
-            #     current_cis_gan_loss = self.adversarial_criterion(
-            #         cis_gan_output, expert_labels
-            #     )
-
-            #     loss_dict[f"cis_gan_{i}"] = current_cis_gan_loss
-
-            #     # Backpropagation for the gans
-            #     self.manual_backward(current_cis_gan_loss, retain_graph=True)
-            #     mouse_gan_optimizer[i].step()
-
-            # for i, (hidden_rep, ganm) in enumerate(
-            #     zip(hidden_representations, self.module.ganm)
-            # ):
-            #     # Get adversarial predictions
-            #     cis_gan_output = ganm(xhats["cis"])
-
-            #     # Calculate adversarial loss
-            #     current_cis_gan_loss = self.adversarial_criterion(
-            #         cis_gan_output, trick_labels
-            #     )
-            #     # print(current_adversarial_loss)
-            #     if cis_gan_loss is None:
-            #         cis_gan_loss = current_cis_gan_loss
-            #     else:
-            #         cis_gan_loss += current_cis_gan_loss
-
-        loss_dict["gan_loss"] = gan_loss
-        # loss_dict["cis_gan_loss"] = cis_gan_loss
-
-        # If cis-generated, backprop reconstruction loss and kl to specific vae. Otherwise Adversarial loss
+        # Cross generated vae gets GAN loss backpropagation. Cisgenerating and shared vaes get reconstrucion and kl backprop.
         if expert_id == RK.HUMAN:
             self.freeze_model_parameters(self.module)
             self.unfreeze_model_parameters(self.module.vaes[RK.MOUSE])
             self.manual_backward(gan_loss, retain_graph=True)
+            self.unfreeze_model_parameters(self.module)
+            # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
+            self.freeze_model_parameters(self.module.vaes[RK.MOUSE])
+            self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
             self.unfreeze_model_parameters(self.module)
         else:
             self.freeze_model_parameters(self.module)
             self.unfreeze_model_parameters(self.module.vaes[RK.HUMAN])
             self.manual_backward(gan_loss, retain_graph=True)
             self.unfreeze_model_parameters(self.module)
-
-        # Can also add GAN loss. Test which is better.
-        s_loss = loss_dict[RK.SHARED][RK.LOSS] + (self.adv_weight * adversarial_loss)
-        # + cis_gan_loss
-
-        # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
-        self.manual_backward(s_loss)
+            # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
+            self.freeze_model_parameters(self.module.vaes[RK.HUMAN])
+            self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
+            self.unfreeze_model_parameters(self.module)
 
         # Clip gradients for stability
         self.clip_gradients(
@@ -337,19 +253,26 @@ class MOE_CMMVAEModel(BaseModel):
             expert_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm"
         )
 
-        # Handle inactive conditional modules
-        inactive_modules = []
-        if self.module.vaes[RK.SHARED].conditionals:
-            for cl in self.module.vaes[RK.SHARED].conditionals.layers:
-                inactive = cl.unique_conditions - cl.active_condition_modules
-                inactive_modules.extend(
-                    [cl.conditions[key] for key in cl.conditions if key in inactive]
+        if adversarial_optimizers:
+            for optim in adversarial_optimizers.values():
+                self.clip_gradients(
+                    optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
                 )
+                optim.step()
 
-        for module in inactive_modules:
-            for param in module.parameters():
-                if param.grad is not None:
-                    param.grad.zero_()
+        if human_gan_optimizer:
+            for optim in human_gan_optimizer.values():
+                self.clip_gradients(
+                    optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
+                )
+                optim.step()
+
+        if mouse_gan_optimizer:
+            for optim in mouse_gan_optimizer.values():
+                self.clip_gradients(
+                    optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
+                )
+                optim.step()
 
         # Update the weights
         human_optimizer.step()
@@ -358,7 +281,7 @@ class MOE_CMMVAEModel(BaseModel):
         expert_optimizer.step()
         self.kl_annealing_fn.step()
 
-        # Log the loss. FIXME dict with logging
+        # Log the loss.
         self.auto_log(loss_dict[RK.SHARED], tags=[self.stage_name, expert_id])
 
     def validation_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str]) -> None:
@@ -373,9 +296,7 @@ class MOE_CMMVAEModel(BaseModel):
         x, metadata, expert_id = batch
 
         # Perform forward pass and compute the loss. Only need shared for validation
-        qz_dict, pz_dict, z_dict, xhats, hidden_representations = self.module(
-            x, metadata, expert_id
-        )
+        qz_dict, pz_dict, z_dict, xhats, hr_dict = self.module(x, metadata, expert_id)
 
         loss_dict = {}
 
@@ -389,12 +310,17 @@ class MOE_CMMVAEModel(BaseModel):
 
         self.auto_log(loss_dict[RK.SHARED], tags=[self.stage_name, expert_id])
 
+        if self.trainer.validating:
+            self.log(
+                "val_loss", loss_dict[RK.SHARED][RK.LOSS], logger=False, on_epoch=True
+            )
+
     # Alias for validation_step method to reuse for testing
     test_step = validation_step
 
     def predict_step(
         self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
-    ) -> None:
+    ):
         """
         Perform a prediction step.
 
@@ -404,8 +330,10 @@ class MOE_CMMVAEModel(BaseModel):
             batch (tuple): Batch of data containing inputs, metadata, and expert ID.
             batch_idx (int): Index of the batch.
         """
-        embeddings = self.module.get_latent_embeddings(*batch)
-        self.save_predictions(embeddings, batch_idx)
+        x, metadata, species = batch
+        embeddings = self.module.get_latent_embeddings(x, metadata, species)
+        return embeddings
+        # self.save_predictions(embeddings, batch_idx)
 
     def get_optimizers(self, zero_all: bool = False):
         """
@@ -439,39 +367,39 @@ class MOE_CMMVAEModel(BaseModel):
 
         return optimizer_dict
 
-    def configure_optimizers(self) -> List[torch.optim.Optimizer]:
+    def configure_optimizers(self, optim_cls="Adam") -> List[torch.optim.Optimizer]:  # type: ignore
         """
         Configure optimizers for different components of the model.
 
         Returns:
             list: List of configured optimizers for experts, VAE, and adversarials.
         """
+        optim_cls = Adam if optim_cls == "Adam" else AdamW
         optimizers = {}
         optimizers["experts"] = {
-            expert_id: torch.optim.Adam(
-                self.module.experts[expert_id].parameters(), lr=1e-3, weight_decay=1e-6
-            )
-            for expert_id in self.module.experts
+            expert_id: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
+            for expert_id, module in self.module.experts.items()
         }
-        optimizers["shared"] = torch.optim.Adam(
+        optimizers["shared"] = optim_cls(
             self.module.vaes.parameters(), lr=1e-3, weight_decay=1e-6
         )
-        optimizers["human"] = torch.optim.Adam(
+        optimizers["human"] = optim_cls(
             self.module.vaes.parameters(), lr=1e-3, weight_decay=1e-6
         )
-        optimizers["mouse"] = torch.optim.Adam(
+        optimizers["mouse"] = optim_cls(
             self.module.vaes.parameters(), lr=1e-3, weight_decay=1e-6
         )
-        optimizers["adversarials"] = {
-            i: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
-            for i, module in enumerate(self.module.adversarials)
-        }
+        if self.module.adversarials:
+            optimizers["adversarials"] = {
+                i: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
+                for i, module in enumerate(self.module.adversarials)
+            }
         optimizers["ganh"] = {
-            i: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
+            i: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
             for i, module in enumerate(self.module.ganh)
         }
         optimizers["ganm"] = {
-            i: torch.optim.Adam(module.parameters(), lr=1e-3, weight_decay=1e-6)
+            i: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
             for i, module in enumerate(self.module.ganm)
         }
 
