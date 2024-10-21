@@ -57,6 +57,12 @@ META_DISC_DIR = os.path.join(RUN_DIR, META_DISC_PATH)
 ## Define a separate directory for merged outputs to avoid conflicts between different merge operations.
 MERGED_DIR = os.path.join(RUN_DIR, "merged")
 
+## Define the directory to store correlation outputs
+CORRELATION_PATH = config.get("correlation_dir", "correlations")
+CORRELATION_DIR = os.path.join(RUN_DIR, CORRELATION_PATH)
+
+CORRELATION_DATA = config["correlations_data"]
+
 ## Generate the paths for the embeddings and metadata files based on the merge keys.
 EMBEDDINGS_PATHS = [os.path.join(MERGED_DIR, f"{key}_embeddings.npz") for key in MERGE_KEYS]
 METADATA_PATHS = [os.path.join(MERGED_DIR, f"{key}_metadata.pkl") for key in MERGE_KEYS]
@@ -100,13 +106,23 @@ TRAIN_COMMAND += str(
     f"--predict_dir {PREDICT_SUBDIR} "
 )
 
+CORRELATION_COMMAND = str(
+    f"{TRAIN_COMMAND} "
+    f"--ckpt_path {CKPT_PATH} "
+)
+
+CORRELATION_FILES = expand(
+    "{correlation_dir}/correlations.csv",
+    correlation_dir=CORRELATION_DIR,
+)
+
 
 ## Define the final output rule for Snakemake, specifying the target files that should be generated
 ## by the end of the workflow.
 rule all:
     input:
         EVALUATION_FILES,
-        MD_FILES
+        # MD_FILES
 
 ## Define the rule for training the CMMVAE model.
 ## The output includes the configuration file, the checkpoint path, and the directory for predictions.
@@ -138,6 +154,22 @@ rule merge_predictions:
         cmmvae workflow merge-predictions --directory {input.predict_dir} --keys {params.merge_keys} --save_dir {MERGED_DIR}
         """
 
+## Define the rule for getting R^2 correlations on the filtered data
+## This rule outputs correlation scores per filtered data group
+rule correlations:
+    input:
+        embeddings_path=EMBEDDINGS_PATHS,
+    output:
+        CORRELATION_FILES,
+    params:
+        command=CORRELATION_COMMAND,
+        data=CORRELATION_DATA,
+    shell:
+        """
+        mkdir -p {CORRELATION_DIR}
+        cmmvae workflow correlations {params.command} --correlation_data {params.data}
+        """
+
 ## Define the rule for generating UMAP visualizations from the merged predictions.
 ## This rule produces UMAP images for each combination of category and merge key.
 rule umap_predictions:
@@ -156,16 +188,16 @@ rule umap_predictions:
         cmmvae workflow umap-predictions --directory {params.predict_dir} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
         """
 
-rule meta_discriminators:
-    input:
-        CKPT_PATH
-    output:
-        MD_FILES,
-    params:
-        log_dir=META_DISC_DIR,
-        ckpt=CKPT_PATH,
-        config=TRAIN_CONFIG_FILE
-    shell:
-        """
-        cmmvae workflow meta-discriminator --log_dir {params.log_dir} --ckpt {params.ckpt} --config {params.config}
-        """
+# rule meta_discriminators:
+#     input:
+#         CKPT_PATH
+#     output:
+#         MD_FILES,
+#     params:
+#         log_dir=META_DISC_DIR,
+#         ckpt=CKPT_PATH,
+#         config=TRAIN_CONFIG_FILE
+#     shell:
+#         """
+#         cmmvae workflow meta-discriminator --log_dir {params.log_dir} --ckpt {params.ckpt} --config {params.config}
+#         """
