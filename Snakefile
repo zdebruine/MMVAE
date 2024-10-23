@@ -102,22 +102,22 @@ rule all:
 
 ## Define the rule for finding unique expressions for conditional layers
 ## The output includes paths to the conditional layer expressions used.
-rule diff_expression:
-    output:
-        os.path.join(RUN_DIR, "expression_complete.log")
-    params:
-        cli=TRAIN_COMMAND.lstrip('fit'),
-    shell:
-        """
-        cmmvae workflow expression {params.cli}
-        touch {output}
-        """
+# rule diff_expression:
+#     output:
+#         os.path.join(RUN_DIR, "expression_complete.log")
+#     params:
+#         cli=TRAIN_COMMAND.lstrip('fit'),
+#     shell:
+#         """
+#         cmmvae workflow expression {params.cli}
+#         touch {output}
+#         """
 
 ## Define the rule for training the CMMVAE model.
 ## The output includes the configuration file, the checkpoint path.
 rule train:
     input:
-        rules.diff_expression.output
+        # rules.diff_expression.output
     output:
         ckpt_path=CKPT_PATH,
     params:
