@@ -61,7 +61,7 @@ MERGED_DIR = os.path.join(RUN_DIR, "merged")
 CORRELATION_PATH = config.get("correlation_dir", "correlations")
 CORRELATION_DIR = os.path.join(RUN_DIR, CORRELATION_PATH)
 
-CORRELATION_DATA = config["correlations_data"]
+CORRELATION_DATA = config["correlation_data"]
 
 ## Generate the paths for the embeddings and metadata files based on the merge keys.
 EMBEDDINGS_PATHS = [os.path.join(MERGED_DIR, f"{key}_embeddings.npz") for key in MERGE_KEYS]
@@ -98,6 +98,7 @@ MD_FILES = expand(
 ## If a configuration directory is provided, it is included in the command; otherwise,
 ## individual parameters such as trainer, model, and data are passed explicitly.
 TRAIN_COMMAND = config["train_command"]
+CORRELATION_COMMAND = config["correlation_command"]
 
 TRAIN_COMMAND += str(
     f" --default_root_dir {ROOT_DIR} "
@@ -106,8 +107,11 @@ TRAIN_COMMAND += str(
     f"--predict_dir {PREDICT_SUBDIR} "
 )
 
-CORRELATION_COMMAND = str(
-    f"{TRAIN_COMMAND} "
+CORRELATION_COMMAND += str(
+    f" --default_root_dir {ROOT_DIR} "
+    f"--experiment_name {EXPERIMENT_NAME} --run_name {RUN_NAME} "
+    f"--seed_everything {SEED} "
+    f"--predict_dir {PREDICT_SUBDIR} "
     f"--ckpt_path {CKPT_PATH} "
 )
 
@@ -116,12 +120,17 @@ CORRELATION_FILES = expand(
     correlation_dir=CORRELATION_DIR,
 )
 
+CORRELATION_FILES += expand(
+    "{correlation_dir}/correlations.pkl",
+    correlation_dir=CORRELATION_DIR,
+)
 
 ## Define the final output rule for Snakemake, specifying the target files that should be generated
 ## by the end of the workflow.
 rule all:
     input:
         EVALUATION_FILES,
+        CORRELATION_FILES
         # MD_FILES
 
 ## Define the rule for training the CMMVAE model.
@@ -164,10 +173,11 @@ rule correlations:
     params:
         command=CORRELATION_COMMAND,
         data=CORRELATION_DATA,
+        save_dir=CORRELATION_DIR,
     shell:
         """
         mkdir -p {CORRELATION_DIR}
-        cmmvae workflow correlations {params.command} --correlation_data {params.data}
+        cmmvae workflow correlations {params.command} --correlation_data {params.data} --save_dir {params.save_dir}
         """
 
 ## Define the rule for generating UMAP visualizations from the merged predictions.

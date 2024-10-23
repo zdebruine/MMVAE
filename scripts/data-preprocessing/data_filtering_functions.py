@@ -91,6 +91,7 @@ def save_grouped_data(groups: dict[tuple[str], dict[str, np.ndarray]], dfs: dict
             for specie, idx in groups[gid].items():                
                 df = dfs[specie].iloc[idx]
                 df["group_id"] = i
+                df["num_samples"] = len(idx)
                 df = df.sort_values("chunk_source")
                 df.to_pickle(os.path.join(save_dir, f"{specie}_filtered_{i}.pkl"))
             writer.writerow([i, len(idx)] + list(gid))

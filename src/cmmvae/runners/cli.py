@@ -18,7 +18,7 @@ class CMMVAECli(plcli.LightningCLI):
         Handles loading trainer, model, and data modules from config file,
         while linking common arguments for ease of access.
         """
-        self.is_run = not kwargs.get("run", False)
+        self.is_run = not kwargs.get("run", True)
 
         super().__init__(
             parser_kwargs={
@@ -52,7 +52,7 @@ class CMMVAECli(plcli.LightningCLI):
             "--predict_dir", required=True, help="Where to store predictions after fit"
         )
 
-        if not self.is_run:
+        if self.is_run:
             parser.add_argument(
                 "--ckpt_path", required=True, help="Ckpt path to be passed to model"
             )
