@@ -27,7 +27,7 @@ def setup_datapipes(data_dir: str):
         batch_size= 10000,
         allow_partials=True,
         shuffle= False,
-        return_dense= False,
+        return_dense= True,
         verbose= True,
     )
     mouse_pipe = SpeciesDataPipe(
@@ -37,7 +37,7 @@ def setup_datapipes(data_dir: str):
         batch_size= 10000,
         allow_partials=True,
         shuffle= False,
-        return_dense= False,
+        return_dense= True,
         verbose= True,
     )
     return human_pipe, mouse_pipe
@@ -70,6 +70,7 @@ def convert_to_tensor(batch: sp.csr_matrix):
         col_indices=batch.indices,
         values=batch.data,
         size=batch.shape,
+        device= torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     )
 
 def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: int):
@@ -102,13 +103,17 @@ def get_correlations(model: CMMVAEModel, data_dir: str):
     
     correlations = pd.DataFrame(
          columns=[
-              "tag", "group_id", "num_samples",
+              "group_id", "num_samples",
               "human_cis", "human_cross", "human_comb",
-              "mouse_cis", "mouse_cross", "mouse_comb"
+              "mouse_cis", "mouse_cross", "mouse_comb",
+              "tag",
             ]
     )
 
     for (human_batch, human_metadata), (mouse_batch, mouse_metadata) in zip(human_dataloader, mouse_dataloader):
+
+        human_batch = human_batch.cuda()
+        mouse_batch = mouse_batch.cuda()
 
         n_samples = human_metadata["num_samples"].iloc[0]
 
@@ -117,16 +122,16 @@ def get_correlations(model: CMMVAEModel, data_dir: str):
             _, _, _, human_out, _ = model.module(human_batch, human_metadata, RK.HUMAN, cross_generate=True)
             _, _, _, mouse_out, _ = model.module(mouse_batch, mouse_metadata, RK.MOUSE, cross_generate=True)
 
-        human_stacked_out = np.vstack((human_out[RK.HUMAN].numpy(), mouse_out[RK.HUMAN].numpy()))
-        mouse_stacked_out = np.vstack((mouse_out[RK.MOUSE].numpy(), human_out[RK.MOUSE].numpy()))
+        human_stacked_out = np.vstack((human_out[RK.HUMAN].cpu().numpy(), mouse_out[RK.HUMAN].cpu().numpy()))
+        mouse_stacked_out = np.vstack((mouse_out[RK.MOUSE].cpu().numpy(), human_out[RK.MOUSE].cpu().numpy()))
 
         avg_correlations = calc_correlations(human_stacked_out, mouse_stacked_out, n_samples)
 
-        avg_correlations["tag"] = " ".join([human_metadata[cat].iloc[0] for cat in FILTERED_BY_CATEGORIES])
         avg_correlations["group_id"] = human_metadata["group_id"].iloc[0]
         avg_correlations["num_samples"] = n_samples
+        avg_correlations["tag"] = " ".join([human_metadata[cat].iloc[0] for cat in FILTERED_BY_CATEGORIES])
 
-    correlations = pd.concat([correlations, avg_correlations], ignore_index=True)
+        correlations = pd.concat([correlations, avg_correlations], ignore_index=True)
 
     return correlations
 
@@ -161,7 +166,11 @@ def correlations(ctx: click.Context, correlation_data: str, save_dir: str):
         sys.argv = [sys.argv[0]] + ctx.args
 
     cli = CMMVAECli(run=False)
-    correlations = get_correlations(cli.model, correlation_data)
+    model = type(cli.model).load_from_checkpoint(
+         cli.config["ckpt_path"],
+         module= cli.model.module
+    )
+    correlations = get_correlations(model, correlation_data)
     save_correlations(correlations, save_dir)
 
 if __name__ == "__main__":
