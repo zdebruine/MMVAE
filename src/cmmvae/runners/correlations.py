@@ -102,7 +102,7 @@ def get_correlations(model: CMMVAEModel, data_dir: str):
     
     correlations = pd.DataFrame(
          columns=[
-              "tag", "group_id", "num_samples",
+              "group_id", "num_samples", "tag",
               "human_cis", "human_cross", "human_comb",
               "mouse_cis", "mouse_cross", "mouse_comb"
             ]
@@ -122,9 +122,9 @@ def get_correlations(model: CMMVAEModel, data_dir: str):
 
         avg_correlations = calc_correlations(human_stacked_out, mouse_stacked_out, n_samples)
 
-        avg_correlations["tag"] = " ".join([human_metadata[cat].iloc[0] for cat in FILTERED_BY_CATEGORIES])
         avg_correlations["group_id"] = human_metadata["group_id"].iloc[0]
         avg_correlations["num_samples"] = n_samples
+        avg_correlations["tag"] = " ".join([human_metadata[cat].iloc[0] for cat in FILTERED_BY_CATEGORIES])
 
     correlations = pd.concat([correlations, avg_correlations], ignore_index=True)
 
