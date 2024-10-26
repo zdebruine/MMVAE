@@ -86,6 +86,23 @@ TRAIN_COMMAND += str(
     f"--predict_dir {PREDICT_SUBDIR} "
 )
 
+CATEGORIES_COMMAND = " ".join(f"--categories {category}" for category in CATEGORIES)
+MERGE_KEY_COMMAND = " ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS)
+
+## Allow for easy reuse of configurations depending on the run directory
+# Optional flag "override" to override previous configurations
+# The config dictionary is stored in the run directory so this needs
+# to be the last step to make sure any changes to the config are store in configuration
+# and reflected in the rules. The only modifications to the configuration values
+# that are acceptable is to configure them for passing as arguments to the rule commands
+# SNAKEMAKE_CONFIG_PATH = os.path.join(RUN_DIR, "snakemake.config")
+# OVERRIDE_CONFIG = config.get(" override", None)
+
+# if os.path.exists(SNAKEMAKE_CONFIG_PATH):
+
+# need to check this before parsing all the rules to set config.
+# need to move all default values to live in configuration as well so that they are picked up in
+# config file
 
 ## Define the final output rule for Snakemake, specifying the target files that should be generated
 ## by the end of the workflow.
@@ -93,6 +110,19 @@ rule all:
     input:
         EVALUATION_FILES,
         MD_FILES
+
+## Define the rule for finding unique expressions for conditional layers
+## The output includes paths to the conditional layer expressions used.
+rule diff_expression:
+    output:
+        os.path.join(RUN_DIR, "expression_complete.log")
+    params:
+        cli=TRAIN_COMMAND.lstrip('fit'),
+    shell:
+        """
+        cmmvae workflow expression {params.cli}
+        touch {output}
+        """
 
 ## Define the rule for training the CMMVAE model.
 ## The output includes the configuration file, the checkpoint path.
