@@ -7,6 +7,8 @@ from cmmvae.modules.base.components import (
     FCBlockConfig,
     Expert,
     Experts,
+    GAN,
+    ExpertGANs,
     ConditionalLayer,
     ConditionalLayers,
 )
@@ -19,6 +21,8 @@ __all__ = [
     "Encoder",
     "Expert",
     "Experts",
+    "GAN",
+    "ExpertGANs",
     "FCBlock",
     "FCBlockConfig",
     "KLAnnealingFn",

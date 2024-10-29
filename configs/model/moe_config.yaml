@@ -3,7 +3,7 @@ init_args:
   kl_annealing_fn:
     class_path: cmmvae.modules.base.KLAnnealingFn
     init_args:
-      kl_weight: 1
+      kl_weight: 1.0e-07
   record_gradients: false
   adv_weight: 1
   gradient_record_cap: 20
@@ -103,7 +103,7 @@ init_args:
               encoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [60664, 1024, 512]
+                  layers: [60530, 1024, 512]
                   dropout_rate: [0.1, 0.1]
                   use_batch_norm: True
                   use_layer_norm: False
@@ -111,7 +111,7 @@ init_args:
               decoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [512, 1024, 60664]
+                  layers: [512, 1024, 60530]
                   dropout_rate: 0.0
                   use_batch_norm: False
                   use_layer_norm: False
@@ -122,7 +122,7 @@ init_args:
               encoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [52417, 1024, 512]
+                  layers: [52437, 1024, 512]
                   dropout_rate: [0.1, 0.1]
                   use_batch_norm: True
                   use_layer_norm: False
@@ -130,32 +130,39 @@ init_args:
               decoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [512, 1024, 52417]
+                  layers: [512, 1024, 52437]
                   dropout_rate: 0.0
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-      adversarials:
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [256, 128, 64, 1]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.Sigmoid
-      ganh:
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [60664, 1024, 256, 64, 1]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.Sigmoid
-      ganm:
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [52417, 1024, 256, 64, 1]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.Sigmoid
+      # gans:
+      #   class_path: cmmvae.modules.base.ExpertGANs
+      #   init_args:
+      #   - class_path: cmmvae.modules.base.GAN
+      #     init_args:
+      #       id: human
+      #       class_path: cmmvae.modules.base.FCBlockConfig
+      #       init_args:
+      #         layers: [60530, 1024, 256, 64, 1]
+      #         dropout_rate: 0.0
+      #         use_batch_norm: False
+      #         use_layer_norm: False
+      #         activation_fn: torch.nn.Sigmoid
+      #   - class_path: cmmvae.modules.base.GAN
+      #     init_args:
+      #       id: mouse
+      #       class_path: cmmvae.modules.base.FCBlockConfig
+      #       init_args:
+      #         layers: [52437, 1024, 256, 64, 1]
+      #         dropout_rate: 0.0
+      #         use_batch_norm: False
+      #         use_layer_norm: False
+      #         activation_fn: torch.nn.Sigmoid
+      # adversarials:
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [256, 128, 64, 1]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.Sigmoid

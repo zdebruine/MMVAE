@@ -131,113 +131,127 @@ class MOE_CMMVAEModel(BaseModel):
         x, metadata, expert_id = batch
 
         # Perform forward pass and compute the loss
-        qz_dict, pz_dict, z_dict, xhats, hr_dict = self.module(
+        qz_dict, pz_dict, z_dict, xhat_dict, hr_dict = self.module(
             x=x, metadata=metadata, expert_id=expert_id
         )
 
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
-        loss_dict = {}
-
         # Calculate loss for human/mouse specific VAE and shared vae. Only need KL-Divergence of specific vae to be added to shared loss.
         # Pytorch autograd will backprop reconstruction to both and the kl that corresponds to each network.
-        if expert_id == RK.HUMAN:
-            loss_dict[RK.HUMAN_LOSS] = self.module.vaes[RK.HUMAN].elbo(
-                qz_dict[RK.HUMAN],
-                pz_dict[RK.HUMAN],
-                x,
-                xhats["cis"],
-                self.kl_annealing_fn.kl_weight,
-            )
+        loss_dict = self.module.vaes[expert_id].elbo(
+            qz_dict[expert_id],
+            pz_dict[expert_id],
+            x,
+            xhat_dict[expert_id],
+            self.kl_annealing_fn.kl_weight,
+        )
+        shared_kl = self.module.vaes[RK.SHARED].kl_loss(
+            qz_dict[RK.SHARED],
+            pz_dict[RK.SHARED],
+            self.kl_annealing_fn.kl_weight,
+        )
+        loss_dict[RK.SHARED_KL] = shared_kl
+        loss_dict[RK.LOSS] += shared_kl
 
-            loss_dict[RK.SHARED] = self.module.vaes[RK.SHARED].elbo(
-                qz_dict[RK.SHARED],
-                pz_dict[RK.SHARED],
-                x,
-                xhats["cis"],
-                self.kl_annealing_fn.kl_weight,
-            )
+        # if expert_id == RK.HUMAN:
+        #     loss_dict[RK.HUMAN_LOSS] = self.module.vaes[RK.HUMAN].elbo(
+        #         qz_dict[RK.HUMAN],
+        #         pz_dict[RK.HUMAN],
+        #         x,
+        #         xhats["cis"],
+        #         self.kl_annealing_fn.kl_weight,
+        #     )
 
-            loss_dict[RK.SHARED][RK.LOSS] += (
-                loss_dict[RK.HUMAN_LOSS][RK.KL_WEIGHT]
-                * loss_dict[RK.HUMAN_LOSS][RK.KL_LOSS]
-            )
+        #     loss_dict[RK.SHARED] = self.module.vaes[RK.SHARED].elbo(
+        #         qz_dict[RK.SHARED],
+        #         pz_dict[RK.SHARED],
+        #         x,
+        #         xhats["cis"],
+        #         self.kl_annealing_fn.kl_weight,
+        #     )
 
-        else:
-            loss_dict[RK.MOUSE_LOSS] = self.module.vaes[RK.MOUSE].elbo(
-                qz_dict[RK.MOUSE],
-                pz_dict[RK.MOUSE],
-                x,
-                xhats["cis"],
-                self.kl_annealing_fn.kl_weight,
-            )
+        #     loss_dict[RK.SHARED][RK.LOSS] += (
+        #         loss_dict[RK.HUMAN_LOSS][RK.KL_WEIGHT]
+        #         * loss_dict[RK.HUMAN_LOSS][RK.KL_LOSS]
+        #     )
 
-            loss_dict[RK.SHARED] = self.module.vaes[RK.SHARED].elbo(
-                qz_dict[RK.SHARED],
-                pz_dict[RK.SHARED],
-                x,
-                xhats["cis"],
-                self.kl_annealing_fn.kl_weight,
-            )
+        # else:
+        #     loss_dict[RK.MOUSE_LOSS] = self.module.vaes[RK.MOUSE].elbo(
+        #         qz_dict[RK.MOUSE],
+        #         pz_dict[RK.MOUSE],
+        #         x,
+        #         xhats["cis"],
+        #         self.kl_annealing_fn.kl_weight,
+        #     )
 
-            loss_dict[RK.SHARED][RK.LOSS] += (
-                loss_dict[RK.MOUSE_LOSS][RK.KL_WEIGHT]
-                * loss_dict[RK.MOUSE_LOSS][RK.KL_LOSS]
-            )
+        #     loss_dict[RK.SHARED] = self.module.vaes[RK.SHARED].elbo(
+        #         qz_dict[RK.SHARED],
+        #         pz_dict[RK.SHARED],
+        #         x,
+        #         xhats["cis"],
+        #         self.kl_annealing_fn.kl_weight,
+        #     )
+
+        #     loss_dict[RK.SHARED][RK.LOSS] += (
+        #         loss_dict[RK.MOUSE_LOSS][RK.KL_WEIGHT]
+        #         * loss_dict[RK.MOUSE_LOSS][RK.KL_LOSS]
+        #     )
 
         # Retrieve optimizers.
         optims = self.get_optimizers(zero_all=True)
-        expert_optimizer = optims["experts"][expert_id]
-        human_optimizer = optims[RK.HUMAN]
-        mouse_optimizer = optims[RK.MOUSE]
-        shared_optimizer = optims[RK.SHARED]
-        adversarial_optimizers = optims.get("adversarials")
-        human_gan_optimizer = optims.get("ganh")
-        mouse_gan_optimizer = optims.get("ganm")
+        expert_optimizer = optims[RK.EXPERT][expert_id]
+        human_optimizer = optims[RK.VAE][RK.HUMAN]
+        mouse_optimizer = optims[RK.VAE][RK.MOUSE]
+        shared_optimizer = optims[RK.VAE][RK.SHARED]
+        gan_optimizers = optims.get("gans") if self.module.gans else None
+        adversarial_optimizers = optims.get("adversarials") if self.module.adversarials else None
 
         # Train adversarial networks
         if self.module.adversarials:
             loss_dict[RK.ADV_LOSS] = self.shared_adversarial_loss(
                 hr_dict[RK.SHARED] + [z_dict[RK.SHARED]], expert_id
             )
-            loss_dict[RK.SHARED][RK.LOSS] = (
-                loss_dict[RK.SHARED][RK.LOSS] + loss_dict[RK.ADV_LOSS] * self.adv_weight
+            loss_dict[RK.LOSS] = (
+                loss_dict[RK.LOSS] + loss_dict[RK.ADV_LOSS] * self.adv_weight
             )
             loss_dict[RK.ADV_WEIGHT] = self.adv_weight
 
-        # Train gans
-        if self.module.ganh and self.module.ganm:
-            if expert_id == RK.HUMAN:
-                loss_dict["mouse_gan_loss"] = self.shared_gan_loss(
-                    xhats["cross"], self.module.ganm, expert_id
-                )
-                gan_loss = loss_dict["mouse_gan_loss"]
-            else:
-                loss_dict["human_gan_loss"] = self.shared_gan_loss(
-                    xhats["cross"], self.module.ganh, expert_id
-                )
-                gan_loss = loss_dict["human_gan_loss"]
+        # # Train gans
+        # if self.module.gans:
+        #     if expert_id == RK.HUMAN:
+        #         loss_dict["mouse_gan_loss"] = self.shared_gan_loss(
+        #             xhats["cross"], self.module.ganm, expert_id
+        #         )
+        #         gan_loss = loss_dict["mouse_gan_loss"]
+        #     else:
+        #         loss_dict["human_gan_loss"] = self.shared_gan_loss(
+        #             xhats["cross"], self.module.ganh, expert_id
+        #         )
+        #         gan_loss = loss_dict["human_gan_loss"]
 
-        # Cross generated vae gets GAN loss backpropagation. Cisgenerating and shared vaes get reconstrucion and kl backprop.
-        if expert_id == RK.HUMAN:
-            self.freeze_model_parameters(self.module)
-            self.unfreeze_model_parameters(self.module.vaes[RK.MOUSE])
-            self.manual_backward(gan_loss, retain_graph=True)
-            self.unfreeze_model_parameters(self.module)
-            # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
-            self.freeze_model_parameters(self.module.vaes[RK.MOUSE])
-            self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
-            self.unfreeze_model_parameters(self.module)
-        else:
-            self.freeze_model_parameters(self.module)
-            self.unfreeze_model_parameters(self.module.vaes[RK.HUMAN])
-            self.manual_backward(gan_loss, retain_graph=True)
-            self.unfreeze_model_parameters(self.module)
-            # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
-            self.freeze_model_parameters(self.module.vaes[RK.HUMAN])
-            self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
-            self.unfreeze_model_parameters(self.module)
+        # # Cross generated vae gets GAN loss backpropagation. Cisgenerating and shared vaes get reconstrucion and kl backprop.
+        # if expert_id == RK.HUMAN:
+        #     self.freeze_model_parameters(self.module)
+        #     self.unfreeze_model_parameters(self.module.vaes[RK.MOUSE])
+        #     self.manual_backward(gan_loss, retain_graph=True)
+        #     self.unfreeze_model_parameters(self.module)
+        #     # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
+        #     self.freeze_model_parameters(self.module.vaes[RK.MOUSE])
+        #     self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
+        #     self.unfreeze_model_parameters(self.module)
+        # else:
+        #     self.freeze_model_parameters(self.module)
+        #     self.unfreeze_model_parameters(self.module.vaes[RK.HUMAN])
+        #     self.manual_backward(gan_loss, retain_graph=True)
+        #     self.unfreeze_model_parameters(self.module)
+        #     # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
+        #     self.freeze_model_parameters(self.module.vaes[RK.HUMAN])
+        #     self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
+        #     self.unfreeze_model_parameters(self.module)
+
+        self.manual_backward(loss_dict[RK.LOSS])
 
         # Clip gradients for stability
         self.clip_gradients(
@@ -260,19 +274,19 @@ class MOE_CMMVAEModel(BaseModel):
                 )
                 optim.step()
 
-        if human_gan_optimizer:
-            for optim in human_gan_optimizer.values():
-                self.clip_gradients(
-                    optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
-                )
-                optim.step()
+        # if human_gan_optimizer:
+        #     for optim in human_gan_optimizer.values():
+        #         self.clip_gradients(
+        #             optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
+        #         )
+        #         optim.step()
 
-        if mouse_gan_optimizer:
-            for optim in mouse_gan_optimizer.values():
-                self.clip_gradients(
-                    optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
-                )
-                optim.step()
+        # if mouse_gan_optimizer:
+        #     for optim in mouse_gan_optimizer.values():
+        #         self.clip_gradients(
+        #             optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
+        #         )
+        #        optim.step()
 
         # Update the weights
         human_optimizer.step()
@@ -282,7 +296,7 @@ class MOE_CMMVAEModel(BaseModel):
         self.kl_annealing_fn.step()
 
         # Log the loss.
-        self.auto_log(loss_dict[RK.SHARED], tags=[self.stage_name, expert_id])
+        self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
 
     def validation_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str]) -> None:
         """
@@ -295,24 +309,36 @@ class MOE_CMMVAEModel(BaseModel):
         """
         x, metadata, expert_id = batch
 
-        # Perform forward pass and compute the loss. Only need shared for validation
-        qz_dict, pz_dict, z_dict, xhats, hr_dict = self.module(x, metadata, expert_id)
-
-        loss_dict = {}
-
-        loss_dict[RK.SHARED] = self.module.vaes[RK.SHARED].elbo(
-            qz_dict[RK.SHARED],
-            pz_dict[RK.SHARED],
-            x,
-            xhats["cis"],
-            self.kl_annealing_fn.kl_weight,
+        # Perform forward pass and compute the loss
+        qz_dict, pz_dict, z_dict, xhat_dict, hr_dict = self.module(
+            x=x, metadata=metadata, expert_id=expert_id
         )
 
-        self.auto_log(loss_dict[RK.SHARED], tags=[self.stage_name, expert_id])
+        if x.layout == torch.sparse_csr:
+            x = x.to_dense()
+
+        # Calculate loss for human/mouse specific VAE and shared vae. Only need KL-Divergence of specific vae to be added to shared loss.
+        # Pytorch autograd will backprop reconstruction to both and the kl that corresponds to each network.
+        loss_dict = self.module.vaes[expert_id].elbo(
+            qz_dict[expert_id],
+            pz_dict[expert_id],
+            x,
+            xhat_dict[expert_id],
+            self.kl_annealing_fn.kl_weight,
+        )
+        shared_kl = self.module.vaes[RK.SHARED].kl_loss(
+            qz_dict[RK.SHARED],
+            pz_dict[RK.SHARED],
+            self.kl_annealing_fn.kl_weight,
+        )
+        loss_dict[RK.SHARED_KL] = shared_kl
+        loss_dict[RK.LOSS] += shared_kl
+
+        self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
 
         if self.trainer.validating:
             self.log(
-                "val_loss", loss_dict[RK.SHARED][RK.LOSS], logger=False, on_epoch=True
+                "val_loss", loss_dict[RK.LOSS], logger=False, on_epoch=True
             )
 
     # Alias for validation_step method to reuse for testing
@@ -376,33 +402,24 @@ class MOE_CMMVAEModel(BaseModel):
         """
         optim_cls = Adam if optim_cls == "Adam" else AdamW
         optimizers = {}
-        optimizers["experts"] = {
+        optimizers[RK.EXPERT] = {
             expert_id: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
             for expert_id, module in self.module.experts.items()
         }
-        optimizers["shared"] = optim_cls(
-            self.module.vaes.parameters(), lr=1e-3, weight_decay=1e-6
-        )
-        optimizers["human"] = optim_cls(
-            self.module.vaes.parameters(), lr=1e-3, weight_decay=1e-6
-        )
-        optimizers["mouse"] = optim_cls(
-            self.module.vaes.parameters(), lr=1e-3, weight_decay=1e-6
-        )
+        optimizers[RK.VAE] = {
+            expert_id: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
+            for expert_id, module in self.module.vaes.items()
+        }
+        if self.module.gans:
+            optimizers["gans"] = {
+                expert_id: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
+                for expert_id, module in self.module.gans.items()
+            }
         if self.module.adversarials:
             optimizers["adversarials"] = {
                 i: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
                 for i, module in enumerate(self.module.adversarials)
             }
-        optimizers["ganh"] = {
-            i: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
-            for i, module in enumerate(self.module.ganh)
-        }
-        optimizers["ganm"] = {
-            i: optim_cls(module.parameters(), lr=1e-3, weight_decay=1e-6)
-            for i, module in enumerate(self.module.ganm)
-        }
-
         optimizer_list = []
         self.optimizer_map = convert_to_flat_list_and_map(optimizers, optimizer_list)
         return optimizer_list

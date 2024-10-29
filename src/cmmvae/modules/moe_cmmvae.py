@@ -4,9 +4,11 @@ import pandas as pd
 import torch
 from torch import nn
 
-from cmmvae.modules.base import Experts, FCBlock, FCBlockConfig
+from cmmvae.modules.base import Experts, FCBlock, FCBlockConfig, ExpertGANs
 from cmmvae.modules import ExpertVAEs
 from cmmvae.constants import REGISTRY_KEYS as RK
+
+from collections import defaultdict
 
 
 ADVERSERIAL_TYP = Union[Optional[FCBlockConfig], list[Optional[FCBlockConfig]]]
@@ -50,18 +52,31 @@ class MOE_CMMVAE(nn.Module):
         self,
         vaes: ExpertVAEs,
         experts: Experts,
-        ganh: ADVERSERIAL_TYP = None,
-        ganm: ADVERSERIAL_TYP = None,
+        gans: Optional[ExpertGANs] = None,
         adversarials: ADVERSERIAL_TYP = None,
     ):
         super().__init__()
         self.vaes = vaes
         self.experts = experts
+        self.gans = gans
         self.adversarials = nn.ModuleList(
-            [FCBlock(config) for config in adversarials if config]
+            [FCBlock(config) for config in adversarials]
+        ) if adversarials else None
+
+        self.layer_norms = nn.ModuleDict(
+            {
+                f"{RK.HIDDEN}_{RK.HUMAN}": 
+                nn.LayerNorm(self.vaes[RK.HUMAN].decoder.output_dim),
+                f"{RK.HIDDEN}_{RK.SHARED}":
+                nn.LayerNorm(self.vaes[RK.SHARED].decoder.output_dim),
+                f"{RK.HIDDEN}_{RK.MOUSE}":
+                nn.LayerNorm(self.vaes[RK.MOUSE].decoder.output_dim),
+                f"{RK.HUMAN}":
+                nn.LayerNorm(self.experts[RK.HUMAN].decoder.input_dim),
+                f"{RK.MOUSE}":
+                nn.LayerNorm(self.experts[RK.MOUSE].decoder.input_dim),
+            }
         )
-        self.ganh = nn.ModuleList([FCBlock(config) for config in ganh if config])
-        self.ganm = nn.ModuleList([FCBlock(config) for config in ganm if config])
 
     def forward(
         self,
@@ -99,85 +114,120 @@ class MOE_CMMVAE(nn.Module):
         # Encode the input using the specified expert network
         shared_x = self.experts[expert_id].encode(x)
 
-        # Pass through the VAEs
-        (
-            qz_human,
-            pz_human,
-            z_human,
-            human_xhat,
-            hidden_representations_human,
-        ) = self.vaes[RK.HUMAN](shared_x, metadata)
-        (
-            qz_mouse,
-            pz_mouse,
-            z_mouse,
-            mouse_xhat,
-            hidden_representations_mouse,
-        ) = self.vaes[RK.MOUSE](shared_x, metadata)
-        (
-            qz_shared,
-            pz_shared,
-            z_shared,
-            shared_xhat,
-            hidden_representations_shared,
-        ) = self.vaes[RK.SHARED](shared_x, metadata)
+        outputs = defaultdict(dict)
 
-        # Store outputs in dictionaries
-        qz_dict = {
-            "human": qz_human,
-            "mouse": qz_mouse,
-            "shared": qz_shared,
-        }
-        pz_dict = {
-            "human": pz_human,
-            "mouse": pz_mouse,
-            "shared": pz_shared,
-        }
-        z_dict = {
-            "human": z_human,
-            "mouse": z_mouse,
-            "shared": z_shared,
-        }
-        hr_dict = {
-            "human": hidden_representations_human,
-            "mouse": hidden_representations_mouse,
-            "shared": hidden_representations_shared,
-        }
-        xhats = {
-            "human": human_xhat,
-            "mouse": mouse_xhat,
-            "shared": shared_xhat,
-            "cis": None,
-            "cross": None,
-        }
+        for vae in self.vaes:
+            qz, pz, z, x_hat, hidden_reps = self.vaes[vae](shared_x, metadata)
+            outputs[RK.QZ][vae] = qz
+            outputs[RK.PZ][vae] = pz
+            outputs[RK.Z][vae] = z
+            outputs[RK.X_HAT][vae] = x_hat
+            outputs[RK.HIDDEN][vae] = hidden_reps
 
-        # define layernorm. Used to learn ratio to sum outputs from all 3 vaes.
-        LN = nn.LayerNorm(normalized_shape=human_xhat.shape[-1], device="cuda:0")
+        # Old way of handling the VAEs
+        # # Store outputs in dictionaries
+        # qz_dict = {
+        #     "human": qz_human,
+        #     "mouse": qz_mouse,
+        #     "shared": qz_shared,
+        # }
+        # pz_dict = {
+        #     "human": pz_human,
+        #     "mouse": pz_mouse,
+        #     "shared": pz_shared,
+        # }
+        # z_dict = {
+        #     "human": z_human,
+        #     "mouse": z_mouse,
+        #     "shared": z_shared,
+        # }
+        # hr_dict = {
+        #     "human": hidden_representations_human,
+        #     "mouse": hidden_representations_mouse,
+        #     "shared": hidden_representations_shared,
+        # }
+        # xhats = {
+        #     "human": human_xhat,
+        #     "mouse": mouse_xhat,
+        #     "shared": shared_xhat,
+        #     "cis": None,
+        #     "cross": None,
+        # }
 
-        human_xhat = LN(human_xhat)
-        mouse_xhat = LN(mouse_xhat)
-        shared_xhat = LN(shared_xhat)
+        # # Pass through the VAEs
+        # (
+        #     qz_human,
+        #     pz_human,
+        #     z_human,
+        #     human_xhat,
+        #     hidden_representations_human,
+        # ) = self.vaes[RK.HUMAN](shared_x, metadata)
+        # (
+        #     qz_mouse,
+        #     pz_mouse,
+        #     z_mouse,
+        #     mouse_xhat,
+        #     hidden_representations_mouse,
+        # ) = self.vaes[RK.MOUSE](shared_x, metadata)
+        # (
+        #     qz_shared,
+        #     pz_shared,
+        #     z_shared,
+        #     shared_xhat,
+        #     hidden_representations_shared,
+        # ) = self.vaes[RK.SHARED](shared_x, metadata)
 
-        human_xhat = LN(human_xhat)
-        mouse_xhat = LN(mouse_xhat)
-        shared_xhat = LN(shared_xhat)
+        
+        # Old method of combining outputs, now handled by expert decoder
+        # # define layernorm. Used to learn ratio to sum outputs from all 3 vaes.
+        # LN = nn.LayerNorm(normalized_shape=human_xhat.shape[-1], device="cuda:0")
 
-        # Sum outputs of VAEs at learned ratio for reconstruction and adversarial backpropagation.
-        human_decoder = torch.add(human_xhat, shared_xhat)
-        mouse_decoder = torch.add(mouse_xhat, shared_xhat)
+        # human_xhat = LN(human_xhat)
+        # mouse_xhat = LN(mouse_xhat)
+        # shared_xhat = LN(shared_xhat)
 
-        human_decoder = LN(human_decoder)
-        mouse_decoder = LN(mouse_decoder)
+        # human_xhat = LN(human_xhat)
+        # mouse_xhat = LN(mouse_xhat)
+        # shared_xhat = LN(shared_xhat)
 
-        # Decode using the specified expert. Label outputs as cis or cross generation.
-        if expert_id == RK.HUMAN:
-            xhats["cis"] = self.experts[expert_id].decode(human_decoder)
-            xhats["cross"] = self.experts[RK.MOUSE].decode(mouse_decoder)
-        else:
-            xhats["cis"] = self.experts[expert_id].decode(mouse_decoder)
-            xhats["cross"] = self.experts[RK.HUMAN].decode(human_decoder)
+        # # Sum outputs of VAEs at learned ratio for reconstruction and adversarial backpropagation.
+        # human_decoder = torch.add(human_xhat, shared_xhat)
+        # mouse_decoder = torch.add(mouse_xhat, shared_xhat)
 
-        return qz_dict, pz_dict, z_dict, xhats, hr_dict
+        # human_decoder = LN(human_decoder)
+        # mouse_decoder = LN(mouse_decoder)
+
+        # Concat the expert and shared VAE outputs
+        xhats = {}
+        # Decode using all experts.
+        for expert in self.experts:
+                # decoder_input = torch.cat(
+                #     (
+                #         outputs[RK.X_HAT][expert], 
+                #         outputs[RK.X_HAT][RK.SHARED]
+                #     ),
+                #     dim=1
+                # )
+                decoder_input = torch.add(
+                    self.layer_norms[f"{RK.HIDDEN}_{expert}"](outputs[RK.X_HAT][expert]),
+                    self.layer_norms[f"{RK.HIDDEN}_{RK.SHARED}"](outputs[RK.X_HAT][RK.SHARED])
+                )
+
+                decoder_input = self.layer_norms[expert](decoder_input)
+
+                xhats[expert] = self.experts[expert].decode(decoder_input)
+
+        outputs[RK.X_HAT] = xhats
+
+        # # Old way of decoding using all experts.
+        # if expert_id == RK.HUMAN:
+        #     xhats["cis"] = self.experts[expert_id].decode(human_decoder)
+        #     xhats["cross"] = self.experts[RK.MOUSE].decode(mouse_decoder)
+        # else:
+        #     xhats["cis"] = self.experts[expert_id].decode(mouse_decoder)
+        #     xhats["cross"] = self.experts[RK.HUMAN].decode(human_decoder)
+
+        return outputs[RK.QZ], outputs[RK.PZ], outputs[RK.Z], outputs[RK.X_HAT], outputs[RK.HIDDEN]
 
     @torch.no_grad()
     def get_latent_embeddings(
@@ -197,13 +247,16 @@ class MOE_CMMVAE(nn.Module):
                 - RK.Z: Latent embeddings.
                 - f"{RK.Z}_{RK.METADATA}": Metadata.
         """
-        # Encode the input using the specified expert network
-        x = self.experts[expert_id].encode(x)
-
-        # Encode using the VAEs
-        _, z, _ = self.vaes[RK.SHARED].encode(x)
+        embeddings = {}
 
         # Tag the metadata with the expert_id
         metadata["species"] = expert_id
 
-        return {RK.Z: (z, metadata)}
+        # Encode the input using the specified expert network
+        x = self.experts[expert_id].encode(x)
+        for vae in self.vaes:
+            # Encode using the VAEs
+            _, z, _ = self.vaes[vae].encode(x)
+            embeddings[f"{vae}_{RK.Z}"] = (z, metadata)
+
+        return embeddings

@@ -284,7 +284,7 @@ class FCBlock(nn.Module):
 
         Returns:
             Union[torch.Tensor, tuple[torch.Tensor, list[torch.Tensor]]]:
-                Output tensor or tuple of output andhidden representations.
+                Output tensor or tuple of output and hidden representations.
         """
         if self.can_bypass:
             return self.fc_layers(x)
@@ -799,6 +799,55 @@ class Experts(nn.ModuleDict):
 
     def __init__(self, experts: list[Expert]):
         super().__init__({expert.id: expert for expert in experts})
+        self.labels = {key: i for i, key in enumerate(self.keys())}
+
+class GAN(nn.Module):
+    """
+    Container that stores expert GAN networks.
+
+    Attributes:
+        id (str): Name of species (unique identifier)
+        config (`FCBlockConfig`): config for the GAN
+    """
+    
+    def __init__(
+        self,
+        id: str,
+        config: FCBlockConfig,
+    ):
+        """
+        Initialize the GAN network.
+
+        Args:
+            id (str): Name of species (unique identifier)
+            encoder (`FCBlock`): encoder network
+        """
+        super().__init__()
+
+        self.id = id
+        self.gan = FCBlock(config)
+
+    def forward(self, x: torch.Tensor):
+        """
+        Forward pass through the GAN.
+        """
+        return self.gan(x)
+
+class ExpertGANs(nn.ModuleDict):
+    """
+    Container to store cmmvae.modules.base.GAN
+        encoder and decoder networks.
+
+    Args:
+        experts (list[cmmvae.modules.base.BaseExpert]):
+            List of Expert modules.
+
+    Attributes:
+        labels (dict[str, int]):
+            Dictionary of expert.id's to their integer representation.
+    """
+    def __init__(self, gans: list[GAN]):
+        super().__init__({gan.id: gan for gan in gans})
         self.labels = {key: i for i, key in enumerate(self.keys())}
 
 
