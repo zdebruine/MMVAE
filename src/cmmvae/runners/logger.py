@@ -10,7 +10,7 @@ import subprocess
 import click
 
 
-SUBMISSION_REGEX = (
+snakemake_REGEX = (
     r"rule (\w+):.*?" r"Submitted job (\d+)" r" with external jobid \'(\d+)\'"
 )
 
@@ -25,12 +25,15 @@ def job_status(jobid: int):
     )
 
     running_status = ["PENDING", "CONFIGURING", "COMPLETING", "RUNNING", "SUSPENDED"]
+
     if "COMPLETED" in output:
         return "success"
-    elif any(r in output for r in running_status):
-        return "running"
-    else:
-        return "failed"
+
+    for rstatus in running_status:
+        if rstatus in output:
+            return rstatus.lower()
+
+    return "failed"
 
 
 def scan_file(out_file: str):
@@ -43,13 +46,13 @@ def scan_file(out_file: str):
                 time.sleep(1)
 
 
-def _parse_submission_file(log_file):
+def _parse_snakemake_file(log_file):
     """
-    Parses snakemake head node (submission) stderr output file
+    Parses snakemake head node (snakemake) stderr output file
     for rules that have been executed along with the job id for each rule.
 
     Args:
-        log_file (str): Path to the submission log file to parse.
+        log_file (str): Path to the snakemake log file to parse.
 
     Returns:
         dict[str, int]: Dictionary of rules and their respective job ids.
@@ -58,7 +61,7 @@ def _parse_submission_file(log_file):
     with open(log_file, "r") as f:
         content = f.read()
         # Regex to find all rule blocks
-        rule_blocks = re.findall(SUBMISSION_REGEX, content, re.DOTALL)
+        rule_blocks = re.findall(snakemake_REGEX, content, re.DOTALL)
         # Parse just the rule ran and the rule_job_id's
         for rule, _, rule_job_id in rule_blocks:
             rules[rule] = rule_job_id
@@ -77,7 +80,7 @@ class Prompts:
         prompt_callback: Callable,
         quit_callback: Callable = default_quit_callback,
         back_callback: Optional[Callable] = None,
-        refresh_callback: Optional[Callable[[int], None]] = None,
+        refresh_callback: Optional[Callable] = None,
         valid_results: list = [],
     ):
         assert isinstance(valid_results, (list, tuple))
@@ -87,7 +90,7 @@ class Prompts:
             result = prompt_callback()
             lower_result = str(result).lower()
             if quit_callback and lower_result in ("q", "quit"):
-                quit_callback and quit_callback()
+                quit_callback()
             elif back_callback and lower_result in ("b", "back"):
                 back_callback()
             elif refresh_callback and lower_result in ("r", "refresh"):
@@ -110,7 +113,7 @@ class Prompts:
         )
 
 
-def job_tree(job_id: str, rules: dict, excluded: list[str] = ["submission"]):
+def job_tree(job_id: str, rules: dict, excluded: list[str] = ["snakemake"]):
     return (
         f"Job {job_id}: {job_status(job_id)}\n"
         + "\n".join(
@@ -210,15 +213,15 @@ class Logger:
             ),
         )
 
-    def get_submission_log_file(self, job_id):
-        return self.get_path("submission", job_id, "err")
+    def get_snakemake_log_file(self, job_id):
+        return self.get_path("snakemake", job_id, "err")
 
-    def parse_submission_file(self, submission_jobid: Optional[str] = None):
-        submission_dir = self.get_path("submission")
-        submission_jobid = submission_jobid or get_last_job_id(submission_dir)
-        log_file = self.get_submission_log_file(submission_jobid)
-        rules = _parse_submission_file(log_file)
-        rules["submission"] = submission_jobid
+    def parse_snakemake_file(self, snakemake_jobid: Optional[str] = None):
+        snakemake_dir = self.get_path("snakemake")
+        snakemake_jobid = snakemake_jobid or get_last_job_id(snakemake_dir)
+        log_file = self.get_snakemake_log_file(snakemake_jobid)
+        rules = _parse_snakemake_file(log_file)
+        rules["snakemake"] = snakemake_jobid
         return rules
 
     def back_callback(self):
@@ -251,18 +254,18 @@ class Logger:
     @record_view_history()
     def view_history(self, n: int):
         click.echo("\n")
-        submission_dir = self.get_path("submission")
-        submission_jobs = get_last_n_job_ids(submission_dir, n)
+        snakemake_dir = self.get_path("snakemake")
+        snakemake_jobs = get_last_n_job_ids(snakemake_dir, n)
 
-        submission_job_rules = {}
-        valid_results = list(submission_jobs)
+        snakemake_job_rules = {}
+        valid_results = list(snakemake_jobs)
         tree = ""
-        for submission_jobid in submission_jobs:
-            rules = self.parse_submission_file(submission_jobid)
-            submission_job_rules[submission_jobid] = rules
-            valids = list(submission_job_rules[submission_jobid].values())
+        for snakemake_jobid in snakemake_jobs:
+            rules = self.parse_snakemake_file(snakemake_jobid)
+            snakemake_job_rules[snakemake_jobid] = rules
+            valids = list(snakemake_job_rules[snakemake_jobid].values())
             valid_results.extend(valids)
-            tree += job_tree(submission_jobid, rules)
+            tree += job_tree(snakemake_jobid, rules)
 
         click.echo(tree)
 
@@ -271,24 +274,24 @@ class Logger:
             valid_results=valid_results,
         )
 
-        if result in submission_jobs:
-            self.view_submission(result)
+        if result in snakemake_jobs:
+            self.view_snakemake(result)
         else:
-            for submission_jobid, rules in submission_job_rules.items():
+            for snakemake_jobid, rules in snakemake_job_rules.items():
                 for rule, rule_jobid in rules.items():
                     if result == rule_jobid:
                         self.view_file_type(rule, rule_jobid)
                         return
 
     @record_view_history()
-    def view_submission(self, submission_jobid: Optional[str] = None):
+    def view_snakemake(self, snakemake_jobid: Optional[str] = None):
         click.echo("\n")
-        submission_dir = self.get_path("submission")
-        submission_jobid = submission_jobid or get_last_job_id(submission_dir)
-        if not submission_jobid:
-            raise RuntimeError("submission_jobid is None!")
-        rules = self.parse_submission_file(submission_jobid)
-        tree = job_tree(submission_jobid, rules)
+        snakemake_dir = self.get_path("snakemake")
+        snakemake_jobid = snakemake_jobid or get_last_job_id(snakemake_dir)
+        if not snakemake_jobid:
+            raise RuntimeError("snakemake_jobid is None!")
+        rules = self.parse_snakemake_file(snakemake_jobid)
+        tree = job_tree(snakemake_jobid, rules)
         click.echo(tree)
         valid_results = []
         jobids_to_rule = {value: key for key, value, in rules.items()}
@@ -342,7 +345,7 @@ def logger():
 )
 def last(log_dir):
     """View the last job or a specified job."""
-    Logger(log_dir).view_submission()
+    Logger(log_dir).view_snakemake()
 
 
 @logger.command()
@@ -357,7 +360,7 @@ def last(log_dir):
     "--job-id", type=str, default=None, help="Specify a job ID to view details."
 )
 def job(log_dir, job_id):
-    Logger(log_dir).view_submission(job_id)
+    Logger(log_dir).view_snakemake(job_id)
 
 
 @logger.command()

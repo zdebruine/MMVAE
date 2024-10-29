@@ -10,7 +10,7 @@ from cmmvae.modules import CLVAE
 from cmmvae.constants import REGISTRY_KEYS as RK
 
 
-ADVERSERIAL_TYP = Union[Optional[FCBlockConfig], list[Optional[FCBlockConfig]]]
+adversarial_TYP = Union[Optional[FCBlockConfig], list[Optional[FCBlockConfig]]]
 
 
 class CMMVAE(nn.Module):
@@ -41,14 +41,19 @@ class CMMVAE(nn.Module):
         self,
         vae: CLVAE,
         experts: Experts,
-        adversarials: ADVERSERIAL_TYP = None,
+        adversarials: adversarial_TYP = None,
     ):
         super().__init__()
         self.vae = vae
         self.experts = experts
-        self.adversarials = nn.ModuleList(
-            [FCBlock(config) for config in adversarials if config]
-        )
+        self.adversarials = None
+
+        if adversarials:
+            if not isinstance(adversarials, list):
+                adversarials = [adversarials]
+            self.adversarials = nn.ModuleList(
+                [FCBlock(config) for config in adversarials if config]
+            )
 
     def forward(
         self,
@@ -87,7 +92,9 @@ class CMMVAE(nn.Module):
         shared_x = self.experts[expert_id].encode(x)
 
         # Pass through the VAE
-        qz, pz, z, shared_xhat, hidden_representations = self.vae(shared_x, metadata)
+        qz, pz, z, shared_xhat, hidden_representations = self.vae(
+            shared_x, metadata, species=expert_id
+        )
 
         xhats = {}
 
@@ -115,7 +122,7 @@ class CMMVAE(nn.Module):
     @torch.no_grad()
     def get_latent_embeddings(
         self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str
-    ) -> dict[str, torch.Tensor]:
+    ) -> dict[str, tuple[torch.Tensor, pd.DataFrame]]:
         """
         Obtain latent embeddings from the input data
             using the specified expert network.
@@ -137,6 +144,6 @@ class CMMVAE(nn.Module):
         _, z, _ = self.vae.encode(x)
 
         # Tag the metadata with the expert_id
-        metadata['species'] = expert_id
+        metadata["species"] = expert_id
 
-        return {RK.Z: z, f"{RK.Z}_{RK.METADATA}": metadata}
+        return {RK.Z: (z, metadata)}

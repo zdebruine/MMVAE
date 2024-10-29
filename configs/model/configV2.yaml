@@ -3,48 +3,30 @@ init_args:
   kl_annealing_fn:
     class_path: cmmvae.modules.base.KLAnnealingFn
     init_args:
-      kl_weight: 1.0
+      kl_weight: 1.0e-07
   record_gradients: false
-  adv_weight: 25
+  adv_weight: 1
   gradient_record_cap: 20
-  autograd_config:
-    class_path: cmmvae.config.AutogradConfig
-    init_args:
-      adversarial_gradient_clip:
-        class_path: cmmvae.config.GradientClipConfig
-        init_args:
-          val: 10
-          algorithm: norm
-      vae_gradient_clip:
-        class_path: cmmvae.config.GradientClipConfig
-        init_args:
-          val: 10
-          algorithm: norm
-      expert_gradient_clip:
-        class_path: cmmvae.config.GradientClipConfig
-        init_args:
-          val: 10
-          algorithm: norm
   module:
     class_path: cmmvae.modules.CMMVAE
     init_args:
       vae:
         class_path: cmmvae.modules.CLVAE
         init_args:
-          latent_dim: 128
+          latent_dim: 256
           encoder_config:
             class_path: cmmvae.modules.base.FCBlockConfig
             init_args:
-              layers: [ 512, 256 ]
-              dropout_rate: 0.0
+              layers: [ 768, 512 ]
+              dropout_rate: 0.1
               use_batch_norm: True
               use_layer_norm: False
               activation_fn: torch.nn.ReLU
-              return_hidden: True
+              return_hidden: False
           decoder_config:
             class_path: cmmvae.modules.base.FCBlockConfig
             init_args:
-              layers: [ 128, 256, 512 ]
+              layers: [ 256, 512, 768 ]
               dropout_rate: 0.0
               use_batch_norm: False
               use_layer_norm: False
@@ -53,14 +35,11 @@ init_args:
             class_path: cmmvae.modules.base.FCBlockConfig
             init_args:
               layers:
-              - 128
+              - 256
               dropout_rate: 0.0
               use_batch_norm: False
               use_layer_norm: True
               activation_fn: null
-          conditional_paths:
-            assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-          selection_order: null
       experts:
         class_path: cmmvae.modules.base.Experts
         init_args:
@@ -71,7 +50,7 @@ init_args:
               encoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [ 60530, 1024, 512 ]
+                  layers: [ 60664, 1024, 768 ]
                   dropout_rate: [ 0.1, 0.1 ]
                   use_batch_norm: True
                   use_layer_norm: False
@@ -79,7 +58,7 @@ init_args:
               decoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [ 512, 1024, 60530 ]
+                  layers: [ 768, 1024, 60664 ]
                   dropout_rate: 0.0
                   use_batch_norm: False
                   use_layer_norm: False
@@ -90,7 +69,7 @@ init_args:
               encoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [ 52437, 1024, 512 ]
+                  layers: [ 52417, 1024, 768 ]
                   dropout_rate: [ 0.1, 0.1 ]
                   use_batch_norm: True
                   use_layer_norm: False
@@ -98,16 +77,30 @@ init_args:
               decoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
-                  layers: [ 512, 1024, 52437 ]
+                  layers: [ 768, 1024, 52417 ]
                   dropout_rate: 0.0
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
       adversarials:
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [ 256, 128, 64, 1 ]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.Sigmoid
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 256, 32, 32, 1 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.ReLU
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 256, 32, 32, 1 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.ReLU
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 128, 32, 32, 1 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.ReLU

@@ -19,50 +19,53 @@ from cmmvae.data.local import SpeciesDataPipe
 
 FILTERED_BY_CATEGORIES = ["assay", "cell_type", "tissue", "sex"]
 
+
 def setup_datapipes(data_dir: str):
     human_pipe = SpeciesDataPipe(
-        directory_path= data_dir,
-        npz_masks= "human*.npz",
-        metadata_masks= "human*.pkl",
-        batch_size= 10000,
+        directory_path=data_dir,
+        npz_masks="human*.npz",
+        metadata_masks="human*.pkl",
+        batch_size=10000,
         allow_partials=True,
-        shuffle= False,
-        return_dense= True,
-        verbose= True,
+        shuffle=False,
+        return_dense=True,
+        verbose=True,
     )
     mouse_pipe = SpeciesDataPipe(
-        directory_path= data_dir,
-        npz_masks= "mouse*.npz",
-        metadata_masks= "mouse*.pkl",
-        batch_size= 10000,
+        directory_path=data_dir,
+        npz_masks="mouse*.npz",
+        metadata_masks="mouse*.pkl",
+        batch_size=10000,
         allow_partials=True,
-        shuffle= False,
-        return_dense= True,
-        verbose= True,
+        shuffle=False,
+        return_dense=True,
+        verbose=True,
     )
     return human_pipe, mouse_pipe
 
+
 def setup_dataloaders(data_dir: str):
     human_pipe, mouse_pipe = setup_datapipes(data_dir)
-    
+
     human_dataloader = DataLoader(
-                        dataset=human_pipe,
-                        batch_size=None,
-                        shuffle=False,
-                        collate_fn=lambda x: x,
-                        persistent_workers=False,
-                        num_workers=6,
-                    )
+        dataset=human_pipe,
+        batch_size=None,
+        shuffle=False,
+        collate_fn=lambda x: x,
+        persistent_workers=False,
+        num_workers=6,
+    )
     mouse_dataloader = DataLoader(
-                        dataset=mouse_pipe,
-                        batch_size=None,
-                        shuffle=False,
-                        collate_fn=lambda x: x,
-                        persistent_workers=False,
-                        num_workers=6,
-                    )
-    
+        dataset=mouse_pipe,
+        batch_size=None,
+        shuffle=False,
+        collate_fn=lambda x: x,
+        persistent_workers=False,
+        num_workers=6,
+    )
+
     return human_dataloader, mouse_dataloader
+
 
 def convert_to_tensor(batch: sp.csr_matrix):
     return torch.sparse_csr_tensor(
@@ -70,22 +73,37 @@ def convert_to_tensor(batch: sp.csr_matrix):
         col_indices=batch.indices,
         values=batch.data,
         size=batch.shape,
-        device= torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        device=torch.device("cuda")
+        if torch.cuda.is_available()
+        else torch.device("cpu"),
     )
+
 
 def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: int):
     with np.errstate(divide="ignore", invalid="ignore"):
-                human_correlations = np.corrcoef(human_out)
-                mouse_correlations = np.corrcoef(mouse_out)
+        human_correlations = np.corrcoef(human_out)
+        mouse_correlations = np.corrcoef(mouse_out)
 
-                human_cis = np.round(np.nan_to_num(human_correlations[:n_samples, :n_samples]).mean(), 3)
-                human_cross = np.round(np.nan_to_num(human_correlations[n_samples:, n_samples:]).mean(), 3)
-                human_comb = np.round(np.nan_to_num(human_correlations[:n_samples, n_samples:]).mean(), 3)
+        human_cis = np.round(
+            np.nan_to_num(human_correlations[:n_samples, :n_samples]).mean(), 3
+        )
+        human_cross = np.round(
+            np.nan_to_num(human_correlations[n_samples:, n_samples:]).mean(), 3
+        )
+        human_comb = np.round(
+            np.nan_to_num(human_correlations[:n_samples, n_samples:]).mean(), 3
+        )
 
-                mouse_cis = np.round(np.nan_to_num(mouse_correlations[:n_samples, :n_samples]).mean(), 3)
-                mouse_cross = np.round(np.nan_to_num(mouse_correlations[n_samples:, n_samples:]).mean(), 3)
-                mouse_comb = np.round(np.nan_to_num(mouse_correlations[:n_samples, n_samples:]).mean(), 3)
-    
+        mouse_cis = np.round(
+            np.nan_to_num(mouse_correlations[:n_samples, :n_samples]).mean(), 3
+        )
+        mouse_cross = np.round(
+            np.nan_to_num(mouse_correlations[n_samples:, n_samples:]).mean(), 3
+        )
+        mouse_comb = np.round(
+            np.nan_to_num(mouse_correlations[:n_samples, n_samples:]).mean(), 3
+        )
+
     return pd.DataFrame(
         {
             "human_cis": [human_cis],
@@ -93,25 +111,31 @@ def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: i
             "human_comb": [human_comb],
             "mouse_cis": [mouse_cis],
             "mouse_cross": [mouse_cross],
-            "mouse_comb": [mouse_comb]
+            "mouse_comb": [mouse_comb],
         }
     )
 
+
 def get_correlations(model: CMMVAEModel, data_dir: str):
-    
     human_dataloader, mouse_dataloader = setup_dataloaders(data_dir)
-    
+
     correlations = pd.DataFrame(
-         columns=[
-              "group_id", "num_samples",
-              "human_cis", "human_cross", "human_comb",
-              "mouse_cis", "mouse_cross", "mouse_comb",
-              "tag",
-            ]
+        columns=[
+            "group_id",
+            "num_samples",
+            "human_cis",
+            "human_cross",
+            "human_comb",
+            "mouse_cis",
+            "mouse_cross",
+            "mouse_comb",
+            "tag",
+        ]
     )
 
-    for (human_batch, human_metadata), (mouse_batch, mouse_metadata) in zip(human_dataloader, mouse_dataloader):
-
+    for (human_batch, human_metadata), (mouse_batch, mouse_metadata) in zip(
+        human_dataloader, mouse_dataloader
+    ):
         human_batch = human_batch.cuda()
         mouse_batch = mouse_batch.cuda()
 
@@ -119,26 +143,40 @@ def get_correlations(model: CMMVAEModel, data_dir: str):
 
         model.module.eval()
         with torch.no_grad():
-            _, _, _, human_out, _ = model.module(human_batch, human_metadata, RK.HUMAN, cross_generate=True)
-            _, _, _, mouse_out, _ = model.module(mouse_batch, mouse_metadata, RK.MOUSE, cross_generate=True)
+            _, _, _, human_out, _ = model.module(
+                human_batch, human_metadata, RK.HUMAN, cross_generate=True
+            )
+            _, _, _, mouse_out, _ = model.module(
+                mouse_batch, mouse_metadata, RK.MOUSE, cross_generate=True
+            )
 
-        human_stacked_out = np.vstack((human_out[RK.HUMAN].cpu().numpy(), mouse_out[RK.HUMAN].cpu().numpy()))
-        mouse_stacked_out = np.vstack((mouse_out[RK.MOUSE].cpu().numpy(), human_out[RK.MOUSE].cpu().numpy()))
+        human_stacked_out = np.vstack(
+            (human_out[RK.HUMAN].cpu().numpy(), mouse_out[RK.HUMAN].cpu().numpy())
+        )
+        mouse_stacked_out = np.vstack(
+            (mouse_out[RK.MOUSE].cpu().numpy(), human_out[RK.MOUSE].cpu().numpy())
+        )
 
-        avg_correlations = calc_correlations(human_stacked_out, mouse_stacked_out, n_samples)
+        avg_correlations = calc_correlations(
+            human_stacked_out, mouse_stacked_out, n_samples
+        )
 
         avg_correlations["group_id"] = human_metadata["group_id"].iloc[0]
         avg_correlations["num_samples"] = n_samples
-        avg_correlations["tag"] = " ".join([human_metadata[cat].iloc[0] for cat in FILTERED_BY_CATEGORIES])
+        avg_correlations["tag"] = " ".join(
+            [human_metadata[cat].iloc[0] for cat in FILTERED_BY_CATEGORIES]
+        )
 
         correlations = pd.concat([correlations, avg_correlations], ignore_index=True)
 
     return correlations
 
+
 def save_correlations(correlations: pd.DataFrame, save_dir: str):
-     correlations = correlations.sort_values("group_id")
-     correlations.to_csv(os.path.join(save_dir, "correlations.csv"), index=False)
-     correlations.to_pickle(os.path.join(save_dir, "correlations.pkl"))
+    correlations = correlations.sort_values("group_id")
+    correlations.to_csv(os.path.join(save_dir, "correlations.csv"), index=False)
+    correlations.to_pickle(os.path.join(save_dir, "correlations.pkl"))
+
 
 @click.command(
     context_settings=dict(
@@ -150,13 +188,13 @@ def save_correlations(correlations: pd.DataFrame, save_dir: str):
     "--correlation_data",
     type=click.Path(exists=True),
     required=True,
-    help="Directory where filtered correlation data is saved"
+    help="Directory where filtered correlation data is saved",
 )
 @click.option(
     "--save_dir",
     type=click.Path(exists=True),
     required=True,
-    help="Directory where correlation outputs are saved"
+    help="Directory where correlation outputs are saved",
 )
 @click.pass_context
 def correlations(ctx: click.Context, correlation_data: str, save_dir: str):
@@ -167,11 +205,11 @@ def correlations(ctx: click.Context, correlation_data: str, save_dir: str):
 
     cli = CMMVAECli(run=False)
     model = type(cli.model).load_from_checkpoint(
-         cli.config["ckpt_path"],
-         module= cli.model.module
+        cli.config["ckpt_path"], module=cli.model.module
     )
     correlations = get_correlations(model, correlation_data)
     save_correlations(correlations, save_dir)
+
 
 if __name__ == "__main__":
     correlations()

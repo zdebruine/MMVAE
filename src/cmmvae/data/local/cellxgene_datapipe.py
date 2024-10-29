@@ -252,7 +252,7 @@ class SpeciesDataPipe(IterDataPipe):
         npz_masks: Union[str, list[str]],
         metadata_masks: Union[str, list[str]],
         batch_size: int,
-        allow_partials = False,
+        allow_partials=False,
         shuffle: bool = True,
         return_dense: bool = False,
         verbose: bool = False,
@@ -326,7 +326,9 @@ class SpeciesDataPipe(IterDataPipe):
             dp = dp.shuffle_matrix_and_dataframe()
 
         dp = dp.batch_csr_matrix_and_dataframe(
-            self.batch_size, return_dense=self.return_dense, allow_partials=self.allow_partials
+            self.batch_size,
+            return_dense=self.return_dense,
+            allow_partials=self.allow_partials,
         )
 
         # thought process on removal

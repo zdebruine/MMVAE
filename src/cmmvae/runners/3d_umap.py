@@ -8,33 +8,42 @@ import seaborn as sns
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 
+
 def load_embeddings(npz_path, meta_path):
     """Load embeddings and metadata from specified paths."""
     embedding = np.load(npz_path)["embeddings"]
     metadata = pd.read_pickle(meta_path)
     return embedding, metadata
 
-def plot_3d_umap(embedding, metadata, column, output_path, fig_size=(10, 10), point_size=2):
-        fig = plt.figure(figsize=fig_size)
-        ax = fig.add_subplot(111, projection='3d')
-        scatter = ax.scatter(
-            embedding[:, 0], embedding[:, 1], embedding[:, 2],
-            c=metadata[column].astype('category').cat.codes,
-            cmap='hsv',
-            s=point_size
-        )
-        ax.set_title(f'3D UMAP projection colored by {column}\nFilename: {output_path.split("/")[-1]}')
-        ax.set_xlabel('UMAP 1')
-        ax.set_ylabel('UMAP 2')
-        ax.set_zlabel('UMAP 3')
 
-        def update(num):
-            ax.view_init(elev=30, azim=num)
+def plot_3d_umap(
+    embedding, metadata, column, output_path, fig_size=(10, 10), point_size=2
+):
+    fig = plt.figure(figsize=fig_size)
+    ax = fig.add_subplot(111, projection="3d")
+    scatter = ax.scatter(
+        embedding[:, 0],
+        embedding[:, 1],
+        embedding[:, 2],
+        c=metadata[column].astype("category").cat.codes,
+        cmap="hsv",
+        s=point_size,
+    )
+    ax.set_title(
+        f'3D UMAP projection colored by {column}\nFilename: {output_path.split("/")[-1]}'
+    )
+    ax.set_xlabel("UMAP 1")
+    ax.set_ylabel("UMAP 2")
+    ax.set_zlabel("UMAP 3")
 
-        ani = FuncAnimation(fig, update, frames=360, interval=20)
-        ani.save(output_path.replace('.png', '.gif'), writer='imagemagick')
+    def update(num):
+        ax.view_init(elev=30, azim=num)
 
-        plt.close()
+    ani = FuncAnimation(fig, update, frames=360, interval=20)
+    ani.save(output_path.replace(".png", ".gif"), writer="imagemagick")
+
+    plt.close()
+
 
 def plot_umap(
     X,
@@ -70,7 +79,7 @@ def plot_umap(
         save_dir (str): Directory to save UMAP plots.
         **umap_kwargs: Extra kwargs passed to `umap.UMAP`.
     """
-    import umap
+
     # Fit and transform the data using UMAP
     reducer = umap.UMAP(
         n_neighbors=n_neighbors,
@@ -92,23 +101,24 @@ def plot_umap(
     np.savez(embedding_path, embeddings=embedding)
     metadata.to_pickle(metadata_path)
 
+
 directory = "/mnt/projects/debruinz_project/tony_boos/MMVAE/lightning_logs/baseline/1e7Beta_256rclt_noadv/"
 embedding, metadata = load_embeddings(
-     npz_path= os.path.join(directory, 'merged/z_embeddings.npz'),
-     meta_path=os.path.join(directory, 'merged/z_metadata.pkl')
+    npz_path=os.path.join(directory, "merged/z_embeddings.npz"),
+    meta_path=os.path.join(directory, "merged/z_metadata.pkl"),
 )
 
-plot_umap(embedding, metadata, save_dir=os.path.join(directory, 'umap'))
+plot_umap(embedding, metadata, save_dir=os.path.join(directory, "umap"))
 
 embedding, metadata = load_embeddings(
-     npz_path= os.path.join(directory, 'umap/3d_z_umap_embeddings.npz'),
-     meta_path=os.path.join(directory, 'umap/3d_z_umap_metadata.pkl')
+    npz_path=os.path.join(directory, "umap/3d_z_umap_embeddings.npz"),
+    meta_path=os.path.join(directory, "umap/3d_z_umap_metadata.pkl"),
 )
-categories = ['donor_id', 'assay', 'dataset_id', 'cell_type', 'tissue', 'species']
+categories = ["donor_id", "assay", "dataset_id", "cell_type", "tissue", "species"]
 for col in categories:
     plot_3d_umap(
         embedding=embedding,
         metadata=metadata,
         column=col,
-        output_path=os.path.join(directory, f"umap/3D_UMAP_by_{col}.png")
+        output_path=os.path.join(directory, f"umap/3D_UMAP_by_{col}.png"),
     )

@@ -10,11 +10,6 @@ init_args:
   autograd_config:
     class_path: cmmvae.config.AutogradConfig
     init_args:
-      adversarial_gradient_clip:
-        class_path: cmmvae.config.GradientClipConfig
-        init_args:
-          val: 10
-          algorithm: norm
       vae_gradient_clip:
         class_path: cmmvae.config.GradientClipConfig
         init_args:
@@ -49,17 +44,15 @@ init_args:
               use_batch_norm: False
               use_layer_norm: False
               activation_fn: torch.nn.ReLU
-          conditional_config:
-            class_path: cmmvae.modules.base.FCBlockConfig
-            init_args:
-              layers:
-              - 128
-              dropout_rate: 0.0
-              use_batch_norm: False
-              use_layer_norm: True
-              activation_fn: null
-          conditional_paths:
-            assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
+          conditional_config: null
+            # class_path: cmmvae.modules.base.FCBlockConfig
+            # init_args:
+            #   layers:
+            #   - 128
+            #   dropout_rate: 0.0
+            #   use_batch_norm: False
+            #   use_layer_norm: True
+            #   activation_fn: null
           selection_order: null
       experts:
         class_path: cmmvae.modules.base.Experts
@@ -104,10 +97,10 @@ init_args:
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
       adversarials:
-      - class_path: cmmvae.modules.base.FCBlockConfig
-        init_args:
-          layers: [ 256, 128, 64, 1 ]
-          dropout_rate: 0.0
-          use_batch_norm: False
-          use_layer_norm: False
-          activation_fn: torch.nn.Sigmoid
+      # - class_path: cmmvae.modules.base.FCBlockConfig
+      #   init_args:
+      #     layers: [ 256, 128, 64, 1 ]
+      #     dropout_rate: 0.0
+      #     use_batch_norm: False
+      #     use_layer_norm: False
+      #     activation_fn: torch.nn.Sigmoid
