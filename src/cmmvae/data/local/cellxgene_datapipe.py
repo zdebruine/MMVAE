@@ -172,7 +172,7 @@ class SparseCSRMatrixBatcherDataPipe(IterDataPipe):
             for i in range(0, n_samples, self.batch_size):
                 data_batch = sparse_matrix[i : i + self.batch_size]
 
-                if self.allow_partials and not data_batch.shape[0] == self.batch_size:
+                if data_batch.shape[0] != self.batch_size and not self.allow_partials:
                     continue
 
                 tensor = torch.sparse_csr_tensor(
@@ -252,6 +252,7 @@ class SpeciesDataPipe(IterDataPipe):
         npz_masks: Union[str, list[str]],
         metadata_masks: Union[str, list[str]],
         batch_size: int,
+        allow_partials=False,
         shuffle: bool = True,
         return_dense: bool = False,
         verbose: bool = False,
@@ -305,6 +306,7 @@ class SpeciesDataPipe(IterDataPipe):
                 print(path)
 
         self.batch_size = batch_size
+        self.allow_partials = allow_partials
         self.return_dense = return_dense
         self.verbose = verbose
         self._shuffle = shuffle
@@ -324,7 +326,9 @@ class SpeciesDataPipe(IterDataPipe):
             dp = dp.shuffle_matrix_and_dataframe()
 
         dp = dp.batch_csr_matrix_and_dataframe(
-            self.batch_size, return_dense=self.return_dense
+            self.batch_size,
+            return_dense=self.return_dense,
+            allow_partials=self.allow_partials,
         )
 
         # thought process on removal

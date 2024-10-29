@@ -489,10 +489,9 @@ class ConditionalLayers(nn.Module):
         super(ConditionalLayers, self).__init__()
 
         if not os.path.exists(directory):
-            print(
-                "Could not intialize the conditional layers either due to the directory not existing yet"
+            raise FileNotFoundError(
+                f"Could not intialize the conditional layers either due to the directory not existing yet\n{directory}"
             )
-            return
         # Prevent parsing the species conditional as no conditional layer is needed
         conditionals.remove("species")
         conditional_paths = collect_species_files(directory, conditionals)
@@ -654,6 +653,8 @@ class Encoder(nn.Module):
             var_eps (float, optional):
                 Small epsilon value for numerical stability
                     in variance calculation. Defaults to 1e-4.
+        @reference: Heavily inspired by scvi-encoder at:
+            https://docs.scvi-tools.org/en/stable/api/reference/scvi.nn.Encoder.html
         """
         super().__init__()
         self.fc = FCBlock(fc_block_config)
@@ -800,6 +801,29 @@ class Experts(nn.ModuleDict):
     def __init__(self, experts: list[Expert]):
         super().__init__({expert.id: expert for expert in experts})
         self.labels = {key: i for i, key in enumerate(self.keys())}
+
+
+class GradientReversalFunction(torch.autograd.Function):
+    """
+    Gradient reversal layer as introduced in [Ganin2016]_.
+
+    Implementation from GitHub: fungtion/DANN
+    Specifically: https://github.com/fungtion/DANN/blob/476147f70bb818a63bb3461a6ecc12f97f7ab15e/models/functions.py
+
+    Reference Source: https://github.com/ohlerlab/liam/blob/main/liam/_mymodule.py#L150
+    """
+
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha
+
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        output = grad_output.neg() * ctx.alpha
+
+        return output, None
 
 class GAN(nn.Module):
     """

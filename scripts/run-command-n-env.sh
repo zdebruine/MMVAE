@@ -1,5 +1,5 @@
 #!/bin/bash
-CMMVAE_ENV_PATH=~/MMVAE/env
+
 if [ -z "${CMMVAE_ENV_PATH}" ]; then
     echo "CMMVAE_ENV_PATH is not set. Please set CMMVAE_ENV_PATH to virtual enviroment path."
     exit 1

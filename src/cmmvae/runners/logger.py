@@ -25,12 +25,15 @@ def job_status(jobid: int):
     )
 
     running_status = ["PENDING", "CONFIGURING", "COMPLETING", "RUNNING", "SUSPENDED"]
+
     if "COMPLETED" in output:
         return "success"
-    elif any(r in output for r in running_status):
-        return "running"
-    else:
-        return "failed"
+
+    for rstatus in running_status:
+        if rstatus in output:
+            return rstatus.lower()
+
+    return "failed"
 
 
 def scan_file(out_file: str):
