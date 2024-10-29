@@ -11,6 +11,8 @@ categories:
 - 'species'
 merge_keys:
 - z
+
+correlation_data: /mnt/projects/debruinz_project/july2024_census_data/filtered
 expression_log_dir: /mnt/projects/debruinz_project/forebacj/3m_expressions
 train_command:
   fit

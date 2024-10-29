@@ -34,10 +34,12 @@ def save_to_hdf5(
             new_size = sample_ds.shape[0] + data.shape[0]
             sample_ds.resize(new_size, axis=0)
             sample_ds[-data.shape[0] :] = data  # Append new batch
-
             # Append metadata column-wise
             for col in metadata.columns:
+                col = str(col)
                 column_data = metadata[col].values
+                if hasattr(column_data, "to_list"):
+                    column_data = column_data.to_list()
                 if col not in metadata_ds:
                     if strict:
                         raise RuntimeError(
@@ -60,8 +62,11 @@ def save_to_hdf5(
             # Create metadata datasets, one for each column
             metadata_group = group.create_group(RK.METADATA)
             for col in metadata.columns:
+                column_data = metadata[col].values
+                if hasattr(column_data, "to_list"):
+                    column_data = column_data.to_list()
                 metadata_group.create_dataset(
-                    col, data=metadata[col].values, maxshape=(None,), chunks=True
+                    str(col), data=column_data, maxshape=(None,), chunks=True
                 )
 
 
@@ -157,6 +162,15 @@ class PredictionWriter(BasePredictionWriter):
 
         for key, (data, metadata) in prediction.items():
             data = data.cpu().numpy() if isinstance(data, torch.Tensor) else data
+            max_f4 = np.finfo(np.float32).max
+            min_f4 = np.finfo(np.float32).min
+
+            # Replace +inf with max_f4 and -inf with min_f4
+            data[np.isposinf(data)] = max_f4
+            data[np.isneginf(data)] = min_f4
+
+            # Convert the array to float32
+            data = data.astype(np.float32)
             save_to_hdf5(data, metadata, self.hdf5_filepath, key)
 
         self._curr_size += list(prediction.values())[0][0].shape[

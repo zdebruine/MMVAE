@@ -233,7 +233,7 @@ def plot_category(
             [0],
             marker="o",
             color="w",
-            label=label,
+            label=label.decode("utf-8") if isinstance(label, bytes) else label,
             markerfacecolor=cmap(i),
             markersize=10,
         )

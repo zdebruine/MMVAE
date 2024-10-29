@@ -31,6 +31,9 @@ CONFIG_NAME = config.get("config_name", "config.yaml")
 ## Define the keys that are used for merging results from different experiments.
 MERGE_KEYS = config["merge_keys"]
 
+## Define the filename for the predictions saved
+PREDICTIONS_PATH = os.path.join(RUN_DIR, "predictions.h5")
+
 ## Define the categories for which UMAP visualizations will be generated.
 ## This is optional, and if not provided, defaults to an empty list.
 CATEGORIES = config.get("categories", [])
@@ -40,6 +43,11 @@ CATEGORIES = config.get("categories", [])
 UMAP_PATH = config.get("umap_dir", "umap")
 UMAP_DIR = os.path.join(RUN_DIR, UMAP_PATH)
 
+## Define the directory to store correlation outputs
+CORRELATION_PATH = config.get("correlation_dir", "correlations")
+CORRELATION_DIR = os.path.join(RUN_DIR, CORRELATION_PATH)
+
+CORRELATION_DATA = config["correlation_data"]
 
 ## Define the path to the training configuration file within the run directory.
 TRAIN_CONFIG_FILE = os.path.join(RUN_DIR, CONFIG_NAME)
@@ -62,6 +70,15 @@ EVALUATION_FILES = expand(
     key=MERGE_KEYS,
 )
 
+CORRELATION_FILES = expand(
+    "{correlation_dir}/correlations.csv",
+    correlation_dir=CORRELATION_DIR,
+)
+
+CORRELATION_FILES += expand(
+    "{correlation_dir}/correlations.pkl",
+    correlation_dir=CORRELATION_DIR,
+)
 
 ## Construct the command to run the CMMVAE training pipeline.
 ## If a configuration directory is provided, it is included in the command; otherwise,
@@ -85,7 +102,7 @@ MERGE_KEY_COMMAND = " ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS)
 # and reflected in the rules. The only modifications to the configuration values
 # that are acceptable is to configure them for passing as arguments to the rule commands
 # SNAKEMAKE_CONFIG_PATH = os.path.join(RUN_DIR, "snakemake.config")
-# OVERRIDE_CONFIG = config.get(" override", None)
+# OVERRIDE_CONFIG = config.get(" override", None)
 
 # if os.path.exists(SNAKEMAKE_CONFIG_PATH):
 
@@ -98,26 +115,26 @@ MERGE_KEY_COMMAND = " ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS)
 rule all:
     input:
         EVALUATION_FILES,
-        # MD_FILES
+        CORRELATION_FILES
 
 ## Define the rule for finding unique expressions for conditional layers
 ## The output includes paths to the conditional layer expressions used.
-# rule diff_expression:
-#     output:
-#         os.path.join(RUN_DIR, "expression_complete.log")
-#     params:
-#         cli=TRAIN_COMMAND.lstrip('fit'),
-#     shell:
-#         """
-#         cmmvae workflow expression {params.cli}
-#         touch {output}
-#         """
+rule diff_expression:
+    output:
+        os.path.join(RUN_DIR, "expression_complete.log")
+    params:
+        cli=TRAIN_COMMAND.lstrip('fit'),
+    shell:
+        """
+        cmmvae workflow expression {params.cli}
+        touch {output}
+        """
 
 ## Define the rule for training the CMMVAE model.
 ## The output includes the configuration file, the checkpoint path.
 rule train:
     input:
-        # rules.diff_expression.output
+        rules.diff_expression.output
     output:
         ckpt_path=CKPT_PATH,
     params:
@@ -133,12 +150,29 @@ rule predict:
     input:
         ckpt_path=CKPT_PATH,
     output:
-        os.path.join(RUN_DIR, "predictions.h5")
+        PREDICTIONS_PATH
     params:
         command=TRAIN_COMMAND.lstrip('fit')
     shell:
         """
         cmmvae workflow cli predict {params.command} --ckpt_path {input.ckpt_path}
+        """
+
+## Define the rule for getting R^2 correlations on the filtered data
+## This rule outputs correlation scores per filtered data group
+rule correlations:
+    input:
+        PREDICTIONS_PATH,
+    output:
+        CORRELATION_FILES,
+    params:
+        command=TRAIN_COMMAND.lstrip('fit'),
+        data=CORRELATION_DATA,
+        save_dir=CORRELATION_DIR,
+    shell:
+        """
+        mkdir -p {CORRELATION_DIR}
+        cmmvae workflow correlations {params.command} --correlation_data {params.data} --save_dir {params.save_dir}
         """
 
 ## Define the rule for generating UMAP visualizations from the merged predictions.
@@ -156,3 +190,17 @@ rule umap_predictions:
         """
         cmmvae workflow umap-predictions --directory {input} {params.categories} {params.merge_keys} --save_dir {params.save_dir}
         """
+
+# rule meta_discriminators:
+#     input:
+#         CKPT_PATH
+#     output:
+#         MD_FILES,
+#     params:
+#         log_dir=META_DISC_DIR,
+#         ckpt=CKPT_PATH,
+#         config=TRAIN_CONFIG_FILE
+#     shell:
+#         """
+#         cmmvae workflow meta-discriminator --log_dir {params.log_dir} --ckpt {params.ckpt} --config {params.config}
+#         """

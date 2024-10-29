@@ -220,5 +220,4 @@ def meta_discriminator(log_dir, ckpt, config):
 
 
 if __name__ == "__main__":
-    pass
-    # meta_discriminator()
+    meta_discriminator()
