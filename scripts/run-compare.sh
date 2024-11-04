@@ -105,7 +105,13 @@ do
     run_name="${run_name}.${commit_hash}"
   fi
 
-  version=$(find "$root_dir/$experiment" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | grep -E 'V[0-9]{3}$' | sort -V | tail -n 1 | sed -E 's/V([0-9]{3})$/\1/' | awk '{printf "V%03d", $1 + 1}')
+  ran_dirs=$(ls -d "$root_dir/$experiment/$run_name*")
+
+  if [ $? -ne 0 ]; then
+    version=V000
+  else
+    version=$(echo $ran_dirs | grep -E 'V[0-9]{3}$' | sort -V | tail -n 1 | sed -E 's/V([0-9]{3})$/\1/' | awk '{printf "V%03d", $1 + 1}')
+  fi
 
   echo "Processing: $file"
   command="scripts/run-snakemake.sh --config \
