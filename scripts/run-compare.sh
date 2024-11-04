@@ -8,6 +8,7 @@ data="${CMMVAE_DATA_CONFIG}"
 compare=""
 max_epochs="${CMMVAE_MAX_EPOCHS}"
 commit_hash=""
+extra_args=""
 
 if [ -z "${max_epochs}" ]; then
   max_epochs=5
@@ -64,10 +65,10 @@ do
             max_epochs="${arg#*=}"
             shift
             ;;
-        # *)
-        #     echo "Unknown argument: $arg"
-        #     ;;
-
+        *)
+            extra_args="$extra_args $arg"
+            shift
+            ;;
     esac
 done
 
@@ -111,10 +112,10 @@ do
     root_dir=${root_dir} \
     experiment_name=${experiment} \
     run_name=${run_name}.${version} \
-    train_command=\"fit --data $data --model $file --trainer.max_epochs $max_epochs $*\"
-    "
+    train_command=\"fit --model $file --data $data --trainer.max_epochs $max_epochs $extra_args\"
+  "
   echo $command
   if [ "$debug" = false ]; then
-    sbatch $command
+    eval "sbatch $command"
   fi
 done
