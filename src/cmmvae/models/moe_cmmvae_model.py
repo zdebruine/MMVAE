@@ -1,17 +1,15 @@
-from typing import Optional, Dict, List, Tuple
+from typing import Optional
 
 import pandas as pd
 import torch
 import torch.nn as nn
-from torch.optim import Adam, AdamW  # type: ignore
+from torch.optim import Adam, AdamW, Optimizer  # type: ignore
 
-from cmmvae.models import BaseModel
-from cmmvae.modules import MOE_CMMVAE
+from cmmvae.models import CMMVAEModel, convert_to_flat_list_and_map
 from cmmvae.constants import REGISTRY_KEYS as RK
-from cmmvae.modules.base.components import GradientReversalFunction
+from cmmvae.modules import MOE_CMMVAE
 
-
-class MOE_CMMVAEModel(BaseModel):
+class MOE_CMMVAEModel(CMMVAEModel):
     r"""
     Mixture of Experts Conditional Multi-Modal Variational Autoencoder (MOE_CMMVAE) model for handling expert-specific data.
 
@@ -36,88 +34,80 @@ class MOE_CMMVAEModel(BaseModel):
         kl_annealing_fn (cmmvae.modules.base.KLAnnealingFn): KLAnnealingFn for weighting KL Divergence. Defaults to KLAnnealingFn(1.0).
     """
 
-    def __init__(self, module: MOE_CMMVAE, adv_weight: float, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.module = module
-        self.automatic_optimization = (
-            False  # Disable automatic optimization for manual control
-        )
-        # Criterion for adversarial loss
-        self.adversarial_criterion = nn.CrossEntropyLoss(reduction="sum")
-        self.init_weights()
-        self.adv_weight = adv_weight if adv_weight else 1.0
-
-    def shared_adversarial_loss(
+    def __init__(
         self,
-        hidden_representations: list[torch.Tensor],
-        expert_id: str,
+        module: MOE_CMMVAE,
+        gan_weight=None,
+        gan_method="",
+        *args,
+        **kwargs,
     ):
-        assert self.module.adversarials
-
-        batch_size = hidden_representations[0].shape[0]
-
-        _tensor_fn = torch.zeros if expert_id == "human" else torch.ones
-        label = _tensor_fn(batch_size, 1, device=self.device, dtype=torch.float32)
-
-        adv_losses = torch.empty((batch_size, 1), device=self.device)
-        for i, (hidden_rep, adv) in enumerate(
-            zip(hidden_representations, self.module.adversarials)
-        ):
-            reverse_hidden_rep = GradientReversalFunction.apply(hidden_rep, 1)
-            # Get adversarial predictions
-            adv_output = adv(reverse_hidden_rep)
-
-            # Calculate adversarial loss
-            disc_loss = self.adversarial_criterion(adv_output, label)
-            adv_losses[i] = disc_loss
-
-        return torch.sum(adv_losses) / batch_size
-
-    def shared_gan_loss(
-        self, xhat: torch.Tensor, gan: nn.ModuleList, expert_id: str
-    ) -> torch.Tensor:
-        """
-        Calculate GAN loss based on the decoder output (xhat) and the GAN (ganh or ganm).
-
-        Args:
-            xhat: The decoder output (cross or cis generated data).
-            gan: The corresponding GAN module (ganh or ganm) based on expert_id.
-            expert_id: The expert ID (human or mouse) determining whether to use ganh or ganm.
-
-        Returns:
-            gan_loss: The calculated GAN loss for the current batch.
-        """
-        batch_size = xhat.shape[0]
-
-        # Determine the correct label based on expert_id
-        if expert_id == "human":
-            # Human GAN should output zeros (human_label is 0)
-            label = torch.zeros(batch_size, 1, device=self.device, dtype=torch.float32)
+        super().__init__(module=module, *args, **kwargs)
+        # Criterion for gan loss
+        if gan_method == "GRF":
+            gan_criterion = nn.BCEWithLogitsLoss(reduction="mean")
         else:
-            # Mouse GAN should output ones (mouse_label is 1)
-            label = torch.ones(batch_size, 1, device=self.device, dtype=torch.float32)
+            gan_criterion = nn.BCELoss(reduction="sum")
+        self.gan_criterion = gan_criterion
+        self.gan_weight = gan_weight if gan_weight else 1.0
+        self.gan_method = gan_method
+    
+    def gan_feedback(
+        self,
+        xhats,
+        expert_id,
+        gan_optimizers,
+    ):
+        batch_size = xhats[expert_id].shape[0]
+        human_label = torch.zeros(batch_size, 1, device=self.device)
+        mouse_label = torch.ones(batch_size, 1, device=self.device)
 
-        gan_loss = None
+        expert_labels = human_label if expert_id == "human" else mouse_label
+        trick_labels = human_label if expert_id == "mouse" else mouse_label
 
-        # Loop through each GAN in the list (although typically you'd have one)
-        for g in gan:
-            gan_output = g(xhat)  # Pass the decoder output (xhat) to the GAN
+        gan_loss = []
+        gan_in = torch.nn.functional.layer_norm(
+            xhats[expert_id], (xhats[expert_id].shape[1],)
+        )
+        # Get adversarial predictions
+        gan_out = self.module.gans[expert_id](gan_in.detach())
 
-            # Calculate the adversarial loss (compare GAN output with correct label)
-            current_gan_loss = self.adversarial_criterion(gan_output, label)
+        # Calculate adversarial loss
+        current_discriminator_loss = self.gan_criterion(
+            gan_out, expert_labels
+        )
 
-            if gan_loss is None:
-                gan_loss = current_gan_loss * self.adv_weight
-            else:
-                gan_loss += current_gan_loss * self.adv_weight
+        self.auto_log({"GAN_Up": current_discriminator_loss}, tags=[self.stage_name, expert_id])
 
-            # Backpropagate the loss
-            self.manual_backward(current_gan_loss, retain_graph=True)
+        # Backpropagation for the adversarial
+        self.manual_backward(current_discriminator_loss * self.gan_weight, retain_graph=True)
+
+        if self.autograd_config.gan_gradient_clip:
+            self.clip_gradients(
+                gan_optimizers[expert_id],
+                *self.autograd_config.gan_gradient_clip,
+            )
+
+        gan_optimizers[expert_id].step()
+
+        cross_species = RK.HUMAN if expert_id == RK.MOUSE else RK.MOUSE
+        gan_in = torch.nn.functional.layer_norm(
+            xhats[cross_species], (xhats[cross_species].shape[1],)
+        )
+        # Get adversarial predictions
+        gan_output = self.module.gans[cross_species](gan_in)
+
+        # Calculate adversarial loss
+        gan_loss = self.gan_criterion(
+            gan_output, trick_labels
+        )
+
+        self.auto_log({"GAN_Adv": gan_loss}, tags=[self.stage_name, cross_species])
 
         return gan_loss
 
     def training_step(
-        self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
+        self, batch: tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
     ) -> None:
         """
         Perform a single training step.
@@ -153,152 +143,90 @@ class MOE_CMMVAEModel(BaseModel):
             self.kl_annealing_fn.kl_weight,
         )
         loss_dict[RK.SHARED_KL] = shared_kl
-        loss_dict[RK.LOSS] += shared_kl
-
-        # if expert_id == RK.HUMAN:
-        #     loss_dict[RK.HUMAN_LOSS] = self.module.vaes[RK.HUMAN].elbo(
-        #         qz_dict[RK.HUMAN],
-        #         pz_dict[RK.HUMAN],
-        #         x,
-        #         xhats["cis"],
-        #         self.kl_annealing_fn.kl_weight,
-        #     )
-
-        #     loss_dict[RK.SHARED] = self.module.vaes[RK.SHARED].elbo(
-        #         qz_dict[RK.SHARED],
-        #         pz_dict[RK.SHARED],
-        #         x,
-        #         xhats["cis"],
-        #         self.kl_annealing_fn.kl_weight,
-        #     )
-
-        #     loss_dict[RK.SHARED][RK.LOSS] += (
-        #         loss_dict[RK.HUMAN_LOSS][RK.KL_WEIGHT]
-        #         * loss_dict[RK.HUMAN_LOSS][RK.KL_LOSS]
-        #     )
-
-        # else:
-        #     loss_dict[RK.MOUSE_LOSS] = self.module.vaes[RK.MOUSE].elbo(
-        #         qz_dict[RK.MOUSE],
-        #         pz_dict[RK.MOUSE],
-        #         x,
-        #         xhats["cis"],
-        #         self.kl_annealing_fn.kl_weight,
-        #     )
-
-        #     loss_dict[RK.SHARED] = self.module.vaes[RK.SHARED].elbo(
-        #         qz_dict[RK.SHARED],
-        #         pz_dict[RK.SHARED],
-        #         x,
-        #         xhats["cis"],
-        #         self.kl_annealing_fn.kl_weight,
-        #     )
-
-        #     loss_dict[RK.SHARED][RK.LOSS] += (
-        #         loss_dict[RK.MOUSE_LOSS][RK.KL_WEIGHT]
-        #         * loss_dict[RK.MOUSE_LOSS][RK.KL_LOSS]
-        #     )
+        total_loss = loss_dict[RK.LOSS]
+        total_loss = total_loss + shared_kl
 
         # Retrieve optimizers.
+        cross_species = RK.HUMAN if expert_id == RK.MOUSE else RK.MOUSE
         optims = self.get_optimizers(zero_all=True)
         expert_optimizer = optims[RK.EXPERT][expert_id]
+        cross_optimizer = optims[RK.EXPERT][cross_species]
         human_optimizer = optims[RK.VAE][RK.HUMAN]
         mouse_optimizer = optims[RK.VAE][RK.MOUSE]
         shared_optimizer = optims[RK.VAE][RK.SHARED]
         gan_optimizers = optims.get("gans") if self.module.gans else None
         adversarial_optimizers = optims.get("adversarials") if self.module.adversarials else None
 
+        adv_loss = None
         # Train adversarial networks
         if self.module.adversarials:
-            loss_dict[RK.ADV_LOSS] = self.shared_adversarial_loss(
-                hr_dict[RK.SHARED] + [z_dict[RK.SHARED]], expert_id
+            if self.adversarial_method == "GRF":
+                adv_loss = self.gradient_reversal_domain_classifier(
+                    hr_dict[RK.SHARED] + [z_dict[RK.SHARED]], expert_id, adversarial_optimizers
+                )
+            else:
+                adv_loss = self.adversarial_feedback(
+                    hr_dict[RK.SHARED], expert_id, adversarial_optimizers
+                )
+
+        if adv_loss:
+            total_loss = total_loss + adv_loss * self.adv_weight
+
+        gan_loss = None
+        # Train gan networks
+        if self.module.gans:
+            # if self.gan_method == "GRF":
+            #     pass
+            #     # TODO: GRF method for GAN structure
+            #     # gan_loss = self.gradient_reversal_domain_classifier(
+            #     #     hr_dict[RK.SHARED] + [z_dict[RK.SHARED]], expert_id, adversarial_optimizers
+            #     # )
+            # else:
+            gan_loss = self.gan_feedback(
+                xhat_dict, expert_id, gan_optimizers
             )
-            loss_dict[RK.LOSS] = (
-                loss_dict[RK.LOSS] + loss_dict[RK.ADV_LOSS] * self.adv_weight
-            )
-            loss_dict[RK.ADV_WEIGHT] = self.adv_weight
 
-        # # Train gans
-        # if self.module.gans:
-        #     if expert_id == RK.HUMAN:
-        #         loss_dict["mouse_gan_loss"] = self.shared_gan_loss(
-        #             xhats["cross"], self.module.ganm, expert_id
-        #         )
-        #         gan_loss = loss_dict["mouse_gan_loss"]
-        #     else:
-        #         loss_dict["human_gan_loss"] = self.shared_gan_loss(
-        #             xhats["cross"], self.module.ganh, expert_id
-        #         )
-        #         gan_loss = loss_dict["human_gan_loss"]
+        if gan_loss:
+            total_loss = total_loss + gan_loss * self.gan_weight
 
-        # # Cross generated vae gets GAN loss backpropagation. Cisgenerating and shared vaes get reconstrucion and kl backprop.
-        # if expert_id == RK.HUMAN:
-        #     self.freeze_model_parameters(self.module)
-        #     self.unfreeze_model_parameters(self.module.vaes[RK.MOUSE])
-        #     self.manual_backward(gan_loss, retain_graph=True)
-        #     self.unfreeze_model_parameters(self.module)
-        #     # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
-        #     self.freeze_model_parameters(self.module.vaes[RK.MOUSE])
-        #     self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
-        #     self.unfreeze_model_parameters(self.module)
-        # else:
-        #     self.freeze_model_parameters(self.module)
-        #     self.unfreeze_model_parameters(self.module.vaes[RK.HUMAN])
-        #     self.manual_backward(gan_loss, retain_graph=True)
-        #     self.unfreeze_model_parameters(self.module)
-        #     # Backpropagation for encoder and decoder. Pytorch should backprop reconstruction to both, and correct kl to each. -Tony
-        #     self.freeze_model_parameters(self.module.vaes[RK.HUMAN])
-        #     self.manual_backward(loss_dict[RK.SHARED][RK.LOSS])
-        #     self.unfreeze_model_parameters(self.module)
-
-        self.manual_backward(loss_dict[RK.LOSS])
+        self.manual_backward(total_loss)
 
         # Clip gradients for stability
-        self.clip_gradients(
-            human_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm"
-        )
-        self.clip_gradients(
-            mouse_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm"
-        )
-        self.clip_gradients(
-            shared_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm"
-        )
-        self.clip_gradients(
-            expert_optimizer, gradient_clip_val=0.5, gradient_clip_algorithm="norm"
-        )
-
-        if adversarial_optimizers:
-            for optim in adversarial_optimizers.values():
-                self.clip_gradients(
-                    optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
-                )
-                optim.step()
-
-        # if human_gan_optimizer:
-        #     for optim in human_gan_optimizer.values():
-        #         self.clip_gradients(
-        #             optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
-        #         )
-        #         optim.step()
-
-        # if mouse_gan_optimizer:
-        #     for optim in mouse_gan_optimizer.values():
-        #         self.clip_gradients(
-        #             optim, gradient_clip_val=1, gradient_clip_algorithm="norm"
-        #         )
-        #        optim.step()
+        if self.autograd_config.vae_gradient_clip:
+            self.clip_gradients(
+                human_optimizer,
+                *self.autograd_config.vae_gradient_clip,
+            )
+            self.clip_gradients(
+                mouse_optimizer,
+                *self.autograd_config.vae_gradient_clip,
+            )
+            self.clip_gradients(
+                shared_optimizer,
+                *self.autograd_config.vae_gradient_clip,
+            )
+        if self.autograd_config.expert_gradient_clip:
+            self.clip_gradients(
+                expert_optimizer,
+                *self.autograd_config.expert_gradient_clip,
+            )
+            self.clip_gradients(
+                cross_optimizer,
+                *self.autograd_config.expert_gradient_clip,
+            )
 
         # Update the weights
         human_optimizer.step()
         mouse_optimizer.step()
         shared_optimizer.step()
         expert_optimizer.step()
+        cross_optimizer.step()
         self.kl_annealing_fn.step()
 
         # Log the loss.
         self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
 
-    def validation_step(self, batch: Tuple[torch.Tensor, pd.DataFrame, str]) -> None:
+    def validation_step(self, batch: tuple[torch.Tensor, pd.DataFrame, str]) -> None:
         """
         Perform a single validation step.
 
@@ -338,62 +266,13 @@ class MOE_CMMVAEModel(BaseModel):
 
         if self.trainer.validating:
             self.log(
-                "val_loss", loss_dict[RK.LOSS], logger=False, on_epoch=True
+                "val_loss", loss_dict[RK.LOSS], logger=True, on_epoch=True
             )
 
     # Alias for validation_step method to reuse for testing
     test_step = validation_step
 
-    def predict_step(
-        self, batch: Tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
-    ):
-        """
-        Perform a prediction step.
-
-        This step extracts latent embeddings and saves them for analysis.
-
-        Args:
-            batch (tuple): Batch of data containing inputs, metadata, and expert ID.
-            batch_idx (int): Index of the batch.
-        """
-        x, metadata, species = batch
-        embeddings = self.module.get_latent_embeddings(x, metadata, species)
-        return embeddings
-        # self.save_predictions(embeddings, batch_idx)
-
-    def get_optimizers(self, zero_all: bool = False):
-        """
-        Retrieve optimizers for the model components.
-
-        This function resets gradients if specified and returns a structured dictionary of optimizers.
-
-        Args:
-            zero_all (bool, optional): Flag to reset gradients of all optimizers. Defaults to False.
-
-        Returns:
-            dict: Dictionary containing optimizers for experts, VAE, and adversarials.
-        """
-        optimizers = self.optimizers()
-
-        if zero_all:
-            for optim in optimizers:
-                optim.zero_grad()
-
-        def replace_indices_with_optimizers(mapping, optimizer_list):
-            if isinstance(mapping, dict):
-                return {
-                    key: replace_indices_with_optimizers(value, optimizer_list)
-                    for key, value in mapping.items()
-                }
-            else:
-                return optimizer_list[mapping]
-
-        # Create a dictionary with indices replaced with optimizer instances
-        optimizer_dict = replace_indices_with_optimizers(self.optimizer_map, optimizers)
-
-        return optimizer_dict
-
-    def configure_optimizers(self, optim_cls="Adam") -> List[torch.optim.Optimizer]:  # type: ignore
+    def configure_optimizers(self, optim_cls="Adam") -> list[Optimizer]:  # type: ignore
         """
         Configure optimizers for different components of the model.
 
@@ -423,40 +302,3 @@ class MOE_CMMVAEModel(BaseModel):
         optimizer_list = []
         self.optimizer_map = convert_to_flat_list_and_map(optimizers, optimizer_list)
         return optimizer_list
-
-    # Helper function to freeze model parameters
-    def freeze_model_parameters(self, model):
-        for param in model.parameters():
-            param.requires_grad = False
-
-    # Helper function to unfreeze model parameters
-    def unfreeze_model_parameters(self, model):
-        for param in model.parameters():
-            param.requires_grad = True
-
-
-def convert_to_flat_list_and_map(d: Dict, flat_list: Optional[List] = None) -> Dict:
-    """
-    Convert all values in the dictionary to a flat list and return the list and a mapping dictionary.
-    Args:
-        d (dict): The dictionary to convert.
-        flat_list (list, optional): The list to append values to. Defaults to None.
-
-    Returns:
-        dict: Mapping dictionary linking keys to indices in the flat list.
-    """
-    if flat_list is None:
-        flat_list = []
-
-    map_dict = {}
-
-    for key, value in d.items():
-        if isinstance(value, dict):
-            # Recursively process nested dictionaries
-            map_dict[key] = convert_to_flat_list_and_map(value, flat_list)
-        else:
-            # Add value to flat list and set its index in the mapping
-            flat_list.append(value)
-            map_dict[key] = len(flat_list) - 1
-
-    return map_dict

@@ -20,7 +20,9 @@ class AutogradConfig:
         adversarial_gradient_clip: Optional[GradientClipConfig] = None,
         vae_gradient_clip: Optional[GradientClipConfig] = None,
         expert_gradient_clip: Optional[GradientClipConfig] = None,
+        gan_gradient_clip: Optional[GradientClipConfig] = None,
     ):
         self.adversarial_gradient_clip = adversarial_gradient_clip
         self.vae_gradient_clip = vae_gradient_clip
         self.expert_gradient_clip = expert_gradient_clip
+        self.gan_gradient_clip = gan_gradient_clip

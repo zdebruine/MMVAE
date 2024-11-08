@@ -1,7 +1,8 @@
 # Experiment Parameters
-root_dir: /mnt/projects/debruinz_project/forebacj/lightning_logs
+root_dir: /mnt/projects/debruinz_project/tony_boos/MMVAE/lightning_logs
 config_name: config.yaml
-experiment_name: Baseline
+experiment_name: experiment
+run_name: default
 categories:
 - 'donor_id'
 - 'assay'
@@ -10,15 +11,21 @@ categories:
 - 'tissue'
 - 'species'
 merge_keys:
-- z
-
+- human_z
+- shared_z
+- mouse_z
 correlation_data: /mnt/projects/debruinz_project/july2024_census_data/filtered
-expression_log_dir: /mnt/projects/debruinz_project/forebacj/3m_expressions
+expression_log_dir: /mnt/projects/debruinz_project/tony_boos/3m_expressions
 train_command:
   fit
   --data configs/data/local.yaml
   --model configs/model/moe_config.yaml
-  --trainer.max_epochs 10
+  --trainer.max_epochs 1
+  --trainer.limit_train_batches 100
+  --trainer.limit_val_batches 100
+  --trainer.limit_test_batches 100
+  --trainer.limit_predict_batches 100
+
   # --data.init_args.shared_conditionals '['assay']'
   # --data.conditionals_directory /mnt/projects/debruinz_project/3m_expressions
   # --model.init_args.module.init_args.vae.init_args.conditionals '['assay','dataset_id','donor_id','species']'

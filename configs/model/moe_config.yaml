@@ -3,14 +3,40 @@ init_args:
   kl_annealing_fn:
     class_path: cmmvae.modules.base.KLAnnealingFn
     init_args:
-      kl_weight: 1.0e-07
+      kl_weight: 1
   record_gradients: false
   adv_weight: 1
+  # adversarial_method: GRF
+  gan_weight: 1
+  # gan_method: GRF
   gradient_record_cap: 20
+  autograd_config:
+    class_path: cmmvae.config.AutogradConfig
+    init_args:
+      adversarial_gradient_clip:
+        class_path: cmmvae.config.GradientClipConfig
+        init_args:
+          val: 10
+          algorithm: norm
+      vae_gradient_clip:
+        class_path: cmmvae.config.GradientClipConfig
+        init_args:
+          val: 10
+          algorithm: norm
+      expert_gradient_clip:
+        class_path: cmmvae.config.GradientClipConfig
+        init_args:
+          val: 10
+          algorithm: norm
+      gan_gradient_clip:
+        class_path: cmmvae.config.GradientClipConfig
+        init_args:
+          val: 10
+          algorithm: norm
   module:
     class_path: cmmvae.modules.MOE_CMMVAE
     init_args:
-      vaes:
+      expert_vaes:
         class_path: cmmvae.modules.ExpertVAEs
         init_args:
           vaes:
@@ -18,6 +44,13 @@ init_args:
             init_args:
               id: shared
               latent_dim: 128
+              conditionals:
+              - assay
+              - donor_id
+              - dataset_id
+              - species
+              - sex
+              - tissue
               encoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
@@ -35,22 +68,27 @@ init_args:
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-              # conditional_config:
-              #   class_path: cmmvae.modules.base.FCBlockConfig
-              #   init_args:
-              #     layers:
-              #     - 128
-              #     dropout_rate: 0.0
-              #     use_batch_norm: False
-              #     use_layer_norm: True
-              #     activation_fn: null
-              # conditional_paths:
-              #   assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-              # selection_order: null
+              conditional_config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers:
+                  - 128
+                  dropout_rate: 0.0
+                  use_batch_norm: False
+                  use_layer_norm: True
+                  activation_fn: null
+              conditionals_directory: /mnt/projects/debruinz_project/tony_boos/3m_expressions
           - class_path: cmmvae.modules.MOE_CLVAE  # Human VAE
             init_args:
               id: human
               latent_dim: 128
+              conditionals:
+              - assay
+              - donor_id
+              - dataset_id
+              - species
+              - sex
+              - tissue
               encoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
@@ -67,13 +105,27 @@ init_args:
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-              # conditional_paths:
-              #   assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-              # selection_order: null
+              conditional_config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers:
+                  - 128
+                  dropout_rate: 0.0
+                  use_batch_norm: False
+                  use_layer_norm: True
+                  activation_fn: null
+              conditionals_directory: /mnt/projects/debruinz_project/tony_boos/3m_expressions
           - class_path: cmmvae.modules.MOE_CLVAE  # Mouse VAE
             init_args:
               id: mouse
               latent_dim: 128
+              conditionals:
+              - assay
+              - donor_id
+              - dataset_id
+              - species
+              - sex
+              - tissue
               encoder_config:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
@@ -90,9 +142,16 @@ init_args:
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-              # conditional_paths:
-              #   assay: ./src/cmmvae/data/conditional_layers/unique_assays.csv
-              # selection_order: null
+              conditional_config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers:
+                  - 128
+                  dropout_rate: 0.0
+                  use_batch_norm: False
+                  use_layer_norm: True
+                  activation_fn: null
+              conditionals_directory: /mnt/projects/debruinz_project/tony_boos/3m_expressions
       experts:
         class_path: cmmvae.modules.base.Experts
         init_args:
@@ -135,34 +194,37 @@ init_args:
                   use_batch_norm: False
                   use_layer_norm: False
                   activation_fn: torch.nn.ReLU
-      # gans:
-      #   class_path: cmmvae.modules.base.ExpertGANs
-      #   init_args:
-      #   - class_path: cmmvae.modules.base.GAN
-      #     init_args:
-      #       id: human
-      #       class_path: cmmvae.modules.base.FCBlockConfig
-      #       init_args:
-      #         layers: [60530, 1024, 256, 64, 1]
-      #         dropout_rate: 0.0
-      #         use_batch_norm: False
-      #         use_layer_norm: False
-      #         activation_fn: torch.nn.Sigmoid
-      #   - class_path: cmmvae.modules.base.GAN
-      #     init_args:
-      #       id: mouse
-      #       class_path: cmmvae.modules.base.FCBlockConfig
-      #       init_args:
-      #         layers: [52437, 1024, 256, 64, 1]
-      #         dropout_rate: 0.0
-      #         use_batch_norm: False
-      #         use_layer_norm: False
-      #         activation_fn: torch.nn.Sigmoid
-      # adversarials:
-      # - class_path: cmmvae.modules.base.FCBlockConfig
-      #   init_args:
-      #     layers: [256, 128, 64, 1]
-      #     dropout_rate: 0.0
-      #     use_batch_norm: False
-      #     use_layer_norm: False
-      #     activation_fn: torch.nn.Sigmoid
+      adversarials:
+      - class_path: cmmvae.modules.base.FCBlockConfig
+        init_args:
+          layers: [256, 128, 64, 1]
+          dropout_rate: 0.0
+          use_batch_norm: False
+          use_layer_norm: False
+          activation_fn: torch.nn.Sigmoid
+      expert_gans:
+        class_path: cmmvae.modules.base.ExpertGANs
+        init_args:
+          gans:
+          - class_path: cmmvae.modules.base.GAN
+            init_args:
+              id: human
+              config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers: [60530, 1024, 256, 64, 1]
+                  dropout_rate: 0.0
+                  use_batch_norm: False
+                  use_layer_norm: False
+                  activation_fn: torch.nn.Sigmoid
+          - class_path: cmmvae.modules.base.GAN
+            init_args:
+              id: mouse
+              config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers: [52437, 1024, 256, 64, 1]
+                  dropout_rate: 0.0
+                  use_batch_norm: False
+                  use_layer_norm: False
+                  activation_fn: torch.nn.Sigmoid
