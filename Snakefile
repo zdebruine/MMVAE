@@ -162,9 +162,9 @@ rule predict:
 ## This rule outputs correlation scores per filtered data group
 rule correlations:
     input:
-        PREDICTIONS_PATH,
+        ckpt_path=CKPT_PATH,
     output:
-        CORRELATION_FILES,
+        os.path.join(CORRELATION_DIR, "correlations_complete.log")
     params:
         command=TRAIN_COMMAND.lstrip('fit'),
         data=CORRELATION_DATA,
@@ -172,7 +172,21 @@ rule correlations:
     shell:
         """
         mkdir -p {CORRELATION_DIR}
-        cmmvae workflow correlations {params.command} --correlation_data {params.data} --save_dir {params.save_dir}
+        cmmvae workflow correlations {params.command} --ckpt_path {input.ckpt_path} --correlation_data {params.data} --save_dir {params.save_dir}
+        touch {output}
+        """
+
+rule run_correlations:
+    input:
+        rules.correlations.output
+    output:
+        CORRELATION_FILES,
+    params:
+        directory=CORRELATION_DIR,
+    shell:
+        """
+        mkdir -p {CORRELATION_DIR}
+        cmmvae workflow run-correlations --directory {params.directory}
         """
 
 ## Define the rule for generating UMAP visualizations from the merged predictions.
