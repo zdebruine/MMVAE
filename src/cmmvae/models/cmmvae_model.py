@@ -154,7 +154,11 @@ class CMMVAEModel(BaseModel):
                 adv_output, expert_labels
             )
 
-            # loss_dict[f"adv_{i}"] = current_discriminator_loss
+            self.auto_log(
+                {f"layer_{i}": current_discriminator_loss},
+                tags=[RK.ADV_LOSS, self.stage_name, expert_id],
+                key_pos="last",
+            )
 
             # Backpropagation for the adversarial
             self.manual_backward(current_discriminator_loss, retain_graph=True)
@@ -179,6 +183,11 @@ class CMMVAEModel(BaseModel):
             # Calculate adversarial loss
             current_adversarial_loss = self.adversarial_criterion(
                 adv_output, trick_labels
+            )
+            self.auto_log(
+                {f"layer_{i}": current_adversarial_loss},
+                tags=[RK.ADV_LOSS, self.stage_name, expert_id],
+                key_pos="last",
             )
             adversarial_loss.append(current_adversarial_loss)
 
