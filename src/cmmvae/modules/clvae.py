@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 
 from cmmvae.modules.vae import VAE
-from cmmvae.modules.base import FCBlockConfig, ConditionalLayers
+from cmmvae.modules.base import FCBlockConfig, ConditionalLayers, ConcatBlockConfig
 
 
 class CLVAE(VAE):
@@ -36,26 +36,55 @@ class CLVAE(VAE):
         conditionals_directory: Optional[str] = None,
         conditionals: Optional[list[str]] = None,
         selection_order: Optional[list[str]] = None,
+        concat_config: Optional[ConcatBlockConfig] = None,
         **encoder_kwargs
     ):
-        super().__init__(
-            encoder_config=encoder_config,
-            decoder_config=decoder_config,
-            **encoder_kwargs,
-        )
-
+        conditionals_module = None
         if conditional_config and conditionals and conditionals_directory:
-            self.conditionals = ConditionalLayers(
+            conditionals_module = ConditionalLayers(
                 directory=conditionals_directory,
                 conditionals=conditionals,
                 fc_block_config=conditional_config,
                 selection_order=selection_order,
             )
         else:
-            self.conditionals = None
             import warnings
 
             warnings.warn("No conditionals found for vae")
+
+        if selection_order and selection_order[0] == "parallel":
+            if not concat_config:
+                raise RuntimeError(
+                    "Please define concat_config when selection_order = parallel"
+                )
+            concat_dim = (
+                len(conditionals_module.selection_order) * conditional_config.layers[-1]
+            )
+
+            decoder_config.layers = [concat_dim] + decoder_config.layers
+            decoder_config.activation_fn = [
+                concat_config.activation_fn
+            ] + decoder_config.activation_fn
+            decoder_config.dropout_rate = [
+                concat_config.dropout_rate
+            ] + decoder_config.dropout_rate
+            decoder_config.return_hidden = [
+                concat_config.return_hidden
+            ] + decoder_config.return_hidden
+            decoder_config.use_layer_norm = [
+                concat_config.use_layer_norm
+            ] + decoder_config.use_layer_norm
+            decoder_config.use_batch_norm = [
+                concat_config.use_batch_norm
+            ] + decoder_config.use_batch_norm
+
+        super().__init__(
+            encoder_config=encoder_config,
+            decoder_config=decoder_config,
+            **encoder_kwargs,
+        )
+
+        self.conditionals = conditionals_module
 
     def after_reparameterize(
         self, z: torch.Tensor, metadata: pd.DataFrame, **kwargs
