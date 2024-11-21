@@ -78,26 +78,23 @@ if [ -z "$compare" ]; then
 fi
 
 if [ "$append_commit_hash" = true ]; then
-  # Check if Git is installed
   if ! command -v git &> /dev/null; then
       echo "Error: Git is not installed. Please install Git to use this script or specify --no-commit-hash."
       exit 1
   fi
 
-  # Check if inside a Git repository
   if ! git rev-parse --is-inside-work-tree &> /dev/null; then
       echo "Error: This is not a Git repository. Please run the script inside a Git repository or specify --no-commit-hash."
       exit 1
   fi
 
-  # Fetch and show the latest commit hash
   commit_hash=$(git rev-parse --short HEAD)
   echo "Latest Commit Hash: $commit_hash"
 else
   echo "Skipping commit hash display."
 fi
 
-for file in $compare/*.yaml
+for file in "$compare"/*.yaml
 do
   run_name=$(basename "$file" .yaml)
 
@@ -105,19 +102,19 @@ do
     run_name="${run_name}.${commit_hash}"
   fi
 
-  ran_dirs=$(ls -d "$root_dir/$experiment/$run_name*")
+  ran_dirs=$(ls -d "$root_dir/$experiment/$run_name"* 2>/dev/null)
 
-  if [ $? -ne 0 ]; then
-    version=V000
+  if [ -z "$ran_dirs" ]; then
+    version="V000"
   else
-    version=$(echo $ran_dirs | grep -E 'V[0-9]{3}$' | sort -V | tail -n 1 | sed -E 's/V([0-9]{3})$/\1/' | awk '{printf "V%03d", $1 + 1}')
+    version=$(echo "$ran_dirs" | grep -E 'V[0-9]{3}$' | sort -V | tail -n 1 | sed -E 's/.*V([0-9]{3})$/\1/' | awk '{printf "V%03d", $1 + 1}')
   fi
 
   echo "Processing: $file"
   command="scripts/run-snakemake.sh --config \
     root_dir=${root_dir} \
     experiment_name=${experiment} \
-    run_name=${run_name}.${version} \
+    run_name=${version}.${run_name} \
     train_command=\"fit --model $file --data $data --trainer.max_epochs $max_epochs $extra_args\"
   "
   echo $command
