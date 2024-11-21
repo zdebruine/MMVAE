@@ -61,9 +61,8 @@ init_args:
               use_layer_norm: True
               activation_fn: null
           concat_config:
-            class_path: cmmvae.modules.base.FCBlockConfig
+            class_path: cmmvae.modules.base.ConcatBlockConfig
             init_args:
-              layers: [ 128 ]
               dropout_rate: 0.0
               use_batch_norm: False
               use_layer_norm: False
