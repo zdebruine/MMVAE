@@ -174,6 +174,22 @@ class FCBlockConfig:
             self._validate_option(name, req_type, **kwargs)
 
 
+class ConcatBlockConfig(FCBlockConfig):
+    def __init__(
+        self,
+        dropout_rate: float = 0.0,
+        use_batch_norm: bool = False,
+        use_layer_norm: bool = False,
+        return_hidden: bool = False,
+        activation_fn: Optional[Type[nn.Module]] = None,
+    ):
+        self.dropout_rate = dropout_rate
+        self.use_batch_norm = use_batch_norm
+        self.use_layer_norm = use_layer_norm
+        self.return_hidden = return_hidden
+        self.activation_fn = activation_fn
+
+
 class FCBlock(nn.Module):
     """
     Fully Connected Block for building neural network layers.
@@ -500,7 +516,8 @@ class ConditionalLayers(nn.Module):
         self.shared_conditionals = list(conditional_paths["shared"].keys())
 
         self.shuffle_selection_order = False
-        if not selection_order:
+        self.is_parallel = selection_order[0] == "parallel"
+        if not selection_order or self.is_parallel:
             selection_order = conditionals
             self.shuffle_selection_order = True
 
@@ -589,6 +606,7 @@ class ConditionalLayers(nn.Module):
         else:
             order = self.selection_order
 
+        xs = []
         # Apply each layer in the determined order
         for conditional in order:
             layer = self.layers[conditional]
@@ -599,10 +617,17 @@ class ConditionalLayers(nn.Module):
                     )
                 layer = layer[species]
             if isinstance(layer, ConditionalLayer):
-                x = layer(x, metadata)
+                if self.is_parallel:
+                    xs.append(layer(x, metadata))
+                else:
+                    x = layer(x, metadata)
             else:
-                x = layer(x)
-
+                if self.is_parallel:
+                    xs.append(layer(x))
+                else:
+                    x = layer(x)
+        if xs:
+            x = torch.cat(xs, dim=1)
         return x
 
 

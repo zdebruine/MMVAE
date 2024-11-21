@@ -133,19 +133,27 @@ class BaseVAE(nn.Module):
                 - RK.LOSS: Total loss.
                 - RK.KL_WEIGHT: KL weight.
         """
-        z_kl_div = kl_divergence(qz, pz).sum(dim=-1)
+        z_kl_div = kl_divergence(qz, pz)
+        z_kl_div = z_kl_div.sum(dim=-1)
+        z_kl_div = z_kl_div.mean()
 
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
         recon_loss = F.mse_loss(xhat, x, reduction="sum")
+        # recon_loss = F.mse_loss(xhat, x, reduction="none")
+        # recon_loss = recon_loss.sum(dim=1)
 
-        loss = recon_loss + kl_weight * z_kl_div.mean()
+        loss = recon_loss + (kl_weight * z_kl_div)
+        # loss = torch.mean(z_kl_div * kl_weight + recon_loss)
+
+        recon_loss = recon_loss / x.numel()
+        # recon_loss = recon_loss.mean()
 
         return {
-            RK.RECON_LOSS: recon_loss / x.numel(),
-            RK.KL_LOSS: z_kl_div.mean(),
             RK.LOSS: loss,
+            RK.RECON_LOSS: recon_loss,
+            RK.KL_LOSS: z_kl_div,
             RK.KL_WEIGHT: kl_weight,
         }
 

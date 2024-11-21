@@ -26,41 +26,41 @@ jobs: 10
 set-resources:
   diff_expression:
     partition: bigmem
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: ""
     cpus_per_task: 1
   train:
     partition: gpu
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: tesla_v100s:1
-    cpus_per_task: 12
+    cpus_per_task: 6
   predict:
     partition: gpu
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: 1
-    cpus_per_task: 12
+    cpus_per_task: 6
   merge_predictions:
     partition: all
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: ""
     cpus_per_task: 1
   correlations:
     partition: gpu
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: 1
-    cpus_per_task: 12
+    cpus_per_task: 6
   run_correlations:
     partition: cpu
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: ""
     cpus_per_task: 1
   umap_predictions:
     partition: all
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: ""
     cpus_per_task: 40
   meta_discriminators:
     partition: gpu
-    mem: 179GB
+    mem: 100GB
     gpus_per_node: tesla_v100s:1
-    cpus_per_task: 12
+    cpus_per_task: 6

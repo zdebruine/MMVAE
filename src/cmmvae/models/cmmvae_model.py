@@ -206,6 +206,7 @@ class CMMVAEModel(BaseModel):
         qz, pz, z, xhats, hidden_representations = self.module(
             x=x, metadata=metadata, expert_id=expert_id
         )
+        # assert isinstance(qz, torch.distributions.Normal)
 
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
@@ -214,6 +215,10 @@ class CMMVAEModel(BaseModel):
         main_loss_dict = self.module.vae.elbo(
             qz, pz, x, xhats[expert_id], self.kl_annealing_fn.kl_weight
         )
+
+        main_loss_dict["Mean"] = qz.mean.mean()
+        main_loss_dict["Variance"] = qz.variance.mean()
+
         total_loss = main_loss_dict[RK.LOSS]
 
         adv_loss = None
