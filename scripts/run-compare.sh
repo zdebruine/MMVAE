@@ -99,7 +99,7 @@ do
   run_name=$(basename "$file" .yaml)
 
   if [ "$commit_hash" != "" ]; then
-    run_name="${run_name}.${commit_hash}"
+    run_name="${commit_hash}.${run_name}"
   fi
 
   ran_dirs=$(ls -d "$root_dir/$experiment/$run_name"* 2>/dev/null)
