@@ -23,7 +23,7 @@ def setup_datapipes(data_dir: str, human_masks: str, mouse_masks: str):
         directory_path=data_dir,
         npz_masks=[f"{human_mask}.npz" for human_mask in human_masks],
         metadata_masks=[f"{human_mask}.pkl" for human_mask in human_masks],
-        batch_size=10000,
+        batch_size=1000,
         allow_partials=True,
         shuffle=False,
         return_dense=True,
@@ -33,7 +33,7 @@ def setup_datapipes(data_dir: str, human_masks: str, mouse_masks: str):
         directory_path=data_dir,
         npz_masks=[f"{mouse_mask}.npz" for mouse_mask in mouse_masks],
         metadata_masks=[f"{mouse_mask}.pkl" for mouse_mask in mouse_masks],
-        batch_size=10000,
+        batch_size=1000,
         allow_partials=True,
         shuffle=False,
         return_dense=True,
@@ -45,7 +45,7 @@ def setup_datapipes(data_dir: str, human_masks: str, mouse_masks: str):
 def setup_dataloaders(data_dir: str):
 
     gids = np.random.choice(
-        np.arange(1, 252), size=25, replace=False
+        np.arange(1, 158), size=16, replace=False
     )
     
     human_masks = [f"human*_{gid}" for gid in gids]

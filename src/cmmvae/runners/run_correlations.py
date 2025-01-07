@@ -5,6 +5,7 @@ import click
 import torch
 import glob
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
@@ -12,7 +13,7 @@ import scipy.sparse as sp
 from collections import defaultdict
 from cmmvae.constants import REGISTRY_KEYS as RK
 
-FILTERED_BY_CATEGORIES = ["assay", "cell_type", "tissue", "sex"]
+# FILTERED_BY_CATEGORIES = ["sex", "dev_stage", "tissue", "cell_type", "assay"]
 
 def calc_correlations(human_out: np.ndarray, mouse_out: np.ndarray, n_samples: int):
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -63,6 +64,34 @@ def save_correlations(correlations: pd.DataFrame, save_dir: str):
     correlations.to_csv(os.path.join(save_dir, "correlations.csv"), index=False)
     correlations.to_pickle(os.path.join(save_dir, "correlations.pkl"))
 
+    table_rows = len(correlations)
+    fig_height = max(6, table_rows * 0.5)
+
+    fig, ax = plt.subplots(figsize=(12, fig_height))
+    correlations[["human_rel", "mouse_rel"]].boxplot(ax=ax)
+    table_vals = correlations[["group_id", "human_rel", "mouse_rel"] + RK.FILTER_CATEGORIES].values
+    table = plt.table(
+        cellText=table_vals,
+        colLabels=["group_id", "human_rel", "mouse_rel"] + RK.FILTER_CATEGORIES,
+        loc="right",
+        cellLoc="center",
+        colLoc="center",
+    )
+    
+    # Adjust settings for legibility
+    table.scale(1.5, 1.5)
+    table.auto_set_font_size(False)
+    table.set_fontsize(12)
+    table.auto_set_column_width(col=list(range(len(correlations.columns))))
+    plt.subplots_adjust(left=0.1, right=0.8)
+
+    ax.set_ylim(0, 1)
+    ax.set_title("Relative Correlations")
+    ax.set_ylabel("R^2")
+    # fig.text(0.9, 0.85, "R^2 Correlation Data", ha="center", fontsize=14, fontweight="bold")
+    plt.savefig(os.path.join(save_dir, "correlations.png"), bbox_inches="tight")
+    plt.close(fig)
+
 def get_correlations(
         data_files: dict[str: dict[str: sp.csr_matrix]],
         metadata_files: dict[str: dict[str: pd.DataFrame]]
@@ -80,8 +109,7 @@ def get_correlations(
             "mouse_cross",
             "mouse_comb",
             "mouse_rel",
-            "tag",
-        ]
+        ] + RK.FILTER_CATEGORIES
     )
     # print(data_files)
     # print(metadata_files)
@@ -108,9 +136,9 @@ def get_correlations(
 
         avg_correlations["group_id"] = gid
         avg_correlations["num_samples"] = n_samples
-        avg_correlations["tag"] = " ".join(
-            [metadata_files[gid][RK.HUMAN][cat].iloc[0] for cat in FILTERED_BY_CATEGORIES]
-        )
+
+        for cat in RK.FILTER_CATEGORIES:
+            avg_correlations[cat] = metadata_files[gid][RK.HUMAN][cat].iloc[0]
 
         correlations = pd.concat([correlations, avg_correlations], ignore_index=True)
 

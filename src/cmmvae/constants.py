@@ -59,6 +59,7 @@ class REGISTRY_KEYS_NT(NamedTuple):
     """Key for the h5py file umap embeddings"""
     PREDICT_SAMPLES: str = "data"
     """Key for the h5py file predict samples"""
+    FILTER_CATEGORIES: list = ["sex", "dev_stage", "tissue", "cell_type", "assay"]
 
 
 # Instance of _REGISTRY_KEYS_NT for use in the application
