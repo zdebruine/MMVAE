@@ -6,11 +6,11 @@ import pandas as pd
 import pandas.core.groupby.generic as gb
 from collections import defaultdict
 from data_processing_functions import extract_file_number
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 TRAIN_DATA_FILES = set(range(1, 14))
-GROUPING_COLUMNS = ["sex", "tissue", "cell_type", "assay"]
 MIN_SAMPLE_SIZE = 100
-MAX_SAMPLE_SIZE = 10000
+MAX_SAMPLE_SIZE = 1000
 SPECIES_SAMPLE_SIZE = {"human": 60530, "mouse": 52437}
 
 def get_train_data_ids(files: tuple[str]) -> set[int]:
@@ -53,7 +53,7 @@ def filter_into_groups(dfs: dict[str, pd.DataFrame]):
     
     grouped = {}
     for specie, data in dfs.items():
-        grouped[specie] = data.groupby(GROUPING_COLUMNS)
+        grouped[specie] = data.groupby(RK.FILTER_CATEGORIES)
 
     return grouped
 
@@ -86,7 +86,7 @@ def save_grouped_data(groups: dict[tuple[str], dict[str, np.ndarray]], dfs: dict
     
     with open(os.path.join(save_dir, "group_references.csv"), "w") as file:
         writer = csv.writer(file)
-        writer.writerow(["group_id", "num_samples"] + GROUPING_COLUMNS)
+        writer.writerow(["group_id", "num_samples"] + RK.FILTER_CATEGORIES)
         for i, gid in enumerate(groups.keys(), start=1):
             for specie, idx in groups[gid].items():                
                 df = dfs[specie].iloc[idx]
