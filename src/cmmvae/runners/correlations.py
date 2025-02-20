@@ -6,129 +6,143 @@ import sys
 import click
 import torch
 
+from collections import defaultdict
+
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 
-from torch.utils.data import DataLoader
+from torchmetrics.regression import PearsonCorrCoef
 
 from cmmvae.models import CMMVAEModel
 from cmmvae.constants import REGISTRY_KEYS as RK
 from cmmvae.runners.cli import CMMVAECli
-from cmmvae.data.local import SpeciesDataPipe
+from cmmvae.runners.cross_generation import CrossGenerator
 
+FILE_PATTERN = 'human_filtered_'
+EPSILON = 1e-4
 
-def setup_datapipes(data_dir: str, human_masks: str, mouse_masks: str):
-    human_pipe = SpeciesDataPipe(
-        directory_path=data_dir,
-        npz_masks=[f"{human_mask}.npz" for human_mask in human_masks],
-        metadata_masks=[f"{human_mask}.pkl" for human_mask in human_masks],
-        batch_size=1000,
-        allow_partials=True,
-        shuffle=False,
-        return_dense=True,
-        verbose=True,
-    )
-    mouse_pipe = SpeciesDataPipe(
-        directory_path=data_dir,
-        npz_masks=[f"{mouse_mask}.npz" for mouse_mask in mouse_masks],
-        metadata_masks=[f"{mouse_mask}.pkl" for mouse_mask in mouse_masks],
-        batch_size=1000,
-        allow_partials=True,
-        shuffle=False,
-        return_dense=True,
-        verbose=True,
-    )
-    return human_pipe, mouse_pipe
+# def r_squared(tensor: torch.Tensor):
+#     # print("ON PRE_TRANSPOSE", flush=True)
+#     # print(torch.cuda.memory_summary(), flush=True)
+#     tensor = tensor + 1e-3 #Epsilon
+#     print("Plus Epsilon", flush=True)
+#     print(tensor, flush=True)
+#     pearson_correlations = torch.corrcoef(tensor.t())
+#     print("Correlations root", flush=True)
+#     print(pearson_correlations, flush=True)
+#     # print("ON POST TRANSPOSE", flush=True)
+#     # print(torch.cuda.memory_summary(), flush=True)
+#     pearson_correlations = pearson_correlations.pow(2)
+#     print("Correlations squared", flush=True)
+#     print(pearson_correlations, flush=True)
 
+#     # Remove bias in the output due to each sample being perfectly correlated with itself
+#     off_diag_sum = pearson_correlations.sum() - torch.diag(pearson_correlations).sum()
+#     n_samples = pearson_correlations.size(0)
+#     num_off_diag = n_samples * (n_samples - 1)
+#     avg_corr_off_diag = off_diag_sum / num_off_diag
 
-def setup_dataloaders(data_dir: str):
+#     r2 = round(avg_corr_off_diag.item(), 3)
+#     return r2
 
-    gids = np.random.choice(
-        np.arange(1, 158), size=16, replace=False
-    )
-    
-    human_masks = [f"human*_{gid}" for gid in gids]
-    mouse_masks = [f"mouse*_{gid}" for gid in gids]
-
-    human_pipe, mouse_pipe = setup_datapipes(data_dir, human_masks, mouse_masks)
-
-    human_dataloader = DataLoader(
-        dataset=human_pipe,
-        batch_size=None,
-        shuffle=False,
-        collate_fn=lambda x: x,
-        persistent_workers=False,
-        num_workers=2,
-    )
-    mouse_dataloader = DataLoader(
-        dataset=mouse_pipe,
-        batch_size=None,
-        shuffle=False,
-        collate_fn=lambda x: x,
-        persistent_workers=False,
-        num_workers=2,
-    )
-
-    return human_dataloader, mouse_dataloader
-
-
-def convert_to_tensor(batch: sp.csr_matrix):
-    return torch.sparse_csr_tensor(
-        crow_indices=batch.indptr,
-        col_indices=batch.indices,
-        values=batch.data,
-        size=batch.shape,
-        device=torch.device("cuda")
-        if torch.cuda.is_available()
-        else torch.device("cpu"),
-    )
-
-def get_correlations(model: CMMVAEModel, data_dir: str, save_dir: str):
-    human_dataloader, mouse_dataloader = setup_dataloaders(data_dir)
-
-    for (human_batch, human_metadata), (mouse_batch, mouse_metadata) in zip(
-        human_dataloader, mouse_dataloader
-    ):
-        human_batch = human_batch.cuda()
-        mouse_batch = mouse_batch.cuda()
-
-        model.module.eval()
-        with torch.no_grad():
-            _, _, _, human_out, _ = model.module(
-                human_batch, human_metadata, RK.HUMAN, cross_generate=True
-            )
-            _, _, _, mouse_out, _ = model.module(
-                mouse_batch, mouse_metadata, RK.MOUSE, cross_generate=True
-            )
-        save_data = convert_to_csr(human_out, mouse_out)
-        metadata = {RK.HUMAN: human_metadata, RK.MOUSE: mouse_metadata}
-        save_correlations(save_data, metadata, save_dir, gid=human_metadata["group_id"].iloc[0])
-
-def convert_to_csr(
-    human_xhats: dict[str: torch.Tensor],
-    mouse_xhats: dict[str: torch.Tensor],
+def get_r_squared(
+    cross_generator: CrossGenerator,
+    context_data_dir: str,
 ):
-    converted = {}
-    for output_species, xhat in human_xhats.items():
-        nparray = xhat.cpu().numpy()
-        converted[f"human_to_{output_species}"] = sp.csr_matrix(nparray)
-    for output_species, xhat in mouse_xhats.items():
-        nparray = xhat.cpu().numpy()
-        converted[f"mouse_to_{output_species}"] = sp.csr_matrix(nparray)
-    return converted
-    
+    correlations = pd.DataFrame(
+        columns=[
+            'primary_context_id',
+            'secondary_context_id',
+            'primary_cis',
+            'primary_cross',
+            'primary_comb',
+            'primary_rel',
+            'secondary_cis',
+            'secondary_cross',
+            'secondary_comb',
+            'secondary_rel',
+            'mod_type',
+            'mod_value',
+        ] + RK.FILTER_CATEGORIES
+    )
+    pearson_correlation = PearsonCorrCoef(num_outputs=60530)
+    pearson_correlation.to(torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
-def save_correlations(data: dict[str, sp.csr_matrix], metadata: pd.DataFrame, save_dir: str, gid: int):
-    for file_name, data in data.items():
-        sp.save_npz(
-            os.path.join(save_dir, f"{file_name}_{gid}.npz"),
-            data
-        )
-    for species, md in metadata.items():
-        md.to_pickle(
-            os.path.join(save_dir, f"{species}_metadata_{gid}.pkl")
-        )
+    context_references = os.path.join(context_data_dir, "group_references.csv")
+    contexts = cross_generator.get_contexts(context_references)
+
+    i = 0
+    for primary_context, secondary_contexts in contexts.items():
+        i += 1
+        # Limit the number of samples processes while testing functionality
+        if i > 10:
+            break
+        # Transpose the outputs as the Pearson CorrCoef expects
+        out = cross_generator.cross_generate(context_data_dir, primary_context, secondary_contexts, transpose= False)
+        print(out)
+        primary_cis_xhat = out[f"{primary_context}_to_{primary_context}"] + EPSILON
+        print(pearson_correlation(primary_cis_xhat, primary_cis_xhat))
+        print(pearson_correlation(primary_cis_xhat, primary_cis_xhat).mean().item())
+        primary_cis_r2 = round(pearson_correlation(primary_cis_xhat, primary_cis_xhat).mean().item(), 3)
+        for secondary_context, modifications in secondary_contexts.items():
+            context_correlations = pd.DataFrame(
+                columns=[
+                    "primary_context_id",
+                    "secondary_context_id",
+                    "primary_cis",
+                    "primary_cross",
+                    "primary_comb",
+                    "primary_rel",
+                    "secondary_cis",
+                    "secondary_cross",
+                    "secondary_comb",
+                    "secondary_rel",
+                    "mod_type",
+                    "mod_value",
+                ] + RK.FILTER_CATEGORIES
+            )
+
+            secondary_cis_xhat = out[f"{secondary_context}_to_{secondary_context}"] + EPSILON
+            secondary_cross_xhat = out[f"{primary_context}_to_{secondary_context}"] + EPSILON
+            primary_cross_xhat = out[f"{secondary_context}_to_{primary_context}"] + EPSILON
+
+            primary_cross_r2 = round(pearson_correlation(secondary_cross_xhat, secondary_cross_xhat).mean().item(), 3)
+            primary_combined_r2 = round(pearson_correlation(secondary_cross_xhat, primary_cis_xhat).mean().item(), 3)
+
+            secondary_cis_r2 = round(pearson_correlation(secondary_cis_xhat, secondary_cis_xhat).mean().item(), 3)
+            secondary_cross_r2 = round(pearson_correlation(primary_cross_xhat, primary_cross_xhat).mean().item(), 3)
+            secondary_combined_r2 = round(pearson_correlation(primary_cross_xhat, secondary_cis_xhat).mean().item(), 3)
+
+
+            primary_relative_r2 = round((2 * primary_combined_r2) / (primary_cis_r2 + primary_cross_r2), 3)
+            secondary_relative_r2 = round((2 * secondary_combined_r2) / (secondary_cis_r2 + secondary_cross_r2), 3)
+
+            context_correlations["primary_context_id"] = [primary_context]
+            context_correlations["secondary_context_id"] = [secondary_context]
+
+            context_correlations["primary_cis"] = [primary_cis_r2]
+            context_correlations["primary_cross"] = [primary_cross_r2]
+            context_correlations["primary_comb"] = [primary_combined_r2]
+            context_correlations["primary_rel"] = [primary_relative_r2]
+            context_correlations["secondary_cis"] = [secondary_cis_r2]
+            context_correlations["secondary_cross"] = [secondary_cross_r2]
+            context_correlations["secondary_comb"] = [secondary_combined_r2]
+            context_correlations["secondary_rel"] = [secondary_relative_r2]
+
+            context_correlations["mod_type"] = modifications["mod_type"]
+            context_correlations["mod_value"] = modifications["mod_value"]
+
+            for cat in RK.FILTER_CATEGORIES:
+                context_correlations[cat] = out["metadata"][cat].iloc[0]
+            
+            correlations = pd.concat([correlations, context_correlations], ignore_index=True)
+
+    return correlations
+
+def save_correlations(correlations: pd.DataFrame, save_dir: str):
+    correlations = correlations.sort_values("primary_context_id")
+    correlations.to_csv(os.path.join(save_dir, "correlations_test.csv"), index=False)
 
 @click.command(
     context_settings=dict(
@@ -137,29 +151,30 @@ def save_correlations(data: dict[str, sp.csr_matrix], metadata: pd.DataFrame, sa
     )
 )
 @click.option(
-    "--correlation_data",
+    "--model_dir",
     type=click.Path(exists=True),
     required=True,
-    help="Directory where filtered correlation data is saved",
+    help="Directory where the model config and ckpt are stored",
+)
+@click.option(
+    "--context_data_dir",
+    type=click.Path(exists=True),
+    required=True,
+    help="Directory where the filtered context data is stored",
 )
 @click.option(
     "--save_dir",
     type=click.Path(exists=True),
     required=True,
-    help="Directory where correlation outputs are saved",
+    help="Directory where the correlations are saved",
 )
 @click.pass_context
-def correlations(ctx: click.Context, correlation_data: str, save_dir: str):
+def correlations(ctx: click.Context, model_dir: str, context_data_dir: str, save_dir: str):
     """Run using the LightningCli."""
-    if ctx.args:
-        # Ensure `args` is passed as the command-line arguments
-        sys.argv = [sys.argv[0]] + ctx.args
-
-    cli = CMMVAECli(run=False)
-    model = type(cli.model).load_from_checkpoint(
-        cli.config["ckpt_path"], module=cli.model.module
-    )
-    get_correlations(model, correlation_data, save_dir)
+    
+    cross_gen = CrossGenerator(model_dir)
+    correlations_df = get_r_squared(cross_gen, context_data_dir)
+    save_correlations(correlations_df, save_dir)
 
 
 if __name__ == "__main__":
