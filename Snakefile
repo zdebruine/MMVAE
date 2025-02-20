@@ -115,7 +115,7 @@ MERGE_KEY_COMMAND = " ".join(f"--keys {merge_key}" for merge_key in MERGE_KEYS)
 rule all:
     input:
         EVALUATION_FILES,
-        CORRELATION_FILES
+        # CORRELATION_FILES
 
 ## Define the rule for finding unique expressions for conditional layers
 ## The output includes paths to the conditional layer expressions used.
@@ -160,34 +160,34 @@ rule predict:
 
 ## Define the rule for getting R^2 correlations on the filtered data
 ## This rule outputs correlation scores per filtered data group
-rule correlations:
-    input:
-        ckpt_path=CKPT_PATH,
-    output:
-        os.path.join(CORRELATION_DIR, "correlations_complete.log")
-    params:
-        command=TRAIN_COMMAND.lstrip('fit'),
-        data=CORRELATION_DATA,
-        save_dir=CORRELATION_DIR,
-    shell:
-        """
-        mkdir -p {CORRELATION_DIR}
-        cmmvae workflow correlations {params.command} --ckpt_path {input.ckpt_path} --correlation_data {params.data} --save_dir {params.save_dir}
-        touch {output}
-        """
+# rule correlations:
+#     input:
+#         ckpt_path=CKPT_PATH,
+#     output:
+#         os.path.join(CORRELATION_DIR, "correlations_complete.log")
+#     params:
+#         command=TRAIN_COMMAND.lstrip('fit'),
+#         data=CORRELATION_DATA,
+#         save_dir=CORRELATION_DIR,
+#     shell:
+#         """
+#         mkdir -p {CORRELATION_DIR}
+#         cmmvae workflow correlations {params.command} --ckpt_path {input.ckpt_path} --correlation_data {params.data} --save_dir {params.save_dir}
+#         touch {output}
+#         """
 
-rule run_correlations:
-    input:
-        rules.correlations.output
-    output:
-        CORRELATION_FILES,
-    params:
-        directory=CORRELATION_DIR,
-    shell:
-        """
-        mkdir -p {CORRELATION_DIR}
-        cmmvae workflow run-correlations --directory {params.directory}
-        """
+# rule run_correlations:
+#     input:
+#         rules.correlations.output
+#     output:
+#         CORRELATION_FILES,
+#     params:
+#         directory=CORRELATION_DIR,
+#     shell:
+#         """
+#         mkdir -p {CORRELATION_DIR}
+#         cmmvae workflow run-correlations --directory {params.directory}
+#         """
 
 ## Define the rule for generating UMAP visualizations from the merged predictions.
 ## This rule produces UMAP images for each combination of category and merge key.

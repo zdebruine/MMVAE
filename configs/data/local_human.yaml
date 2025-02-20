@@ -1,0 +1,46 @@
+class_path: cmmvae.data.local.SpeciesDataModule
+init_args:
+  species:
+  - class_path: cmmvae.data.local.SpeciesManager
+    init_args:
+      name: human
+      return_dense: true
+      batch_size: 128
+      directory_path: /mnt/projects/debruinz_project/july2024_census_data/subset
+      train_npz_masks:
+      - human_counts_1.npz
+      - human_counts_2.npz
+      - human_counts_3.npz
+      - human_counts_4.npz
+      - human_counts_5.npz
+      - human_counts_6.npz
+      - human_counts_7.npz
+      - human_counts_8.npz
+      - human_counts_9.npz
+      - human_counts_10.npz
+      - human_counts_11.npz
+      - human_counts_12.npz
+      - human_counts_13.npz
+      train_metadata_masks:
+      - human_metadata_1.pkl
+      - human_metadata_2.pkl
+      - human_metadata_3.pkl
+      - human_metadata_4.pkl
+      - human_metadata_5.pkl
+      - human_metadata_6.pkl
+      - human_metadata_7.pkl
+      - human_metadata_8.pkl
+      - human_metadata_9.pkl
+      - human_metadata_10.pkl
+      - human_metadata_11.pkl
+      - human_metadata_12.pkl
+      - human_metadata_13.pkl
+      val_npz_masks: human_counts_14.npz
+      val_metadata_masks: human_metadata_14.pkl
+      test_npz_masks: human_counts_15.npz
+      test_metadata_masks: human_metadata_15.pkl
+      verbose: false
+  num_workers: 2
+  n_val_workers: 1
+  n_test_workers: 1
+  conditionals_directory: /mnt/projects/debruinz_project/tony_boos/3m_expressions

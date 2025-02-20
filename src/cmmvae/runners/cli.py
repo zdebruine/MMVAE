@@ -130,6 +130,11 @@ class CMMVAECli(plcli.LightningCLI):
             return
 
         best_model_path = self.trainer.checkpoint_callback.best_model_path
+        best_model = os.path.basename(best_model_path).split('_')[-1].split('.')[0]
+        best_model_log = os.path.join(
+            os.path.dirname(best_model_path), f"best_model_{best_model}.log"
+        )
+        open(best_model_log, "w").close()
         new_best_model_path = os.path.join(
             os.path.dirname(best_model_path), "best_model.ckpt"
         )

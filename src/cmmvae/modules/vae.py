@@ -141,14 +141,8 @@ class BaseVAE(nn.Module):
             x = x.to_dense()
 
         recon_loss = F.mse_loss(xhat, x, reduction="sum")
-        # recon_loss = F.mse_loss(xhat, x, reduction="none")
-        # recon_loss = recon_loss.sum(dim=1)
 
         loss = recon_loss + (kl_weight * z_kl_div)
-        # loss = torch.mean(z_kl_div * kl_weight + recon_loss)
-
-        recon_loss = recon_loss / x.numel()
-        # recon_loss = recon_loss.mean()
 
         return {
             RK.LOSS: loss,

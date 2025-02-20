@@ -5,7 +5,7 @@
 **/.pytest_cache/
 **.egg-info
 **/slurm-*.sh
-**/pytest-test.*.out
+**/*.out
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
