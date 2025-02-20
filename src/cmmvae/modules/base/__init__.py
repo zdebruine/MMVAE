@@ -2,6 +2,7 @@
     This module holds the building block nn.Modules and functions for training.
 """
 from cmmvae.modules.base.components import (
+    Adversarial,
     Encoder,
     FCBlock,
     FCBlockConfig,
@@ -16,6 +17,7 @@ from cmmvae.modules.base.components import (
 from cmmvae.modules.base.annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
 
 __all__ = [
+    "Adversarial",
     "ConditionalLayer",
     "ConditionalLayers",
     "ConcatBlockConfig",

@@ -1,6 +1,6 @@
 import os
 from typing import Callable, List, Literal, Optional, Type, TypeVar, Union
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 import random
 import pandas as pd
 import torch
@@ -635,6 +635,44 @@ def _identity(x):
     return x
 
 
+class Adversarial(nn.Module):
+    """
+    """
+
+    labels = defaultdict(dict)
+
+    def __init__(
+        self,
+        encoder: FCBlockConfig,
+        heads: FCBlockConfig,
+        conditions: list[str],
+        labels_dir: str,
+    ):
+        super().__init__()
+        self.encoder = FCBlock(encoder)
+        head_nodes = {}
+            
+        for condition in conditions:
+            df = pd.read_csv(os.path.join(labels_dir, f"human/unique_expression_{condition}.csv"), header=None)
+            if condition not in Adversarial.labels.keys():
+                for idx, value in enumerate(df[0]):
+                    Adversarial.labels[condition][value] = idx
+            
+            heads.layers = [self.encoder.output_dim, len(df)]
+            head_nodes[condition] = FCBlock(heads)
+
+        self.heads = nn.ModuleDict(head_nodes)
+    
+    def forward(self, x: torch.Tensor):
+        xhat = self.encoder(x)
+
+        predictions = {}
+
+        for category, layer in self.heads.items():
+            predictions[category] = layer(xhat)
+
+        return predictions
+
 class Encoder(nn.Module):
     """
     Encoder module for a Variational Autoencoder (cmmvae.modules.VAE)
@@ -662,6 +700,7 @@ class Encoder(nn.Module):
         fc_block_config: FCBlockConfig,
         distribution: Union[Literal["ln"], Literal["normal"]] = "normal",
         return_dist: bool = False,
+        hidden_z: bool = False,
         var_eps: float = 1e-4,  # numerical stability
     ):
         """
@@ -674,6 +713,8 @@ class Encoder(nn.Module):
                 Type of distribution for the latent variables.
                     Defaults to 'normal'.
             return_dist (bool, optional): Return the distribution object.
+                Defaults to False.
+            hidden_z (bool, optional): Return z as a hidden representation.
                 Defaults to False.
             var_eps (float, optional):
                 Small epsilon value for numerical stability
@@ -703,6 +744,9 @@ class Encoder(nn.Module):
 
         # Whether to return the distribution object
         self.return_dist = return_dist
+
+        # Whether to return the latent vector as a hidden representation
+        self.hidden_z = hidden_z
 
     @property
     def n_layers(self) -> int:
@@ -745,6 +789,7 @@ class Encoder(nn.Module):
 
         # Compute the mean of the latent variables
         q_m = self.mean_encoder(q)
+
         # Compute the variance of the latent variables
         # and add epsilon for numerical stability
         q_v = torch.exp(self.var_encoder(q)) + self.var_eps
@@ -754,6 +799,9 @@ class Encoder(nn.Module):
 
         # Sample the latent variables and apply the transformation
         latent = self.z_transformation(dist.rsample())
+
+        if self.hidden_z:
+            hidden_representations.append(latent)
 
         if self.return_dist:
             return dist, latent, hidden_representations

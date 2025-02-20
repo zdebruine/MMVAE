@@ -9,7 +9,6 @@ cluster:
     --output=.cmmvae/logs/{rule}/job.%j.out
     --error=.cmmvae/logs/{rule}/job.%j.err
     --gpus-per-node={resources.gpus_per_node}
-    --account=account
     --ntasks=1
     --nodes=1
     --time={resources.runtime}

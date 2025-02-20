@@ -1,0 +1,157 @@
+class_path: cmmvae.models.CMMVAEModel
+init_args:
+  kl_annealing_fn:
+    class_path: cmmvae.modules.base.KLAnnealingFn
+    init_args:
+      kl_weight: 1.0
+  record_gradients: false
+  adv_weight: 1.0
+  gradient_record_cap: 20
+  autograd_config:
+    class_path: cmmvae.config.AutogradConfig
+    init_args:
+      adversarial_gradient_clip:
+          class_path: cmmvae.config.GradientClipConfig
+          init_args:
+            val: 10
+            algorithm: norm
+      expert_gradient_clip:
+          class_path: cmmvae.config.GradientClipConfig
+          init_args:
+            val: 10
+            algorithm: norm
+      vae_gradient_clip:
+        class_path: cmmvae.config.GradientClipConfig
+        init_args:
+          val: 10
+          algorithm: norm
+  module:
+    class_path: cmmvae.modules.CMMVAE
+    init_args:
+      vae:
+        class_path: cmmvae.modules.CLVAE
+        init_args:
+          latent_dim: 128
+          encoder_config:
+            class_path: cmmvae.modules.base.FCBlockConfig
+            init_args:
+              layers: [ 512, 256 ]
+              dropout_rate: 0.0
+              use_batch_norm: True
+              use_layer_norm: False
+              activation_fn: torch.nn.ReLU
+              return_hidden: True
+          hidden_z: True
+          decoder_config:
+            class_path: cmmvae.modules.base.FCBlockConfig
+            init_args:
+              layers: [ 128, 256, 512 ]
+              dropout_rate: 0.0
+              use_batch_norm: False
+              use_layer_norm: False
+              activation_fn: torch.nn.ReLU
+          conditional_config:
+            class_path: cmmvae.modules.base.FCBlockConfig
+            init_args:
+              layers: [ 128 ]
+              dropout_rate: 0.0
+              use_batch_norm: False
+              use_layer_norm: True
+              activation_fn: null
+          concat_config:
+            class_path: cmmvae.modules.base.ConcatBlockConfig
+            init_args:
+              dropout_rate: 0.0
+              use_batch_norm: False
+              use_layer_norm: False
+              activation_fn: torch.nn.ReLU
+          conditionals_directory: /mnt/projects/debruinz_project/tony_boos/3m_expressions
+          conditionals:
+          - assay
+          - dataset_id
+          - dev_stage
+          - disease
+          - donor_id
+          - species
+          - sex
+          - tissue_general
+          selection_order:
+          - parallel
+      experts:
+        class_path: cmmvae.modules.base.Experts
+        init_args:
+          experts:
+          - class_path: cmmvae.modules.base.Expert
+            init_args:
+              id: human
+              encoder_config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers: [ 60530, 1024, 512 ]
+                  dropout_rate: 0.1
+                  use_batch_norm: True
+                  use_layer_norm: False
+                  activation_fn: torch.nn.ReLU
+              decoder_config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers: [ 512, 1024, 60530 ]
+                  dropout_rate: 0.0
+                  use_batch_norm: False
+                  use_layer_norm: False
+                  activation_fn: torch.nn.ReLU
+      adversarials:
+      - class_path: cmmvae.modules.base.Adversarial
+        init_args:
+          encoder:
+            class_path: cmmvae.modules.base.FCBlockConfig
+            init_args:
+              layers: [ 256, 128, 64 ]
+              dropout_rate: 0.0
+              use_batch_norm: False
+              use_layer_norm: False
+              activation_fn: torch.nn.ReLU
+          heads:
+            class_path: cmmvae.modules.base.FCBlockConfig
+            init_args:
+              layers: [64] # Will be auto-configured by the Adversarial
+              dropout_rate: 0.0
+              use_batch_norm: False
+              use_layer_norm: False
+              activation_fn: null
+          conditions:
+          - assay
+          - dataset_id
+          - dev_stage
+          - disease
+          - donor_id
+          - sex
+          - tissue_general
+          labels_dir: /mnt/projects/debruinz_project/tony_boos/3m_expressions
+      - class_path: cmmvae.modules.base.Adversarial
+        init_args:
+          encoder:
+            class_path: cmmvae.modules.base.FCBlockConfig
+            init_args:
+              layers: [ 128, 64 ]
+              dropout_rate: 0.0
+              use_batch_norm: False
+              use_layer_norm: False
+              activation_fn: torch.nn.ReLU
+          heads:
+            class_path: cmmvae.modules.base.FCBlockConfig
+            init_args:
+              layers: [64] # Will be auto-configured by the Adversarial
+              dropout_rate: 0.0
+              use_batch_norm: False
+              use_layer_norm: False
+              activation_fn: null
+          conditions:
+          - assay
+          - dataset_id
+          - dev_stage
+          - disease
+          - donor_id
+          - sex
+          - tissue_general
+          labels_dir: /mnt/projects/debruinz_project/tony_boos/3m_expressions
