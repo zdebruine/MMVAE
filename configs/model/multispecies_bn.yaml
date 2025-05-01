@@ -40,8 +40,8 @@ init_args:
               use_batch_norm: True
               use_layer_norm: False
               activation_fn: torch.nn.ReLU
-              return_hidden: True
-          hidden_z: True
+              return_hidden: False
+          hidden_z: False
           decoder_config:
             class_path: cmmvae.modules.base.FCBlockConfig
             init_args:
@@ -50,34 +50,34 @@ init_args:
               use_batch_norm: False
               use_layer_norm: False
               activation_fn: torch.nn.ReLU
-          conditional_config:
-            class_path: cmmvae.modules.base.FCBlockConfig
-            init_args:
-              layers: [ 128 ]
-              dropout_rate: 0.0
-              use_batch_norm: False
-              use_layer_norm: True
-              activation_fn: null
-          concat_config:
-            class_path: cmmvae.modules.base.ConcatBlockConfig
-            init_args:
-              dropout_rate: 0.0
-              use_batch_norm: False
-              use_layer_norm: False
-              activation_fn: torch.nn.ReLU
-          conditionals_directory: /mnt/projects/debruinz_project/tony_boos/3m_expressions
-          conditionals:
-          - assay
-          - dataset_id
-          - dev_stage
-          - disease
-          - donor_id
-          # - species
-          - sex
-          - suspension_type
-          - tissue_general
-          selection_order:
-          - parallel
+          # conditional_config:
+          #   class_path: cmmvae.modules.base.FCBlockConfig
+          #   init_args:
+          #     layers: [ 128 ]
+          #     dropout_rate: 0.0
+          #     use_batch_norm: False
+          #     use_layer_norm: True
+          #     activation_fn: null
+          # concat_config:
+          #   class_path: cmmvae.modules.base.ConcatBlockConfig
+          #   init_args:
+          #     dropout_rate: 0.0
+          #     use_batch_norm: False
+          #     use_layer_norm: False
+          #     activation_fn: torch.nn.ReLU
+          # conditionals_directory: /mnt/projects/debruinz_project/tony_boos/3m_expressions
+          # conditionals:
+          # - assay
+          # - dataset_id
+          # - dev_stage
+          # - disease
+          # - donor_id
+          # # - species
+          # - sex
+          # - suspension_type
+          # - tissue_general
+          # selection_order:
+          # - parallel
       experts:
         class_path: cmmvae.modules.base.Experts
         init_args:
@@ -97,6 +97,25 @@ init_args:
                 class_path: cmmvae.modules.base.FCBlockConfig
                 init_args:
                   layers: [ 512, 1024, 60530 ]
+                  dropout_rate: 0.0
+                  use_batch_norm: False
+                  use_layer_norm: False
+                  activation_fn: torch.nn.ReLU
+          - class_path: cmmvae.modules.base.Expert
+            init_args:
+              id: mouse
+              encoder_config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers: [ 52437, 1024, 512 ]
+                  dropout_rate: 0.1
+                  use_batch_norm: True
+                  use_layer_norm: False
+                  activation_fn: torch.nn.ReLU
+              decoder_config:
+                class_path: cmmvae.modules.base.FCBlockConfig
+                init_args:
+                  layers: [ 512, 1024, 52437 ]
                   dropout_rate: 0.0
                   use_batch_norm: False
                   use_layer_norm: False

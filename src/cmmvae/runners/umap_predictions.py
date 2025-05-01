@@ -27,7 +27,7 @@ def umap_embeddings(
     n_neighbors=30,
     min_dist=0.3,
     n_components=2,
-    metric="cosine",
+    metric="euclidean",
     low_memory=False,
     n_jobs=40,
     n_epochs=200,

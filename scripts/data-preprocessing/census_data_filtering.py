@@ -35,7 +35,10 @@ def main(
             meta_dataframe = ff.load_and_merge_metadata(tuple(metadata_files))
 
             # Filter out training samples from the full data
-            dataframes[specie] = ff.filter_train_ids(meta_dataframe, train_ids)
+            meta_dataframe = ff.filter_train_ids(meta_dataframe, train_ids)
+
+            # Filter out any unknown values
+            dataframes[specie] = ff.filter_out_unknowns(meta_dataframe)
 
         # Process groups and subset size if needed
         grouped_data = ff.filter_into_groups(dataframes)

@@ -48,6 +48,7 @@ CORRELATION_PATH = config.get("correlation_dir", "correlations")
 CORRELATION_DIR = os.path.join(RUN_DIR, CORRELATION_PATH)
 
 CORRELATION_DATA = config["correlation_data"]
+METRICS = config.get("metrics", ["Cosine", "Euclidean", "MSE"])
 
 ## Define the path to the training configuration file within the run directory.
 TRAIN_CONFIG_FILE = os.path.join(RUN_DIR, CONFIG_NAME)
@@ -71,13 +72,9 @@ EVALUATION_FILES = expand(
 )
 
 CORRELATION_FILES = expand(
-    "{correlation_dir}/correlations.csv",
+    "{correlation_dir}/7_permutations_{metric}.png",
     correlation_dir=CORRELATION_DIR,
-)
-
-CORRELATION_FILES += expand(
-    "{correlation_dir}/correlations.pkl",
-    correlation_dir=CORRELATION_DIR,
+    metric=METRICS
 )
 
 ## Construct the command to run the CMMVAE training pipeline.
@@ -158,22 +155,21 @@ rule predict:
         cmmvae workflow cli predict {params.command} --ckpt_path {input.ckpt_path}
         """
 
-## Define the rule for getting R^2 correlations on the filtered data
+## Define the rule for getting correlations on the filtered data
 ## This rule outputs correlation scores per filtered data group
 # rule correlations:
 #     input:
 #         ckpt_path=CKPT_PATH,
 #     output:
-#         os.path.join(CORRELATION_DIR, "correlations_complete.log")
+#         CORRELATION_FILES
 #     params:
-#         command=TRAIN_COMMAND.lstrip('fit'),
-#         data=CORRELATION_DATA,
+#         model_dir=RUN_DIR,
+#         context_data_dir=CORRELATION_DATA,
 #         save_dir=CORRELATION_DIR,
 #     shell:
 #         """
 #         mkdir -p {CORRELATION_DIR}
-#         cmmvae workflow correlations {params.command} --ckpt_path {input.ckpt_path} --correlation_data {params.data} --save_dir {params.save_dir}
-#         touch {output}
+#         cmmvae workflow correlations --model_dir {params.model_dir} --context_data_dir {params.context_data_dir} --save_dir {params.save_dir}
 #         """
 
 # rule run_correlations:

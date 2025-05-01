@@ -1,6 +1,6 @@
 import os
 import sys
-import click
+import itertools
 import torch
 
 from collections import defaultdict
@@ -13,7 +13,7 @@ from cmmvae.constants import REGISTRY_KEYS as RK
 from cmmvae.runners.cli import CMMVAECli
 
 FILE_PATTERN = 'human_filtered_'
-SAMPLE_SIZE = 100
+SAMPLE_SIZE = 1000
 
 class CrossGenerator:
 
@@ -36,22 +36,6 @@ class CrossGenerator:
         )
         self.model.module.eval()
 
-    def _get_comparable_contexts(self, reference_dataframe: pd.DataFrame):
-        comparable_contexts = defaultdict(dict)
-        for i in range(len(reference_dataframe)):
-            row = reference_dataframe.iloc[i]
-            for j in range(i + 1, len(reference_dataframe)):
-                other = reference_dataframe.iloc[j]
-                mask = row[RK.FILTER_CATEGORIES] == other[RK.FILTER_CATEGORIES]
-                if mask.sum() == len(RK.FILTER_CATEGORIES) - 1:
-                    difference = mask.index[~mask].tolist()[0]
-                    comparable_contexts[row['group_id']][other['group_id']] = {"mod_type": difference, "mod_value": other[difference]}
-        return comparable_contexts
-
-    def get_contexts(self, path: str):
-        df = pd.read_csv(path)
-        return self._get_comparable_contexts(df)
-
     def _convert_to_tensor(self, data: sp.csr_matrix, return_dense: bool = True):
         tensor = torch.sparse_csr_tensor(
             crow_indices=data.indptr,
@@ -66,18 +50,18 @@ class CrossGenerator:
             tensor = tensor.cuda()
         return tensor
 
-    def _get_data(self, data_dir: str, contex_id: int):
+    def get_data(self, data_dir: str, filename: str, sample: bool = True):
         data = sp.load_npz(
             os.path.join(
-                data_dir, f'{FILE_PATTERN}{contex_id}.npz'
+                data_dir, f'{filename}_counts.npz'
             )
         )
         metadata = pd.read_pickle(
             os.path.join(
-                data_dir, f'{FILE_PATTERN}{contex_id}.pkl'
+                data_dir, f'{filename}_metadata.pkl'
             )
         )
-        if data.shape[0] > SAMPLE_SIZE:
+        if sample and data.shape[0] > SAMPLE_SIZE:
             sample = np.random.choice(data.shape[0], SAMPLE_SIZE, replace=False)
             data = data[sample, :]
             metadata = metadata.iloc[sample]
@@ -112,15 +96,10 @@ class CrossGenerator:
         x: torch.Tensor,
         metadata: pd.DataFrame,
         return_z: bool = True,
-        transpose: bool = False,
     ):
 
         z = self._get_z(x)
         xhat = self._get_xhat(z, metadata)
-        print(xhat.shape, transpose)
-        if transpose:
-            xhat.transpose_(0, 1)
-        print(xhat.shape, transpose)
 
         if return_z:
             return xhat, z
@@ -133,8 +112,7 @@ class CrossGenerator:
         z: torch.Tensor,
         source_metadata: pd.DataFrame,
         target_metadata: pd.DataFrame,
-        mod_tags: list[str],
-        transpose: bool = False,
+        mod_tags: tuple[str],
     ):
         modified_metadata = source_metadata.copy(deep=True)
 
@@ -146,52 +124,55 @@ class CrossGenerator:
 
         xhat = self._get_xhat(z, modified_metadata)
 
-        if transpose:
-            xhat.transpose_(0, 1)
-
         return xhat
 
     def cross_generate(
         self,
         data_dir: str,
-        primary_context: int,
-        contexts: dict[int, dict[str, str]],
-        transpose: bool = False,
+        contexts: pd.DataFrame,
+        return_real: bool = False,
     ):
         generations = {}
-        print("Cross-gen transpose", transpose)
-        primary_x, primary_metadata = self._get_data(data_dir, primary_context)
-        primary_cis_xhat, primary_z = self.get_cis_outputs(primary_x, primary_metadata, transpose= transpose)
+
+        context_a_x, context_a_metadata = self.get_data(data_dir, contexts[RK.CONTEXT_A])
+        context_a_to_a_xhat, context_a_z = self.get_cis_outputs(context_a_x, context_a_metadata)
         
-        primary_x = primary_x.cpu()
-        generations[f"{primary_context}_to_{primary_context}"] = primary_cis_xhat
-        generations["metadata"] = primary_metadata
-
-        for secondary_context, modifications in contexts.items():
-            secondary_x, secondary_metadata = self._get_data(data_dir, secondary_context)
-            secondary_cis_xhat, secondary_z = self.get_cis_outputs(secondary_x, secondary_metadata, transpose= transpose)
-            
-            secondary_x = secondary_x.cpu()
-            generations[f"{secondary_context}_to_{secondary_context}"] = secondary_cis_xhat
-
-            primary_cross_xhat = self.get_cross_outputs(
-                z= primary_z,
-                source_metadata= primary_metadata,
-                target_metadata= secondary_metadata,
-                mod_tags= modifications["mod_type"],
-                transpose = transpose,
-            )
-            generations[f"{primary_context}_to_{secondary_context}"] = primary_cross_xhat
-
-            secondary_cross_xhat = self.get_cross_outputs(
-                z= secondary_z,
-                source_metadata= secondary_metadata,
-                target_metadata= primary_metadata,
-                mod_tags= modifications["mod_type"],
-                transpose = transpose,
-            )
-            generations[f"{secondary_context}_to_{primary_context}"] = secondary_cross_xhat
+        if return_real:
+            generations[RK.TRUE_A] = context_a_x
+        else:
+            context_a_x = context_a_x.cpu()
         
+        generations[RK.A_TO_A] = context_a_to_a_xhat
+
+        context_b_x, context_b_metadata = self.get_data(data_dir, contexts[RK.CONTEXT_B])
+        context_b_to_b_xhat, context_b_z = self.get_cis_outputs(context_b_x, context_b_metadata)
+        
+        if return_real:
+            generations[RK.TRUE_B] = context_b_x
+        else:
+            context_b_x = context_b_x.cpu()
+
+        generations[RK.B_TO_B] = context_b_to_b_xhat
+
+        context_a_to_b_xhat = self.get_cross_outputs(
+            z= context_a_z,
+            source_metadata= context_a_metadata,
+            target_metadata= context_b_metadata,
+            mod_tags= contexts[RK.DIFFERENCES],
+        )
+        generations[RK.A_TO_B] = context_a_to_b_xhat
+
+        context_b_to_a_xhat = self.get_cross_outputs(
+            z= context_b_z,
+            source_metadata= context_b_metadata,
+            target_metadata= context_a_metadata,
+            mod_tags= contexts[RK.DIFFERENCES],
+        )
+        generations[RK.B_TO_A] = context_b_to_a_xhat
+
+        generations[RK.A_DIFFERENCES] = context_a_metadata[contexts[RK.DIFFERENCES]].values[0]
+        generations[RK.B_DIFFERENCES] = context_b_metadata[contexts[RK.DIFFERENCES]].values[0]
+
         return generations
 
 # @click.command(

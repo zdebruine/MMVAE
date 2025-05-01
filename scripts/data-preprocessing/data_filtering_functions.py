@@ -49,6 +49,11 @@ def load_and_merge_metadata(files: tuple[str]) -> pd.DataFrame:
     
     return merged_df
 
+def filter_out_unknowns(df: pd.DataFrame):
+    filtered_df = df[~(df[RK.FILTER_CATEGORIES].isin(["unknown"])).any(axis=1)]
+    filtered_df = filtered_df.reset_index(drop=True)
+    return filtered_df
+
 def filter_into_groups(dfs: dict[str, pd.DataFrame]):
     
     grouped = {}
@@ -68,10 +73,7 @@ def validate_and_sample_groups(data_groups: dict[str, gb.DataFrameGroupBy], prim
     for gid, idxes in main_df.groups.items():
         if len(idxes) < MIN_SAMPLE_SIZE:
             continue
-        elif all(
-            gid in group.groups.keys() and len(group.groups[gid]) >= MIN_SAMPLE_SIZE
-            for group in data_groups.values()
-        ):
+        elif all(gid in group.groups.keys() and len(group.groups[gid]) >= MIN_SAMPLE_SIZE for group in data_groups.values()):
             sample_size = min(
                 [len(idxes), MAX_SAMPLE_SIZE] + [len(group.groups[gid]) for group in data_groups.values()]
             )
@@ -83,17 +85,16 @@ def validate_and_sample_groups(data_groups: dict[str, gb.DataFrameGroupBy], prim
     return valid_groups
 
 def save_grouped_data(groups: dict[tuple[str], dict[str, np.ndarray]], dfs: dict[str, pd.DataFrame], save_dir: str):
-    
-    with open(os.path.join(save_dir, "group_references.csv"), "w") as file:
+    os.makedirs(save_dir, exist_ok=True)
+    with open(os.path.join(save_dir, "context_references.csv"), "w") as file:
         writer = csv.writer(file)
-        writer.writerow(["group_id", "num_samples"] + RK.FILTER_CATEGORIES)
+        writer.writerow(["context_id", "num_samples"] + RK.FILTER_CATEGORIES)
         for i, gid in enumerate(groups.keys(), start=1):
             for specie, idx in groups[gid].items():                
-                df = dfs[specie].iloc[idx]
-                df["group_id"] = i
+                df = dfs[specie].loc[idx]
+                df["context_id"] = i
                 df["num_samples"] = len(idx)
                 df = df.sort_values("chunk_source")
                 df.to_pickle(os.path.join(save_dir, f"{specie}_filtered_{i}.pkl"))
             writer.writerow([i, len(idx)] + list(gid))
-    file = pd.read_csv(os.path.join(save_dir, "group_references.csv"))
-    file.to_pickle(os.path.join(save_dir, "group_references.pkl"))
+    print("Saved context references")
