@@ -47,6 +47,8 @@ class CMMVAE(nn.Module):
             self.adversarials = nn.ModuleList(
                 [adv for adv in adversarials if adv]
             )
+        else:
+            self.adversarials = None
 
     def forward(
         self,
