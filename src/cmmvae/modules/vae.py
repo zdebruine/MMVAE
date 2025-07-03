@@ -100,6 +100,45 @@ class BaseVAE(nn.Module):
         z = self.after_reparameterize(z, metadata, **kwargs)
         xhat = self.decode(z, **kwargs)
         return qz, pz, z, xhat, hidden_representations
+    
+    def kl_loss(
+        self,
+        qz: Distribution,
+        pz: Distribution,
+    ) -> torch.Tensor:
+        """
+        Compute the KL divergence between the approximate posterior
+        and the prior distributions.
+
+        Args:
+            qz (Distribution): Approximate posterior distribution.
+            pz (Distribution): Prior distribution.
+
+        Returns:
+            torch.Tensor: KL divergence value.
+        """
+        z_kl_div = kl_divergence(qz, pz)
+        z_kl_div = z_kl_div.sum(dim=-1)
+        return z_kl_div.mean()
+    
+    def reconstruction_loss(
+        self,
+        x: torch.Tensor,
+        xhat: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Compute the reconstruction loss between the original input
+        and the reconstructed output.
+
+        Args:
+            x (torch.Tensor): Original input tensor of shape (batch_size, n_in).
+            xhat (torch.Tensor): Reconstructed input tensor of shape (batch_size, n_out).
+
+        Returns:
+            torch.Tensor: Reconstruction loss value.
+        """
+        recon_loss = F.mse_loss(xhat, x, reduction="sum")
+        return recon_loss
 
     def elbo(
         self,
@@ -133,14 +172,12 @@ class BaseVAE(nn.Module):
                 - RK.LOSS: Total loss.
                 - RK.KL_WEIGHT: KL weight.
         """
-        z_kl_div = kl_divergence(qz, pz)
-        z_kl_div = z_kl_div.sum(dim=-1)
-        z_kl_div = z_kl_div.mean()
+        z_kl_div = self.kl_loss(qz, pz)
 
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
-        recon_loss = F.mse_loss(xhat, x, reduction="sum")
+        recon_loss = self.reconstruction_loss(x, xhat)
 
         loss = recon_loss + (kl_weight * z_kl_div)
 

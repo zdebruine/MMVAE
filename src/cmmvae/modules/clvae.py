@@ -3,8 +3,10 @@ from typing import Optional
 import torch
 import pandas as pd
 
+from torch.distributions import Normal
 from cmmvae.modules.vae import VAE
 from cmmvae.modules.base import FCBlockConfig, ConditionalLayers, ConcatBlockConfig
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 
 class CLVAE(VAE):
@@ -105,7 +107,41 @@ class CLVAE(VAE):
                 Processed latent variable after applying conditionals, if any.
         """
         if self.conditionals:
-            return self.conditionals(z, metadata, **kwargs)
+            z, xs = self.conditionals(z, metadata, **kwargs)
+            return z, xs
         # Return the unmodified latent variable
         # if no conditionals are present
-        return z
+        return z, {}
+    
+    def forward(self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str, cross_species: str = None, **kwargs):
+        """
+        Forward pass through the VAE.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, n_in).
+            metadata (pd.DataFrame): Metadata associated with the input data.
+
+        Returns:
+            tuple:
+                - qz (Distribution): Approximate posterior distribution
+                    over the latent space.
+                - pz (Distribution): Prior distribution over the latent space.
+                - z (torch.Tensor): Sampled latent variable.
+                - xhat (torch.Tensor): Reconstructed input tensor.
+                - hidden_representations (List[torch.Tensor]):
+                    Hidden representations from the encoder.
+        """
+        qz, z, hidden_representations = self.encode(x, **kwargs)
+        pz = Normal(torch.zeros_like(z), torch.ones_like(z))
+        z_star, cond_zs = self.after_reparameterize(z, metadata, **kwargs)
+        hidden_representations.update(cond_zs)
+        xhats = {}
+        xhats[expert_id] = self.decode(z_star, **kwargs)
+        if cross_species is not None:
+            cross_metadata = metadata.copy(deep=True)
+            cross_metadata[RK.SPECIES] = cross_species
+            z_star, cross_cond_zs = self.after_reparameterize(z.detach(), cross_metadata, **kwargs)
+            hidden_representations[f"cross_{RK.SPECIES}"] = cross_cond_zs[RK.SPECIES]
+            xhats[cross_species] = self.decode(z_star, **kwargs)
+            
+        return qz, pz, z, xhats, hidden_representations

@@ -73,10 +73,12 @@ class CrossGenerator:
         self,
         z: torch.Tensor,
         metadata: pd.DataFrame,
+        expert_id: str,
+        species: str = None,
     ):
-        xhat = self.model.module.vae.after_reparameterize(z, metadata, species=RK.HUMAN)
+        xhat, _ = self.model.module.vae.after_reparameterize(z, metadata, species=expert_id if species is None else species)
         xhat = self.model.module.vae.decode(xhat)
-        xhat = self.model.module.experts[RK.HUMAN].decode(xhat)
+        xhat = self.model.module.experts[expert_id].decode(xhat)
         
         return xhat
 
@@ -84,22 +86,37 @@ class CrossGenerator:
     def _get_z(
         self,
         x: torch.Tensor,
+        expert_id: str,
     ):
-        x = self.model.module.experts[RK.HUMAN].encode(x)
+        x = self.model.module.experts[expert_id].encode(x)
         _, z, _ = self.model.module.vae.encode(x)
         
         return z
+    
+    @torch.no_grad()
+    def get_dist_params(
+        self,
+        x: torch.Tensor,
+        expert_id: str,
+    ):
+        x = self.model.module.experts[expert_id].encode(x)
+        self.model.module.vae.encoder.return_dist = False
+        qm, qv, z, _ = self.model.module.vae.encoder(x)
+        self.model.module.vae.encoder.return_dist = True
+        
+        return qm, qv, z
 
     @torch.no_grad()
     def get_cis_outputs(
         self,
         x: torch.Tensor,
         metadata: pd.DataFrame,
+        expert_id: str = RK.HUMAN,
         return_z: bool = True,
     ):
 
-        z = self._get_z(x)
-        xhat = self._get_xhat(z, metadata)
+        z = self._get_z(x, expert_id)
+        xhat = self._get_xhat(z, metadata, expert_id)
 
         if return_z:
             return xhat, z
@@ -113,6 +130,7 @@ class CrossGenerator:
         source_metadata: pd.DataFrame,
         target_metadata: pd.DataFrame,
         mod_tags: tuple[str],
+        expert_id: str = RK.HUMAN,
     ):
         modified_metadata = source_metadata.copy(deep=True)
 
@@ -122,7 +140,7 @@ class CrossGenerator:
         for mod_tag in mod_tags:
             modified_metadata[mod_tag] = target_metadata[mod_tag].iloc[0]
 
-        xhat = self._get_xhat(z, modified_metadata)
+        xhat = self._get_xhat(z, modified_metadata, expert_id)
 
         return xhat
 

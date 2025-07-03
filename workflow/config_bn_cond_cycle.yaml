@@ -1,0 +1,33 @@
+# Experiment Parameters
+root_dir: /mnt/projects/debruinz_project/tony_boos/MMVAE/lightning_logs
+config_name: config.yaml
+experiment_name: cycle_consistency
+run_name: batch_norm_cycle_species_only
+categories:
+- 'assay'
+- 'cell_type'
+- 'dataset_id'
+- 'dev_stage'
+- 'disease'
+- 'donor_id'
+- 'species'
+- 'sex'
+- 'suspension_type'
+- 'tissue_general'
+
+merge_keys:
+- z
+
+correlation_data: /mnt/projects/debruinz_project/july2024_census_data/filtered_human
+expression_log_dir: /mnt/projects/debruinz_project/tony_boos/3m_expressions
+train_command:
+  fit
+  --data configs/data/local.yaml
+  --model configs/model/multispecies_bn_cond_cycle.yaml
+  --trainer.max_epochs 10
+  --early_stopping.patience 10
+  --model_checkpoint.save_top_k 3
+  # --trainer.limit_train_batches 100
+  # --trainer.limit_val_batches 100
+  # --trainer.limit_test_batches 100
+  # --trainer.limit_predict_batches 100

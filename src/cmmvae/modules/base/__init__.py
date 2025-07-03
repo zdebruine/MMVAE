@@ -3,6 +3,7 @@
 """
 from cmmvae.modules.base.components import (
     Adversarial,
+    Adversarials,
     Encoder,
     FCBlock,
     FCBlockConfig,
@@ -18,6 +19,7 @@ from cmmvae.modules.base.annealing_fn import KLAnnealingFn, LinearKLAnnealingFn
 
 __all__ = [
     "Adversarial",
+    "Adversarials",
     "ConditionalLayer",
     "ConditionalLayers",
     "ConcatBlockConfig",

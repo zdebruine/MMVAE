@@ -143,11 +143,11 @@ class CMMVAECli(plcli.LightningCLI):
 
         self.config["fit"]["default_root_dir"]
 
-        self.trainer.predict(
-            model=self.model,
-            datamodule=self.datamodule,
-            ckpt_path=best_model_path,
-        )
+        # self.trainer.predict(
+        #     model=self.model,
+        #     datamodule=self.datamodule,
+        #     ckpt_path=best_model_path,
+        # )
 
 
 def context_settings(**kwargs):

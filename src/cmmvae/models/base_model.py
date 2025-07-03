@@ -120,7 +120,7 @@ class BaseModel(pl.LightningModule):
                             param_norm = param.grad.data.norm(2)
                             total_norm += param_norm.item() ** 2
                 total_norm = total_norm**0.5
-                self.log(f"{tag_prefix}/{name}", total_norm)
+                self.log(f"{tag_prefix}/{name}", total_norm, on_epoch=True, logger=True)
 
     def save_latent_predictions(
         self,
@@ -269,6 +269,7 @@ class BaseModel(pl.LightningModule):
         sep: str = "/",
         key_pos: Literal["first", "last"] = "first",
         log_sanity_checking: bool = False,
+        on_step: bool = None,
     ):
         """
         Automatically log a dictionary of metrics to TensorBoard.
@@ -285,13 +286,16 @@ class BaseModel(pl.LightningModule):
         # Avoid logging during sanity checking unless necessary
         if self.trainer and self.trainer.sanity_checking and not log_sanity_checking:
             return
+        
+        if on_step is None:
+            on_step = self.trainer.training
 
         # Tag log dict to differentiate losses
         log_dict = tag_log_dict(log_dict, tags, sep, key_pos)
 
         self.log_dict(
             log_dict,
-            on_step=self.trainer.training,
+            on_step=on_step,
             on_epoch=True,
             logger=True,
         )
