@@ -1,13 +1,33 @@
 # Experiment Parameters
+root_dir: /mnt/projects/debruinz_project/tony_boos/MMVAE/lightning_logs
+config_name: config.yaml
+experiment_name: disease_study
+run_name: full_test
 categories:
-- 'donor_id'
 - 'assay'
-- 'dataset_id'
 - 'cell_type'
-- 'tissue'
-- 'species'
+- 'dataset_id'
+- 'dev_stage'
+- 'disease'
+- 'donor_id'
+# - 'species'
+- 'sex'
+- 'suspension_type'
+- 'tissue_general'
 
 merge_keys:
 - z
 
-correlation_data: /mnt/projects/debruinz_project/july2024_census_data/filtered
+correlation_data: /mnt/projects/debruinz_project/july2024_census_data/filtered_human
+expression_log_dir: /mnt/projects/debruinz_project/tony_boos/full_disease_study_expressions
+train_command:
+  fit
+  --data configs/data/disease_study_full.yaml
+  --model configs/model/human_only.yaml
+  --trainer.max_epochs 1
+  --early_stopping.patience 100
+  --model_checkpoint.save_top_k 3
+  --trainer.limit_train_batches 100
+  --trainer.limit_val_batches 100
+  --trainer.limit_test_batches 100
+  --trainer.limit_predict_batches 100

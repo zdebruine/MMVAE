@@ -104,18 +104,27 @@ def record_expression(
         return
 
     df = accumulate_species_dataframes(pickle_files)
-    labels, shared_labels = differentiate_expression(df, shared_labels=shared_labels)
-    species_names = list(pickle_files.keys())
-    shared_dir = os.path.join(root_dir, "shared")
 
-    for column in shared_labels:
-        write_unique_expressions(shared_dir, column, df)
+    os.makedirs(root_dir, exist_ok=True)
 
-    for column in labels:
-        for species in species_names:
-            species_dir = os.path.join(root_dir, species)
-            species_df = df[df["species"] == species]
-            write_unique_expressions(species_dir, column, species_df)
+    for col in df.columns:
+        unique_vals = df[col].drop_duplicates()
+        unique_vals.to_csv(os.path.join(root_dir, f'unique_expression_{col}.csv'), index=False, header=False)
+
+    # Removed due to no longer separating conditions by species!
+
+    # labels, shared_labels = differentiate_expression(df, shared_labels=shared_labels)
+    # species_names = list(pickle_files.keys())
+    # shared_dir = os.path.join(root_dir, "shared")
+
+    # for column in shared_labels:
+    #     write_unique_expressions(shared_dir, column, df)
+
+    # for column in labels:
+    #     for species in species_names:
+    #         species_dir = os.path.join(root_dir, species)
+    #         species_df = df[df["species"] == species]
+    #         write_unique_expressions(species_dir, column, species_df)
 
 
 @click.command(context_settings=context_settings())

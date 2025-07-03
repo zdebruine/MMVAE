@@ -1,4 +1,11 @@
+import random
 from typing import Optional
+
+import anndata as ad
+import scib
+from scib_metrics.benchmark import Benchmarker, BatchCorrection, BioConservation
+from sklearn.metrics import silhouette_score
+from torchmetrics.functional import pairwise_euclidean_distance
 
 import pandas as pd
 import torch
@@ -42,6 +49,8 @@ class CMMVAEModel(BaseModel):
         module: CMMVAE,
         adv_weight: Optional[float] = None,
         autograd_config: Optional[AutogradConfig] = None,
+        use_cycle_consistency: bool = False,
+        measure_integration: bool = False,
         *args,
         **kwargs,
     ):
@@ -55,6 +64,14 @@ class CMMVAEModel(BaseModel):
         self.init_weights()
         self.adv_weight = adv_weight if adv_weight else 1.0
         self.autograd_config = autograd_config or AutogradConfig()
+        self.use_cycle_consistency = use_cycle_consistency
+        self.measure_integration = measure_integration
+
+        if measure_integration:
+            self.latents = []
+            self.latent_md = []
+            # self.mus = []
+            # self.vars = []
 
     def grf(
         self,
@@ -134,6 +151,58 @@ class CMMVAEModel(BaseModel):
         adv_losses_main = self.grf(hidden_representations, labels, expert_id, detach=False)
         # Add adversarial loss to total loss (with weight)
         return adv_losses_main
+    
+    # def cycle_consistency(
+    #         self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str
+    # ) -> torch.Tensor:
+    #     perturbed_metadata = metadata.copy(deep=True)
+    #     for condition in self.module.vae.conditionals.layers.keys():
+    #         if condition == "species":
+    #             if random.choice([True, False]):
+    #                 new_species = RK.HUMAN if expert_id == RK.MOUSE else RK.MOUSE
+    #                 perturbed_metadata["species"] = new_species
+    #             else:
+    #                 new_species = expert_id
+    #         else:
+    #             perturbations = random.choices(
+    #                 list(
+    #                     self.module.vae.conditionals.layers[condition].conditions.keys()
+    #                 ),
+    #                 k=len(perturbed_metadata)
+    #             )
+    #             perturbed_metadata[condition] = perturbations
+
+    #     qz, pz, z, xhats, hidden_representations = self.module(
+    #         x=x, metadata=perturbed_metadata, encoder_expert_id=expert_id, decoder_expert_id=new_species
+    #     )
+
+    #     kl1 = self.module.vae.kl_loss(qz, pz)
+
+    #     qz, pz, z, xhats, hidden_representations = self.module(
+    #         x=xhats[new_species], metadata=metadata, encoder_expert_id=new_species, decoder_expert_id=expert_id
+    #     )
+
+    #     return qz, pz, z, xhats, hidden_representations, kl1
+
+    def cycle_consistency(
+        self, x: torch.Tensor, metadata: pd.DataFrame, expert_id: str
+    ) -> torch.Tensor:
+        perturbed_metadata = metadata.copy(deep=True)
+
+        new_species = RK.HUMAN if expert_id == RK.MOUSE else RK.MOUSE
+        perturbed_metadata["species"] = new_species
+
+        qz, pz, z, xhats, hidden_representations = self.module(
+            x=x, metadata=perturbed_metadata, encoder_expert_id=expert_id, decoder_expert_id=new_species
+        )
+
+        kl1 = self.module.vae.kl_loss(qz, pz)
+
+        qz, pz, z, xhats, hidden_representations = self.module(
+            x=xhats[new_species], metadata=metadata, encoder_expert_id=new_species, decoder_expert_id=expert_id
+        )
+
+        return qz, pz, z, xhats, hidden_representations, kl1
 
     def training_step(
         self, batch: tuple[torch.Tensor, pd.DataFrame, str], batch_idx: int
@@ -156,32 +225,118 @@ class CMMVAEModel(BaseModel):
 
         # Perform forward pass
         qz, pz, z, xhats, hidden_representations = self.module(
-            x=x, metadata=metadata, expert_id=expert_id
+            x=x, metadata=metadata, encoder_expert_id=expert_id
         )
 
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
-        # Calculate reconstruction loss
         main_loss_dict = self.module.vae.elbo(
             qz, pz, x, xhats[expert_id], self.kl_annealing_fn.kl_weight
         )
 
-        main_loss_dict["Mean"] = qz.mean.mean()
-        main_loss_dict["Variance"] = qz.variance.mean()
+        dist_loss_dict = {}
 
-        total_loss = main_loss_dict[RK.LOSS]
+        dist_loss_dict["Mu_Mean"] = qz.mean.mean()
+        dist_loss_dict["Mu_STD"] = qz.mean.std()
+        dist_loss_dict["Variance_Mean"] = qz.variance.mean()
+        dist_loss_dict["Variance_STD"] = qz.variance.std()
 
-        adv_losses = None
-        # Train adversarial networks
-        if self.module.adversarials:
-            adv_losses = self.gradient_reversal_domain_classifier(
-                hidden_representations, metadata, expert_id, adversarial_optimizers
+        self.auto_log(
+            dist_loss_dict,
+            tags=["Dist", expert_id],
+            key_pos="last",
+            on_step=False
+        )
+
+        if self.use_cycle_consistency:
+
+            kl1 = self.module.vae.kl_loss(qz, pz)
+
+            # Perform fairness cycle-consistency pass (no perturbations)
+            qz, pz, z, xhats, hidden_representations = self.module(
+                x=xhats[expert_id], metadata=metadata, encoder_expert_id=expert_id
             )
 
-        if adv_losses:
-            for adv_loss in adv_losses:
-                total_loss = total_loss + adv_loss * self.adv_weight
+            # Perform cycle-consistency pass
+            cycle_qz, cycle_pz, cycle_z, cycle_xhats, cycle_hidden_representations, cycle_kl1 = self.cycle_consistency(x, metadata, expert_id)
+
+            main_loss_dict[f"{RK.KL_LOSS}2"] = main_loss_dict[RK.KL_LOSS]
+            main_loss_dict[RK.KL_LOSS] = kl1
+
+            cycle_loss_dict = self.module.vae.elbo(
+                cycle_qz, cycle_pz, x, cycle_xhats[expert_id], self.kl_annealing_fn.kl_weight
+            )
+
+            main_loss_dict[f"cycle_{RK.KL_LOSS}"] = cycle_kl1
+            main_loss_dict[f"cycle_{RK.KL_LOSS}2"] = cycle_loss_dict[RK.KL_LOSS]
+            main_loss_dict[f"cycle_{RK.RECON_LOSS}"] = cycle_loss_dict[RK.RECON_LOSS]
+
+            total_loss = main_loss_dict[RK.LOSS] + cycle_loss_dict[RK.LOSS] + cycle_kl1 * self.kl_annealing_fn.kl_weight + kl1 * self.kl_annealing_fn.kl_weight
+        else:
+            total_loss = main_loss_dict[RK.LOSS]
+
+        adv_losses = {}
+        # Train adversarial networks
+        if self.module.adversarials:
+
+            # real_out = self.module.adversarials[expert_id](x)
+            # label = torch.ones_like(real_out).to(
+            #     real_out.device
+            # )
+
+            # adv_losses[RK.X] = self.adversarial_criterion(real_out, label)
+            # total_loss = total_loss + adv_losses[RK.X] * self.adv_weight
+
+            # for expert, xhat in xhats.items():
+            #     fake_out = self.module.adversarials[expert](xhat, gradient_reversal=True)
+            #     fake_label = torch.zeros_like(fake_out).to(
+            #         fake_out.device
+            #     )
+            #     adv_losses[f"{expert_id}_to_{expert}"] = self.adversarial_criterion(
+            #         fake_out, fake_label
+            #     )
+            #     total_loss = total_loss + adv_losses[f"{expert_id}_to_{expert}"] * self.adv_weight
+
+            # idxs = metadata[RK.SPECIES].map(self.module.adversarials[RK.SPECIES].labels).values  # numpy array
+            # labels = torch.nn.functional.one_hot(
+            #     torch.as_tensor(idxs, device=x.device, dtype=torch.long),
+            #     num_classes=len(self.module.adversarials[RK.SPECIES].labels)
+            # ).float()
+
+            # cond_out = self.module.adversarials[RK.SPECIES](
+            #     hidden_representations[f"cross_{RK.SPECIES}"], detach=True, gradient_reversal=True
+            # )
+            # adv_losses[f"cross_{RK.SPECIES}"] = self.adversarial_criterion(
+            #     cond_out, labels
+            # )
+            # total_loss = total_loss + adv_losses[f"cross_{RK.SPECIES}"] * self.adv_weight
+
+            for condition in self.module.vae.conditionals.layers.keys():
+
+                idxs = metadata[condition].map(self.module.adversarials[condition].labels).values  # numpy array
+                labels = torch.nn.functional.one_hot(
+                    torch.as_tensor(idxs, device=x.device, dtype=torch.long),
+                    num_classes=len(self.module.adversarials[condition].labels)
+                ).float()
+
+                z_out = self.module.adversarials[condition](
+                    hidden_representations[RK.Z_STAR], gradient_reversal=True
+                )
+                adv_losses[condition] = self.adversarial_criterion(
+                    z_out, labels
+                )
+                total_loss = total_loss + adv_losses[condition] * self.adv_weight
+
+                # cond_out = self.module.adversarials[condition](
+                #     hidden_representations[condition], detach=True
+                # )
+                # adv_losses[condition] = self.adversarial_criterion(
+                #     cond_out, labels
+                # )
+                # total_loss = total_loss + adv_losses[condition] * self.adv_weight
+
+            self.auto_log(adv_losses, tags=[RK.ADV_LOSS, expert_id], key_pos="last")
 
         # Backpropagate main loss
         self.manual_backward(total_loss)
@@ -196,7 +351,7 @@ class CMMVAEModel(BaseModel):
         if adversarial_optimizers:
             for key, optim in adversarial_optimizers.items():
                 self.log_gradient_norms(
-                    {f"generator_{key}": optim}, tag_prefix="grad_norms"
+                    {key: optim}, tag_prefix="grad_norms"
                 )
 
         # Clip gradients for stability
@@ -208,6 +363,14 @@ class CMMVAEModel(BaseModel):
                 expert_optimizer, *self.autograd_config.expert_gradient_clip
             )
 
+        if adversarial_optimizers:
+            for optim in adversarial_optimizers.values():
+                if self.autograd_config.adversarial_gradient_clip:
+                    self.clip_gradients(
+                        optim, *self.autograd_config.adversarial_gradient_clip
+                    )
+                optim.step()
+
         # Update the weights
         vae_optimizer.step()
         expert_optimizer.step()
@@ -215,6 +378,119 @@ class CMMVAEModel(BaseModel):
 
         # Log the loss
         self.auto_log(main_loss_dict, tags=[self.stage_name, expert_id])
+
+    def on_validation_epoch_start(self):
+        # self.X.clear()
+        if self.measure_integration:
+            self.latents.clear()
+            self.latent_md.clear()
+            # self.mus.clear()
+            # self.vars.clear()
+        return super().on_validation_epoch_start()
+    
+    def on_validation_epoch_end(self):
+
+        if self.trainer.sanity_checking or not self.measure_integration:
+            return super().on_validation_epoch_end()
+        
+        # mus = torch.cat(self.mus, dim=0).cpu().numpy()
+        # vars = torch.cat(self.vars, dim=0).cpu().numpy()
+
+        # mu_mean = mus.mean(dim=0)
+        # mu_std  = mus.std(dim=0)
+        # var_mean = vars.mean(dim=0)
+        # var_std  = vars.std(dim=0)
+
+        # distribution_stats = {
+        #     "mu_mean": mu_mean,
+        #     "mu_std": mu_std,
+        #     "var_mean": var_mean,
+        #     "var_std": var_std
+        # }
+        
+        # integration = {}
+
+        # X = torch.cat(self.X, dim=0).cpu().numpy()
+        latents = torch.cat(self.latents, dim=0).cpu().numpy()
+        latent_md = pd.concat(self.latent_md, axis=0, ignore_index=True)
+
+        # distances = pairwise_euclidean_distance(latents)
+        # distances = distances.cpu().numpy()
+
+        # integration["species"] = silhouette_score(distances, latent_md["species"].values, metric="precomputed")
+        # integration["cell_type"] = silhouette_score(distances, latent_md["cell_type"].values, metric="precomputed")
+
+        # self.auto_log(
+        #     integration,
+        #     tags=["integration"],
+        #     key_pos="last",
+        # )
+
+        # Wrap embedding & metadata into AnnData for SCIB
+        adata = ad.AnnData(X= None, obs= latent_md)
+        # adata.obs = latent_md.copy()
+        adata.obsm['X_emb'] = latents
+
+        # bm = Benchmarker(
+        #     adata,
+        #     batch_key='species',
+        #     label_key='cell_type',
+        #     embedding_obsm_keys=['X_emb'],
+        #     batch_correction_metrics=BatchCorrection(
+        #         silhouette_batch=True, ilisi_knn=False, kbet_per_label=False, graph_connectivity=False, pcr_comparison=False
+        #     ),
+        #     bio_conservation_metrics=BioConservation(
+        #         silhouette_label=True, nmi_ari_cluster_labels_kmeans=False, isolated_labels=True, clisi_knn=False
+        #     ),
+        #     n_jobs=4,           # parallel neighbor search
+        # )
+
+        # 3) Run (no need to call bm.prepare() since X=None skips graph metrics)
+        # bm.prepare()            # builds any necessary graphs (optional here)
+        # bm.benchmark()          # runs embedding & any enabled graph metrics
+
+        # 4) Retrieve results as DataFrame
+        # results = bm.get_results(min_max_scale=True, clean_names=True)
+
+        results = scib.metrics.metrics(
+            adata,
+            adata,                    # integrated AnnData (same as input if only embeddings)
+            batch_key='species',      # your batch column in adata.obs
+            label_key='cell_type',    # your biological label column
+            embed='X_emb',            # name of your embedding in adata.obsm
+            silhouette_=True,         # compute both batch and label silhouettes
+            ari_=True,                # adjusted Rand index
+            nmi_=True,                # normalized mutual information
+            ilisi_=False,              # integration LISI
+            clisi_=False,              # cell‐type LISI
+            isolated_labels_asw_=False,
+            isolated_labels_f1_=False,
+            # disable all graph‐based metrics:
+            graph_conn_=False,
+            kBET_=False,
+            pcr_=False,
+            hvg_score_=False,
+            cell_cycle_=False
+        )
+
+        print(results)
+        print(results.columns)
+        print(results.index)
+
+        # Convert results DataFrame to a dict: {metric_name: score}
+        # integration = dict(zip(results['metric'], results['score']))
+        integration = results[0].dropna().to_dict()
+
+        self.auto_log(
+            integration,
+            tags=["integration"],
+            key_pos="last",
+        )
+
+        self.latents.clear()
+        self.latent_md.clear()
+
+        return super().on_validation_epoch_end()
 
     def validation_step(self, batch: tuple[torch.Tensor, pd.DataFrame, str]):
         """
@@ -226,23 +502,47 @@ class CMMVAEModel(BaseModel):
             batch (tuple): Batch of data containing inputs, metadata, and expert ID.
         """
         x, metadata, expert_id = batch
-        # expert_label = self.module.experts.labels[expert_id]
+        metadata["species"] = expert_id
 
         # Perform forward pass and compute the loss
         qz, pz, z, xhats, hidden_representations = self.module(x, metadata, expert_id)
+
+        if self.measure_integration:
+            # self.X.append(x)
+            self.latent_md.append(metadata)
+            self.latents.append(hidden_representations[RK.Z_STAR].cpu())
+
+        # if self.use_cycle_consistency:
+        #     # Perform fairness cycle-consistency pass (no perturbations)
+        #     qz, pz, z, xhats, hidden_representations = self.module(
+        #         x=xhats[expert_id], metadata=metadata, encoder_expert_id=expert_id
+        #     )
+
+        #     # Perform cycle-consistency pass
+        #     cycle_qz, cycle_pz, cycle_z, cycle_xhats, cycle_hidden_representations = self.cycle_consistency(x, metadata, expert_id)
 
         if x.layout == torch.sparse_csr:
             x = x.to_dense()
 
         # Calculate reconstruction loss
-        loss_dict = self.module.vae.elbo(
+        main_loss_dict = self.module.vae.elbo(
             qz, pz, x, xhats[expert_id], self.kl_annealing_fn.kl_weight
         )
 
-        self.auto_log(loss_dict, tags=[self.stage_name, expert_id])
+        # if self.use_cycle_consistency:
+        #     cycle_loss_dict = self.module.vae.elbo(
+        #         cycle_qz, cycle_pz, x, cycle_xhats[expert_id], self.kl_annealing_fn.kl_weight
+        #     )
+
+        #     main_loss_dict[f"cycle_{RK.KL_LOSS}"] = cycle_loss_dict[RK.KL_LOSS]
+        #     main_loss_dict[f"cycle_{RK.RECON_LOSS}"] = cycle_loss_dict[RK.RECON_LOSS]
+
+        #     main_loss_dict[RK.LOSS] = main_loss_dict[RK.LOSS] + cycle_loss_dict[RK.LOSS]
+
+        self.auto_log(main_loss_dict, tags=[self.stage_name, expert_id])
 
         if self.trainer.validating:
-            self.log("val_loss", loss_dict[RK.LOSS], logger=False, on_epoch=True)
+            self.log("val_loss", main_loss_dict[RK.LOSS], logger=False, on_epoch=True)
 
     # Alias for validation_step method to reuse for testing
     test_step = validation_step
@@ -314,8 +614,8 @@ class CMMVAEModel(BaseModel):
         )
         if self.module.adversarials:
             optim_dict["adversarials"] = {
-                i: optim_cls(module.parameters(), lr=5e-3, weight_decay=1e-6)
-                for i, module in enumerate(self.module.adversarials, start=1)
+                key: optim_cls(module.parameters(), lr=5e-3, weight_decay=1e-6)
+                for key, module in self.module.adversarials.items()
             }
 
         optimizers = []

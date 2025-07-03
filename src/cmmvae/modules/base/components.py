@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal
 
+from cmmvae.constants import REGISTRY_KEYS as RK
 
 T = TypeVar("T")
 
@@ -36,6 +37,27 @@ _BLOCK_CONFIG = {
     "return_hidden": (bool,),
 }
 
+class GradientReversalFunction(torch.autograd.Function):
+    """
+    Gradient reversal layer as introduced in [Ganin2016]_.
+
+    Implementation from GitHub: fungtion/DANN
+    Specifically: https://github.com/fungtion/DANN/blob/476147f70bb818a63bb3461a6ecc12f97f7ab15e/models/functions.py
+
+    Reference Source: https://github.com/ohlerlab/liam/blob/main/liam/_mymodule.py#L150
+    """
+
+    @staticmethod
+    def forward(ctx, x, alpha):
+        ctx.alpha = alpha
+
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        output = grad_output.neg() * ctx.alpha
+
+        return output, None
 
 class FCBlockConfig:
     """
@@ -291,7 +313,7 @@ class FCBlock(nn.Module):
 
     def forward(
         self, x: torch.Tensor
-    ) -> Union[torch.Tensor, tuple[torch.Tensor, list[torch.Tensor]]]:
+    ) -> Union[torch.Tensor, tuple[torch.Tensor, dict[str, torch.Tensor]]]:
         """
         Forward pass through the fully connected block.
 
@@ -305,12 +327,12 @@ class FCBlock(nn.Module):
         if self.can_bypass:
             return self.fc_layers(x)
 
-        hidden_representations = []
+        hidden_representations = {}
         for i, layer in enumerate(self.fc_layers):
             for name, sublayer in layer.named_children():
                 x = sublayer(x)
                 if name == "af" and self.config.return_hidden[i]:
-                    hidden_representations.append(x)
+                    hidden_representations[f"hidden_{i}"] = x
         return x, hidden_representations
 
 
@@ -508,77 +530,94 @@ class ConditionalLayers(nn.Module):
             raise FileNotFoundError(
                 f"Could not intialize the conditional layers either due to the directory not existing yet\n{directory}"
             )
+        # Removed due to no longer separating conditions by species!
+
         # Prevent parsing the species conditional as no conditional layer is needed
-        conditionals.remove("species")
-        conditional_paths = collect_species_files(directory, conditionals)
-        conditionals.append("species")
+        # conditionals.remove("species")
+        # conditional_paths = collect_species_files(directory, conditionals)
+        # conditionals.append("species")
 
-        self.shared_conditionals = list(conditional_paths["shared"].keys())
+        # self.shared_conditionals = list(conditional_paths["shared"].keys())
 
-        self.shuffle_selection_order = False
+        
         self.is_parallel = selection_order[0] == "parallel"
-        if not selection_order or self.is_parallel:
+        if not selection_order and self.is_parallel:
+            selection_order = conditionals
+            self.shuffle_selection_order = False
+        else:
             selection_order = conditionals
             self.shuffle_selection_order = True
 
+        # Removed due to no longer separating conditions by species!
+
         # Add all shared conditional layers
-        layer_dict = {
-            batch_key: ConditionalLayer(
-                batch_key,
-                conditional_paths["shared"][batch_key],
-                fc_block_config,
-            )
-            for batch_key in conditional_paths["shared"]
-        }
+        # layer_dict = {
+        #     batch_key: ConditionalLayer(
+        #         batch_key,
+        #         conditional_paths["shared"][batch_key],
+        #         fc_block_config,
+        #     )
+        #     for batch_key in conditional_paths["shared"]
+        # }
+
+        # Removed due to no longer separating conditions by species!
 
         # Find all species specific conditionals
-        species_specific = {}
-        for species in conditional_paths:
-            if species == "shared":
-                continue
-            for batch_key in conditional_paths[species]:
-                if not species_specific.get(batch_key):
-                    species_specific[batch_key] = {}
-                species_specific[batch_key].update(
-                    {species: conditional_paths[species][batch_key]}
-                )
+        # species_specific = {}
+        # for species in conditional_paths:
+        #     if species == "shared":
+        #         continue
+        #     for batch_key in conditional_paths[species]:
+        #         if not species_specific.get(batch_key):
+        #             species_specific[batch_key] = {}
+        #         species_specific[batch_key].update(
+        #             {species: conditional_paths[species][batch_key]}
+        #         )
 
-        for batch_key in species_specific:
-            if batch_key in layer_dict:
-                raise RuntimeError(
-                    f"batch_key '{batch_key}' is shared but attempted to make species specific"
-                )
+        # for batch_key in species_specific:
+        #     if batch_key in layer_dict:
+        #         raise RuntimeError(
+        #             f"batch_key '{batch_key}' is shared but attempted to make species specific"
+        #         )
 
-            layer_dict.update(
-                {
-                    batch_key: nn.ModuleDict(
-                        {
-                            species: ConditionalLayer(
-                                batch_key,
-                                conditions_path,
-                                fc_block_config,
-                            )
-                            for species, conditions_path in species_specific[
-                                batch_key
-                            ].items()
-                        }
-                    )
-                }
-            )
+        #     layer_dict.update(
+        #         {
+        #             batch_key: nn.ModuleDict(
+        #                 {
+        #                     species: ConditionalLayer(
+        #                         batch_key,
+        #                         conditions_path,
+        #                         fc_block_config,
+        #                     )
+        #                     for species, conditions_path in species_specific[
+        #                         batch_key
+        #                     ].items()
+        #                 }
+        #             )
+        #         }
+        #     )
 
-        if "species" in conditionals:
-            assert "species" not in layer_dict
-            layer_dict.update(
-                {
-                    "species": nn.ModuleDict(
-                        {
-                            species: FCBlock(fc_block_config)
-                            for species in conditional_paths
-                            if species != "shared"
-                        }
-                    )
-                }
-            )
+        # if "species" in conditionals:
+        #     assert "species" not in layer_dict
+        #     layer_dict.update(
+        #         {
+        #             "species": nn.ModuleDict(
+        #                 {
+        #                     species: FCBlock(fc_block_config)
+        #                     for species in conditional_paths
+        #                     if species != "shared"
+        #                 }
+        #             )
+        #         }
+        #     )
+
+        layer_dict = {
+            condition: ConditionalLayer(
+                condition,
+                os.path.join(directory, f'unique_expression_{condition}.csv'),
+                fc_block_config
+            ) for condition in conditionals
+        }
 
         self.layers = nn.ModuleDict(layer_dict)
         self.selection_order = selection_order
@@ -606,72 +645,77 @@ class ConditionalLayers(nn.Module):
         else:
             order = self.selection_order
 
+        x_dict = {}
         xs = []
         # Apply each layer in the determined order
         for conditional in order:
             layer = self.layers[conditional]
-            if isinstance(layer, nn.ModuleDict):
-                if species is None:
-                    raise RuntimeError(
-                        f"'species' must be set to access non-shared conditional layer for batch_key '{conditional}'"
-                    )
-                layer = layer[species]
-            if isinstance(layer, ConditionalLayer):
-                if self.is_parallel:
-                    xs.append(layer(x, metadata))
-                else:
-                    x = layer(x, metadata)
-            else:
-                if self.is_parallel:
-                    xs.append(layer(x))
-                else:
-                    x = layer(x)
-        if xs:
-            x = torch.cat(xs, dim=1)
-        return x
+            z = layer(x, metadata)
+            x_dict[conditional] = z
+            xs.append(z)
+            # if isinstance(layer, nn.ModuleDict):
+            #     if species is None:
+            #         raise RuntimeError(
+            #             f"'species' must be set to access non-shared conditional layer for batch_key '{conditional}'"
+            #         )
+            #     layer = layer[species]
+            # if isinstance(layer, ConditionalLayer):
+            #     if self.is_parallel:
+            #         xs.append(layer(x, metadata))
+            #     else:
+            #         x = layer(x, metadata)
+            # else:
+            #     if self.is_parallel:
+            #         xs.append(layer(x))
+            #     else:
+            #         x = layer(x)
+        # if xs:
+        #     x = torch.cat(xs, dim=1)
+        return torch.cat(xs, dim=1), x_dict
 
 
 def _identity(x):
     return x
 
 
-class Adversarial(nn.Module):
-    """
-    """
+# class Adversarial(nn.Module):
+#     """
+#     Adversarial multi-headed
+#     """
 
-    labels = defaultdict(dict)
+#     labels = defaultdict(dict)
 
-    def __init__(
-        self,
-        encoder: FCBlockConfig,
-        heads: FCBlockConfig,
-        conditions: list[str],
-        labels_dir: str,
-    ):
-        super().__init__()
-        self.encoder = FCBlock(encoder)
-        head_nodes = {}
+#     def __init__(
+#         self,
+#         encoder: FCBlockConfig,
+#         heads: FCBlockConfig,
+#         conditions: list[str],
+#         labels_dir: str,
+#     ):
+#         super().__init__()
+#         self.encoder = FCBlock(encoder)
+#         head_nodes = {}
             
-        for condition in conditions:
-            df = pd.read_csv(os.path.join(labels_dir, f"human/unique_expression_{condition}.csv"), header=None)
-            if condition not in Adversarial.labels.keys():
-                for idx, value in enumerate(df[0]):
-                    Adversarial.labels[condition][value] = idx
+#         for condition in conditions:
+#             df = pd.read_csv(os.path.join(labels_dir, f"human/unique_expression_{condition}.csv"), header=None)
+#             if condition not in Adversarial.labels.keys():
+#                 for idx, value in enumerate(df[0]):
+#                     Adversarial.labels[condition][value] = idx
             
-            heads.layers = [self.encoder.output_dim, len(df)]
-            head_nodes[condition] = FCBlock(heads)
+#             heads.layers = [self.encoder.output_dim, len(df)]
+#             head_nodes[condition] = FCBlock(heads)
 
-        self.heads = nn.ModuleDict(head_nodes)
+#         self.heads = nn.ModuleDict(head_nodes)
     
-    def forward(self, x: torch.Tensor):
-        xhat = self.encoder(x)
+#     def forward(self, x: torch.Tensor):
+#         xhat = self.encoder(x)
 
-        predictions = {}
+#         predictions = {}
 
-        for category, layer in self.heads.items():
-            predictions[category] = layer(xhat)
+#         for category, layer in self.heads.items():
+#             predictions[category] = layer(xhat)
 
-        return predictions
+#         return predictions
 
 class Encoder(nn.Module):
     """
@@ -784,7 +828,7 @@ class Encoder(nn.Module):
         if isinstance(encoded, tuple):
             q, hidden_representations = encoded
         else:
-            hidden_representations = []
+            hidden_representations = {}
             q = encoded
 
         # Compute the mean of the latent variables
@@ -792,16 +836,16 @@ class Encoder(nn.Module):
 
         # Compute the variance of the latent variables
         # and add epsilon for numerical stability
-        q_v = torch.exp(self.var_encoder(q)) + self.var_eps
+        q_v = torch.exp(self.var_encoder(q))
 
         # Create a normal distribution with the computed mean and variance
-        dist = Normal(q_m, q_v.sqrt())
+        dist = Normal(q_m, torch.sqrt(q_v + self.var_eps))
 
         # Sample the latent variables and apply the transformation
         latent = self.z_transformation(dist.rsample())
 
         if self.hidden_z:
-            hidden_representations.append(latent)
+            hidden_representations[RK.Z_STAR] = latent
 
         if self.return_dist:
             return dist, latent, hidden_representations
@@ -875,25 +919,73 @@ class Experts(nn.ModuleDict):
         super().__init__({expert.id: expert for expert in experts})
         self.labels = {key: i for i, key in enumerate(self.keys())}
 
-
-class GradientReversalFunction(torch.autograd.Function):
+class Adversarial(nn.Module):
     """
-    Gradient reversal layer as introduced in [Ganin2016]_.
+    Container that stores adversarial discriminator network.
 
-    Implementation from GitHub: fungtion/DANN
-    Specifically: https://github.com/fungtion/DANN/blob/476147f70bb818a63bb3461a6ecc12f97f7ab15e/models/functions.py
-
-    Reference Source: https://github.com/ohlerlab/liam/blob/main/liam/_mymodule.py#L150
+    Attributes:
+        id (str)
+        discriminator (`FCBlock`): discriminator network
     """
 
-    @staticmethod
-    def forward(ctx, x, alpha):
-        ctx.alpha = alpha
+    def __init__(
+        self,
+        id: str,
+        layer_config: FCBlockConfig,
+        labels_dir: Optional[str] = None,
+    ):
+        """
+        Args:
+            id (str): Name of adversarial (unique identifier)
+            fc (`FCBlock`): discriminator network
+        """
+        super().__init__()
 
-        return x.view_as(x)
+        self.id = id
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        output = grad_output.neg() * ctx.alpha
+        if labels_dir is not None:
+            self.labels = {}
+            # Load labels from the specified directory
+            df = pd.read_csv(os.path.join(labels_dir, f"unique_expression_{id.replace(f'{RK.Z_STAR}_', '')}.csv"), header=None)
+            for idx, value in enumerate(df[0]):
+                self.labels[value] = idx
 
-        return output, None
+            layer_config.layers.append(len(self.labels))
+            layer_config.activation_fn.append(None)
+            layer_config.dropout_rate.append(0.0)
+            layer_config.return_hidden.append(False)
+            layer_config.use_layer_norm.append(False)
+            layer_config.use_batch_norm.append(False)
+
+        self.discriminator = FCBlock(layer_config)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        detach: bool= False,
+        gradient_reversal: bool = False,
+        **kwargs
+    ):
+        if detach:
+            x = x.detach()
+        if gradient_reversal:
+            x = GradientReversalFunction.apply(x, 1)
+        return self.discriminator(x)
+
+class Adversarials(nn.ModuleDict):
+    """
+    Container to store cmmvae.modules.base.Adversarial
+        discriminator networks.
+
+    Args:
+        adversarials (list[cmmvae.modules.base.Adversarial]):
+            List of Adversarial modules.
+
+    Attributes:
+        labels (dict[str, int]):
+            Dictionary of adversarial.id's to their integer representation.
+    """
+
+    def __init__(self, adversarials: list[Adversarial]):
+        super().__init__({adversarial.id: adversarial for adversarial in adversarials})
+        self.labels = {key: i for i, key in enumerate(self.keys())}
